@@ -1,5 +1,11 @@
+fn configure_application<R: tauri::Runtime>(
+    builder: tauri::Builder<R>,
+) -> tauri::Builder<R> {
+    builder
+}
+
 fn application_builder() -> tauri::Builder<tauri::Wry> {
-    tauri::Builder::default()
+    configure_application(tauri::Builder::default())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -11,10 +17,12 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::application_builder;
+    use super::configure_application;
 
     #[test]
-    fn application_builder_is_constructible() {
-        let _builder = application_builder();
+    fn application_setup_builds_with_mock_runtime() {
+        let _application = configure_application(tauri::test::mock_builder())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("failed to build the POSMAN shell with Tauri's mock runtime");
     }
 }
