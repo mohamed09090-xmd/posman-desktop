@@ -59,7 +59,7 @@ jobs:
           git add database/migrations database/seed database/schema.sql
           git commit -m "feat(db): add ordered SQLite schema migrations"
 
-      - name: Commit schema verification and CI
+      - name: Commit and push schema verification
         shell: bash
         run: |
           set -euo pipefail
@@ -67,12 +67,11 @@ jobs:
           cp -a /tmp/phase01/scripts .
           rm -rf scripts/__pycache__
           cp /tmp/phase01/.github/pull_request_template.md .github/pull_request_template.md
-          cp /tmp/phase01/.github/workflows/schema-ci.yml .github/workflows/schema-ci.yml
           rm -rf .phase01-bootstrap .github/workflows/phase01-materialize.yml
           python scripts/verify_schema.py
-          git diff --check
           git add -A
           git commit -m "test(db): add schema and invariant verification"
+          git diff --check
           test -z "$(git status --short)"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
 
@@ -91,7 +90,7 @@ jobs:
       - name: Verify SQLite schema and invariants
         run: python scripts/verify_schema.py
       - name: Check Git whitespace
-        run: git diff --check origin/main...HEAD
+        run: git diff --check
       - name: Confirm clean worktree
         shell: pwsh
         run: |
