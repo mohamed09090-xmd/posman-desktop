@@ -1,0 +1,49 @@
+name: Desktop bootstrap lock preparation
+
+on:
+  push:
+    branches:
+      - "bootstrap/desktop-shell"
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-locks:
+    name: Prepare application lockfiles
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify accepted SQLite foundation
+        run: python scripts/verify_schema.py
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Set up Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Resolve npm lockfile
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Resolve Cargo lockfile
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+
+      - name: Upload resolved lockfiles
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-bootstrap-lockfiles
+          path: |
+            package-lock.json
+            src-tauri/Cargo.lock
+          if-no-files-found: error
+          retention-days: 1
