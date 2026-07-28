@@ -1,0 +1,53 @@
+name: SQLite schema verification
+
+on:
+  pull_request:
+    paths:
+      - "database/**"
+      - "docs/architecture/**"
+      - "docs/spec/POSMAN-Blueprint-v1.md"
+      - "scripts/verify_schema.py"
+      - ".gitattributes"
+      - ".github/workflows/schema-ci.yml"
+  push:
+    branches:
+      - "phase/01-data-foundation"
+    paths:
+      - "database/**"
+      - "docs/architecture/**"
+      - "docs/spec/POSMAN-Blueprint-v1.md"
+      - "scripts/verify_schema.py"
+      - ".gitattributes"
+      - ".github/workflows/schema-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-schema:
+    name: Verify schema (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify migrations, schema, and invariants
+        run: python scripts/verify_schema.py
+
+      - name: Check Git whitespace
+        run: git diff --check
+
+      - name: Confirm clean worktree
+        run: python -c "import subprocess, sys; status = subprocess.check_output(['git', 'status', '--short'], text=True); print(status, end=''); sys.exit(1 if status else 0)"
