@@ -140,9 +140,86 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+      - name: Diagnose Windows Rust test loader inputs
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $cargoJson = Join-Path $env:RUNNER_TEMP 'cargo-test-build.jsonl'
+          $diagnostics = Join-Path $env:RUNNER_TEMP 'windows-loader-diagnostics.txt'
+          $manifest = Join-Path $env:RUNNER_TEMP 'rust-test.manifest.xml'
+
+          cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked --no-run --message-format=json-render-diagnostics |
+            Tee-Object -FilePath $cargoJson
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          $testExecutables = Get-Content $cargoJson | ForEach-Object {
+            try {
+              $_ | ConvertFrom-Json
+            } catch {
+              $null
+            }
+          } | Where-Object {
+            $_.reason -eq 'compiler-artifact' -and
+            $_.profile.test -eq $true -and
+            $_.target.name -eq 'posman_desktop_lib' -and
+            $_.executable
+          } | Select-Object -ExpandProperty executable -Unique
+
+          if (-not $testExecutables) {
+            throw 'Cargo JSON did not identify the posman_desktop_lib test executable.'
+          }
+
+          $testExecutable = $testExecutables |
+            Sort-Object { (Get-Item $_).LastWriteTimeUtc } -Descending |
+            Select-Object -First 1
+
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $visualStudio) {
+            throw 'Visual Studio C++ tools were not found.'
+          }
+
+          $toolsetRoot = Join-Path $visualStudio 'VC\Tools\MSVC'
+          $toolset = Get-ChildItem $toolsetRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
+          $dumpbin = Join-Path $toolset.FullName 'bin\Hostx64\x64\dumpbin.exe'
+          $mt = Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          @(
+            "Test executable: $testExecutable"
+            "dumpbin: $dumpbin"
+            "mt.exe: $mt"
+            ''
+            '=== PE IMPORTS ==='
+          ) | Set-Content -Path $diagnostics -Encoding utf8
+
+          & $dumpbin /headers /imports $testExecutable 2>&1 |
+            Tee-Object -FilePath $diagnostics -Append
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          '' | Add-Content -Path $diagnostics
+          '=== EMBEDDED MANIFEST ===' | Add-Content -Path $diagnostics
+          & $mt "-inputresource:$testExecutable;#1" "-out:$manifest" 2>&1 |
+            Tee-Object -FilePath $diagnostics -Append
+          $manifestExit = $LASTEXITCODE
+
+          if ($manifestExit -eq 0 -and (Test-Path $manifest)) {
+            Get-Content $manifest | Add-Content -Path $diagnostics
+          } else {
+            "Manifest extraction failed with exit code $manifestExit." | Add-Content -Path $diagnostics
+          }
+
+          Get-Content $diagnostics
+
       - name: Run Rust tests
         id: rust-tests
-        run: python -c "import os,subprocess,sys; from pathlib import Path; output=Path(os.environ['RUNNER_TEMP'])/'rust-test-output.txt'; command=['cargo','test','--manifest-path','src-tauri/Cargo.toml','--all-targets','--locked']; result=subprocess.run(command,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT); output.write_text(result.stdout,encoding='utf-8'); print(result.stdout,end=''); sys.exit(result.returncode)"
+        run: python -c "import os,subprocess,sys; from pathlib import Path; output=Path(os.environ['RUNNER_TEMP'])/'rust-test-output.txt'; command=['cargo','test','--manifest-path','src-tauri/Cargo.toml','--all-targets','--locked','--','--nocapture']; result=subprocess.run(command,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT); output.write_text(result.stdout,encoding='utf-8'); print(result.stdout,end=''); sys.exit(result.returncode)"
 
       - name: Upload Rust test diagnostics
         if: always() && steps.rust-tests.outcome == 'failure'
@@ -151,6 +228,18 @@ jobs:
           name: rust-test-diagnostics-${{ runner.os }}
           path: ${{ runner.temp }}/rust-test-output.txt
           if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload Windows loader diagnostics
+        if: always() && runner.os == 'Windows' && steps.rust-tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-rust-loader-diagnostics
+          path: |
+            ${{ runner.temp }}/windows-loader-diagnostics.txt
+            ${{ runner.temp }}/cargo-test-build.jsonl
+            ${{ runner.temp }}/rust-test.manifest.xml
+          if-no-files-found: warn
           retention-days: 3
 
       - name: Compile native Tauri shell without bundling
