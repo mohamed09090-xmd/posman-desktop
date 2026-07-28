@@ -7,7 +7,6 @@ on:
       - ".gitignore"
       - "AGENTS.md"
       - "README.md"
-      - "docs/BOOTSTRAP-GATE-02-REPORT.md"
       - "docs/architecture/desktop-shell.md"
       - "docs/architecture/parallel-wave-02-contract.md"
       - "index.html"
@@ -28,7 +27,6 @@ on:
       - ".gitignore"
       - "AGENTS.md"
       - "README.md"
-      - "docs/BOOTSTRAP-GATE-02-REPORT.md"
       - "docs/architecture/desktop-shell.md"
       - "docs/architecture/parallel-wave-02-contract.md"
       - "index.html"
@@ -140,106 +138,44 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-      - name: Diagnose Windows Rust test loader inputs
-        id: windows-loader-diagnostics
+      - name: Verify Windows Rust test manifest dependency
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $cargoJson = Join-Path $env:RUNNER_TEMP 'cargo-test-build.jsonl'
-          $diagnostics = Join-Path $env:RUNNER_TEMP 'windows-loader-diagnostics.txt'
-          $manifest = Join-Path $env:RUNNER_TEMP 'rust-test.manifest.xml'
-
-          'Windows Rust test loader diagnosis started.' | Set-Content -Path $diagnostics -Encoding utf8
-
-          try {
-            cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked --no-run --message-format=json-render-diagnostics |
-              Tee-Object -FilePath $cargoJson
-            if ($LASTEXITCODE -ne 0) {
-              throw "cargo test --no-run failed with exit code $LASTEXITCODE."
-            }
-
-            $testExecutables = Get-Content $cargoJson | ForEach-Object {
-              try {
-                $_ | ConvertFrom-Json
-              } catch {
-                $null
-              }
-            } | Where-Object {
-              $_.reason -eq 'compiler-artifact' -and
-              $_.profile.test -eq $true -and
-              $_.target.name -eq 'posman_desktop_lib' -and
-              $_.executable
-            } | Select-Object -ExpandProperty executable -Unique
-
-            if (-not $testExecutables) {
-              'Cargo JSON did not expose the executable; using deterministic target/deps fallback.' |
-                Add-Content -Path $diagnostics
-              $testExecutables = Get-ChildItem 'src-tauri\target\debug\deps\posman_desktop_lib-*.exe' -File |
-                Sort-Object LastWriteTimeUtc -Descending |
-                Select-Object -ExpandProperty FullName
-            }
-
-            if (-not $testExecutables) {
-              throw 'The posman_desktop_lib test executable was not found.'
-            }
-
-            $testExecutable = $testExecutables |
-              Sort-Object { (Get-Item $_).LastWriteTimeUtc } -Descending |
-              Select-Object -First 1
-
-            $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-            $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-            if (-not $visualStudio) {
-              throw 'Visual Studio C++ tools were not found.'
-            }
-
-            $dumpbin = Get-ChildItem (Join-Path $visualStudio 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe') -File |
-              Sort-Object FullName -Descending |
-              Select-Object -First 1 -ExpandProperty FullName
-            $mt = Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') -File |
-              Sort-Object FullName -Descending |
-              Select-Object -First 1 -ExpandProperty FullName
-
-            if (-not $dumpbin) {
-              throw 'dumpbin.exe was not found.'
-            }
-            if (-not $mt) {
-              throw 'mt.exe was not found.'
-            }
-
-            @(
-              "Test executable: $testExecutable"
-              "dumpbin: $dumpbin"
-              "mt.exe: $mt"
-              ''
-              '=== PE IMPORTS ==='
-            ) | Add-Content -Path $diagnostics
-
-            & $dumpbin /headers /imports $testExecutable 2>&1 |
-              Tee-Object -FilePath $diagnostics -Append
-            if ($LASTEXITCODE -ne 0) {
-              throw "dumpbin failed with exit code $LASTEXITCODE."
-            }
-
-            '' | Add-Content -Path $diagnostics
-            '=== EMBEDDED MANIFEST ===' | Add-Content -Path $diagnostics
-            & $mt "-inputresource:$testExecutable;#1" "-out:$manifest" 2>&1 |
-              Tee-Object -FilePath $diagnostics -Append
-            $manifestExit = $LASTEXITCODE
-
-            if ($manifestExit -eq 0 -and (Test-Path $manifest)) {
-              Get-Content $manifest | Add-Content -Path $diagnostics
-            } else {
-              "Manifest extraction failed with exit code $manifestExit." | Add-Content -Path $diagnostics
-            }
-          } catch {
-            "DIAGNOSTIC ERROR: $($_.Exception.Message)" | Add-Content -Path $diagnostics
-            Get-Content $diagnostics
-            throw
+          cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked --no-run
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
           }
 
-          Get-Content $diagnostics
+          $testExecutable = Get-ChildItem 'src-tauri\target\debug\deps\posman_desktop_lib-*.exe' -File |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $testExecutable) {
+            throw 'The posman_desktop_lib test executable was not found.'
+          }
+
+          $mt = Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') -File |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $mt) {
+            throw 'mt.exe was not found.'
+          }
+
+          $manifest = Join-Path $env:RUNNER_TEMP 'posman-rust-test.manifest.xml'
+          & $mt "-inputresource:$testExecutable;#1" "-out:$manifest"
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          $manifestText = Get-Content $manifest -Raw
+          if ($manifestText -notmatch 'Microsoft\.Windows\.Common-Controls' -or
+              $manifestText -notmatch 'version="6\.0\.0\.0"' -or
+              $manifestText -notmatch 'processorArchitecture="amd64"') {
+            throw 'The Rust test executable lacks the required Common Controls v6 amd64 dependency.'
+          }
+
+          Write-Output "Verified Common Controls v6 manifest in $testExecutable"
 
       - name: Run Rust tests
         id: rust-tests
@@ -254,20 +190,39 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-      - name: Upload Windows loader diagnostics
-        if: always() && runner.os == 'Windows' && (steps.windows-loader-diagnostics.outcome == 'failure' || steps.rust-tests.outcome == 'failure')
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-rust-loader-diagnostics
-          path: |
-            ${{ runner.temp }}/windows-loader-diagnostics.txt
-            ${{ runner.temp }}/cargo-test-build.jsonl
-            ${{ runner.temp }}/rust-test.manifest.xml
-          if-no-files-found: warn
-          retention-days: 3
-
       - name: Compile native Tauri shell without bundling
         run: npm run desktop:check
+
+      - name: Verify Windows application manifest dependency
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $application = 'src-tauri\target\debug\posman-desktop.exe'
+          if (-not (Test-Path $application)) {
+            throw "The native POSMAN application was not found at $application."
+          }
+
+          $mt = Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') -File |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $mt) {
+            throw 'mt.exe was not found.'
+          }
+
+          $manifest = Join-Path $env:RUNNER_TEMP 'posman-application.manifest.xml'
+          & $mt "-inputresource:$application;#1" "-out:$manifest"
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          $manifestText = Get-Content $manifest -Raw
+          if ($manifestText -notmatch 'Microsoft\.Windows\.Common-Controls' -or
+              $manifestText -notmatch 'version="6\.0\.0\.0"') {
+            throw 'The production Tauri executable lacks its normal Common Controls v6 dependency.'
+          }
+
+          Write-Output "Verified production Tauri manifest in $application"
 
       - name: Check Git whitespace
         run: git diff --check
