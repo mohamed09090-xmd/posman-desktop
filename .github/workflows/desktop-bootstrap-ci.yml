@@ -41,6 +41,10 @@ on:
       - "tsconfig.node.json"
       - "vite.config.ts"
 
+concurrency:
+  group: desktop-bootstrap-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
