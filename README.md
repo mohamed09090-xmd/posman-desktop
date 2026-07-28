@@ -4,7 +4,7 @@ POSMAN is a Windows-first, offline desktop commercial-management application for
 
 ## Phase 01 scope
 
-This branch contains the SQLite data foundation only:
+PHASE 01 established the SQLite data foundation:
 
 - ordered relational migrations with explicitly non-null, nonblank text business identifiers;
 - deterministic safe reference seed data;
@@ -15,7 +15,28 @@ This branch contains the SQLite data foundation only:
 - ERD, data dictionary, migration policy, and accounting-posting documentation;
 - automated schema and invariant verification on Linux and Windows CI runners.
 
-Application code, Tauri, React, Rust services, UI, PDF generation, installation, and business workflows are intentionally not implemented in this phase.
+PHASE 01 did not implement application services, business workflows, PDF generation, installation, or operational UI.
+
+## Desktop shell bootstrap
+
+The Bootstrap Gate adds one shared Tauri 2 + React + TypeScript + Vite desktop-project structure before PHASE 02 and PHASE 03 run in parallel. It contains only a minimal Arabic/RTL render proof and native shell bootstrap. It does not contain runtime database services, business commands, authentication, reports, or a design system.
+
+### Development prerequisites
+
+Use Node.js 24 LTS with npm and Rust stable. Windows development also requires the current Microsoft C++ build tools and WebView2 prerequisites documented by Tauri. Linux CI installs the official Tauri 2 Debian/Ubuntu packages.
+
+### Development commands
+
+```bash
+npm ci
+npm run dev
+npm run typecheck
+npm run build
+npm run desktop:dev
+npm run desktop:check
+```
+
+`npm run desktop:check` compiles a debug Tauri application without producing a bundle or published installer.
 
 ## Authoritative specification
 
@@ -71,4 +92,4 @@ For percentage rates, `19.0000%` is stored as `190000`. Future Rust services mus
 
 ## Current non-goals
 
-This foundation is not a finished or production-ready application. It does not contain UI, authentication screens, runtime posting services, CUMP calculation services, stock-balance projection logic, PDF rendering, backups, installer code, cloud synchronization, telemetry, licensing, subscriptions, or real business data.
+This repository is not yet a finished or production-ready application. It does not contain operational authentication screens, runtime posting services, CUMP calculation services, stock-balance projection logic, PDF rendering, backups, installer/release output, cloud synchronization, telemetry, licensing, subscriptions, or real business data.

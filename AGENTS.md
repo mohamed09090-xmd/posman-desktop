@@ -14,3 +14,4 @@ These rules apply to every implementation agent working in this repository.
 10. Use small scoped branches and Draft Pull Requests. Do not commit directly to `main`, force-push, rewrite unrelated history, or merge without reviewer approval.
 11. Do not edit a released migration. Add a new ordered migration for every correction.
 12. Run all validation required by the active execution pack before claiming success. For schema work, run `python scripts/verify_schema.py`, `git diff --check`, and `git status --short`.
+13. During parallel PHASE 02 and PHASE 03 work, follow `docs/architecture/parallel-wave-02-contract.md`; stop before changing a frozen shared file or a file outside the active phase's ownership.
