@@ -27,6 +27,18 @@ WHERE schema_object.type = 'table'
   AND upper(trim(column_info.type)) LIKE '%REAL%';
 
 INSERT INTO invariant_assertions
+SELECT 'all text business primary keys explicitly not null',
+       COUNT(*) = 48
+       AND SUM(CASE WHEN column_info."notnull" = 1 THEN 1 ELSE 0 END) = 48
+FROM sqlite_schema AS schema_object,
+     pragma_table_info(schema_object.name) AS column_info
+WHERE schema_object.type = 'table'
+  AND schema_object.name NOT LIKE 'sqlite_%'
+  AND column_info.name = 'id'
+  AND upper(trim(column_info.type)) = 'TEXT'
+  AND column_info.pk > 0;
+
+INSERT INTO invariant_assertions
 SELECT 'foreign key check clean', COUNT(*) = 0
 FROM pragma_foreign_key_check;
 
@@ -55,6 +67,16 @@ SELECT 'delivered quantity invoiced completely',
 FROM document_line_links AS link
 WHERE link.transformation_type = 'DELIVERY_TO_INVOICE'
   AND link.source_line_id IN ('line-delivery-1', 'line-delivery-2');
+
+INSERT INTO invariant_assertions
+SELECT 'posted invoice fixture line count unchanged', COUNT(*) = 2
+FROM commercial_document_lines
+WHERE document_id = 'sales-invoice-1';
+
+INSERT INTO invariant_assertions
+SELECT 'posted balanced entry fixture line count unchanged', COUNT(*) = 2
+FROM journal_entry_lines
+WHERE journal_entry_id = 'entry-balanced';
 
 INSERT INTO invariant_assertions
 SELECT 'posted journal entries are balanced', COUNT(*) = 0

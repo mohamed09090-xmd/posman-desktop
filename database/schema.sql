@@ -13,7 +13,7 @@ CREATE TABLE app_migrations (
 );
 
 CREATE TABLE companies (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
     legal_name TEXT NOT NULL CHECK (length(trim(legal_name)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -34,7 +34,7 @@ CREATE TABLE companies (
 );
 
 CREATE TABLE company_settings (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL UNIQUE REFERENCES companies(id) ON DELETE RESTRICT,
     default_language TEXT NOT NULL DEFAULT 'ar' CHECK (default_language IN ('ar', 'fr')),
     price_input_mode TEXT NOT NULL DEFAULT 'HT' CHECK (price_input_mode IN ('HT', 'TTC')),
@@ -51,7 +51,7 @@ CREATE TABLE company_settings (
 );
 
 CREATE TABLE fiscal_years (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     starts_on TEXT NOT NULL CHECK (length(starts_on) = 10),
@@ -67,7 +67,7 @@ CREATE TABLE fiscal_years (
 );
 
 CREATE TABLE fiscal_periods (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id) ON DELETE RESTRICT,
     period_number INTEGER NOT NULL CHECK (period_number BETWEEN 1 AND 53),
@@ -87,7 +87,7 @@ CREATE TABLE fiscal_periods (
 );
 
 CREATE TABLE document_sequences (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id) ON DELETE RESTRICT,
     document_type TEXT NOT NULL CHECK (length(trim(document_type)) > 0),
@@ -103,7 +103,7 @@ CREATE TABLE document_sequences (
 );
 
 CREATE TABLE users (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     username TEXT NOT NULL CHECK (length(trim(username)) > 0),
     display_name TEXT NOT NULL CHECK (length(trim(display_name)) > 0),
@@ -123,7 +123,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE roles (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -146,7 +146,7 @@ CREATE UNIQUE INDEX uq_roles_company_code
     WHERE company_id IS NOT NULL;
 
 CREATE TABLE permissions (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
     domain TEXT NOT NULL CHECK (length(trim(domain)) > 0),
     description_ar TEXT NOT NULL CHECK (length(trim(description_ar)) > 0),
@@ -156,7 +156,7 @@ CREATE TABLE permissions (
 );
 
 CREATE TABLE user_roles (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role_id TEXT NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
@@ -166,7 +166,7 @@ CREATE TABLE user_roles (
 );
 
 CREATE TABLE role_permissions (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT REFERENCES companies(id) ON DELETE RESTRICT,
     role_id TEXT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     permission_id TEXT NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
@@ -176,7 +176,7 @@ CREATE TABLE role_permissions (
 );
 
 CREATE TABLE sessions (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash TEXT NOT NULL UNIQUE CHECK (length(token_hash) >= 32),
@@ -196,7 +196,7 @@ CREATE INDEX idx_sessions_user_active ON sessions(user_id, revoked_at, expires_a
 -- POSMAN Phase 01 - reference data, catalog, warehouses, pricing, and partners.
 
 CREATE TABLE units (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -212,7 +212,7 @@ CREATE TABLE units (
 );
 
 CREATE TABLE tax_rates (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -230,7 +230,7 @@ CREATE TABLE tax_rates (
 );
 
 CREATE TABLE payment_terms (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -246,7 +246,7 @@ CREATE TABLE payment_terms (
 );
 
 CREATE TABLE payment_methods (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -263,7 +263,7 @@ CREATE TABLE payment_methods (
 );
 
 CREATE TABLE warehouses (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -284,7 +284,7 @@ CREATE UNIQUE INDEX uq_warehouses_one_default
     WHERE is_default = 1 AND is_active = 1;
 
 CREATE TABLE warehouse_locations (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
@@ -300,7 +300,7 @@ CREATE TABLE warehouse_locations (
 );
 
 CREATE TABLE product_families (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     parent_family_id TEXT REFERENCES product_families(id) ON DELETE RESTRICT,
     default_tax_rate_id TEXT REFERENCES tax_rates(id) ON DELETE RESTRICT,
@@ -319,7 +319,7 @@ CREATE TABLE product_families (
 );
 
 CREATE TABLE products (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     product_family_id TEXT REFERENCES product_families(id) ON DELETE RESTRICT,
     unit_id TEXT NOT NULL REFERENCES units(id) ON DELETE RESTRICT,
@@ -348,7 +348,7 @@ CREATE UNIQUE INDEX uq_products_company_barcode
     WHERE barcode IS NOT NULL AND length(trim(barcode)) > 0;
 
 CREATE TABLE price_lists (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -369,7 +369,7 @@ CREATE UNIQUE INDEX uq_price_lists_one_default
     WHERE is_default = 1 AND is_active = 1;
 
 CREATE TABLE product_prices (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     price_list_id TEXT NOT NULL REFERENCES price_lists(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
@@ -385,7 +385,7 @@ CREATE TABLE product_prices (
 );
 
 CREATE TABLE partners (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     payment_term_id TEXT REFERENCES payment_terms(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
@@ -408,7 +408,7 @@ CREATE TABLE partners (
 );
 
 CREATE TABLE partner_addresses (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     partner_id TEXT NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
     address_kind TEXT NOT NULL CHECK (address_kind IN ('BILLING', 'DELIVERY', 'BOTH')),
@@ -433,7 +433,7 @@ CREATE UNIQUE INDEX uq_partner_addresses_default
     WHERE is_default = 1 AND is_active = 1;
 
 CREATE TABLE partner_contacts (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     partner_id TEXT NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
     full_name TEXT NOT NULL CHECK (length(trim(full_name)) > 0),
@@ -464,7 +464,7 @@ CREATE INDEX idx_partners_company_kind ON partners(company_id, is_customer, is_s
 -- POSMAN Phase 01 - commercial documents, conversion lineage, payments, and inventory.
 
 CREATE TABLE commercial_documents (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id) ON DELETE RESTRICT,
     fiscal_period_id TEXT REFERENCES fiscal_periods(id) ON DELETE RESTRICT,
@@ -515,7 +515,7 @@ CREATE TABLE commercial_documents (
 );
 
 CREATE TABLE commercial_document_lines (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     document_id TEXT NOT NULL REFERENCES commercial_documents(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
@@ -546,7 +546,7 @@ CREATE TABLE commercial_document_lines (
 );
 
 CREATE TABLE document_line_links (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     source_line_id TEXT NOT NULL REFERENCES commercial_document_lines(id) ON DELETE RESTRICT,
     target_line_id TEXT NOT NULL REFERENCES commercial_document_lines(id) ON DELETE RESTRICT,
@@ -563,7 +563,7 @@ CREATE TABLE document_line_links (
 );
 
 CREATE TABLE document_status_history (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     document_id TEXT NOT NULL REFERENCES commercial_documents(id) ON DELETE RESTRICT,
     old_status TEXT,
@@ -575,7 +575,7 @@ CREATE TABLE document_status_history (
 );
 
 CREATE TABLE payments (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id) ON DELETE RESTRICT,
     fiscal_period_id TEXT REFERENCES fiscal_periods(id) ON DELETE RESTRICT,
@@ -601,7 +601,7 @@ CREATE TABLE payments (
 );
 
 CREATE TABLE payment_allocations (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     payment_id TEXT NOT NULL REFERENCES payments(id) ON DELETE RESTRICT,
     document_id TEXT NOT NULL REFERENCES commercial_documents(id) ON DELETE RESTRICT,
@@ -614,7 +614,7 @@ CREATE TABLE payment_allocations (
 );
 
 CREATE TABLE stock_movements (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
@@ -649,7 +649,7 @@ CREATE TABLE stock_movements (
 );
 
 CREATE TABLE stock_balances (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
@@ -668,7 +668,7 @@ CREATE UNIQUE INDEX uq_stock_balances_scope
     ON stock_balances(company_id, product_id, warehouse_id, ifnull(warehouse_location_id, ''));
 
 CREATE TABLE stock_reservations (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
@@ -684,7 +684,7 @@ CREATE TABLE stock_reservations (
 );
 
 CREATE TABLE inventory_counts (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
     adjustment_document_id TEXT REFERENCES commercial_documents(id) ON DELETE RESTRICT,
@@ -701,7 +701,7 @@ CREATE TABLE inventory_counts (
 );
 
 CREATE TABLE inventory_count_lines (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     inventory_count_id TEXT NOT NULL REFERENCES inventory_counts(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
@@ -757,7 +757,7 @@ CREATE TRIGGER trg_commercial_lines_posted_no_update
 BEFORE UPDATE ON commercial_document_lines
 WHEN EXISTS (
     SELECT 1 FROM commercial_documents
-    WHERE id = OLD.document_id AND posting_status = 'POSTED'
+    WHERE id IN (OLD.document_id, NEW.document_id) AND posting_status = 'POSTED'
 )
 BEGIN
     SELECT RAISE(ABORT, 'posted commercial document line is immutable');
@@ -841,7 +841,7 @@ END;
 -- POSMAN Phase 01 - accounting, printing metadata, audit, idempotency, and backups.
 
 CREATE TABLE accounts (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     parent_account_id TEXT REFERENCES accounts(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
@@ -861,7 +861,7 @@ CREATE TABLE accounts (
 );
 
 CREATE TABLE accounting_journals (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -877,7 +877,7 @@ CREATE TABLE accounting_journals (
 );
 
 CREATE TABLE posting_rules (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     accounting_journal_id TEXT NOT NULL REFERENCES accounting_journals(id) ON DELETE RESTRICT,
     debit_account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
@@ -899,7 +899,7 @@ CREATE TABLE posting_rules (
 );
 
 CREATE TABLE journal_entries (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id) ON DELETE RESTRICT,
     fiscal_period_id TEXT NOT NULL REFERENCES fiscal_periods(id) ON DELETE RESTRICT,
@@ -926,7 +926,7 @@ CREATE TABLE journal_entries (
 );
 
 CREATE TABLE journal_entry_lines (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     journal_entry_id TEXT NOT NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
     account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
@@ -946,7 +946,7 @@ CREATE TABLE journal_entry_lines (
 );
 
 CREATE TABLE posting_attempts (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     result_entry_id TEXT REFERENCES journal_entries(id) ON DELETE RESTRICT,
     retry_of_attempt_id TEXT REFERENCES posting_attempts(id) ON DELETE RESTRICT,
@@ -964,7 +964,7 @@ CREATE TABLE posting_attempts (
 );
 
 CREATE TABLE document_templates (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     document_type TEXT NOT NULL CHECK (length(trim(document_type)) > 0),
@@ -980,7 +980,7 @@ CREATE TABLE document_templates (
 );
 
 CREATE TABLE document_template_versions (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     document_template_id TEXT NOT NULL REFERENCES document_templates(id) ON DELETE RESTRICT,
     version_number INTEGER NOT NULL CHECK (version_number >= 1),
@@ -995,7 +995,7 @@ CREATE TABLE document_template_versions (
 );
 
 CREATE TABLE rendered_documents (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     source_document_id TEXT NOT NULL REFERENCES commercial_documents(id) ON DELETE RESTRICT,
     template_version_id TEXT NOT NULL REFERENCES document_template_versions(id) ON DELETE RESTRICT,
@@ -1008,7 +1008,7 @@ CREATE TABLE rendered_documents (
 );
 
 CREATE TABLE attachments (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     entity_type TEXT NOT NULL CHECK (length(trim(entity_type)) > 0),
     entity_id TEXT NOT NULL CHECK (length(trim(entity_id)) > 0),
@@ -1023,7 +1023,7 @@ CREATE TABLE attachments (
 );
 
 CREATE TABLE audit_logs (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     actor_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
     action_code TEXT NOT NULL CHECK (length(trim(action_code)) > 0),
@@ -1036,7 +1036,7 @@ CREATE TABLE audit_logs (
 );
 
 CREATE TABLE idempotency_keys (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     namespace TEXT NOT NULL CHECK (length(trim(namespace)) > 0),
     idempotency_key TEXT NOT NULL CHECK (length(trim(idempotency_key)) > 0),
@@ -1052,7 +1052,7 @@ CREATE TABLE idempotency_keys (
 );
 
 CREATE TABLE backup_history (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     backup_kind TEXT NOT NULL CHECK (backup_kind IN ('AUTOMATIC', 'MANUAL', 'PRE_IMPORT', 'PRE_RESTORE', 'PRE_RESET')),
     relative_file_path TEXT NOT NULL CHECK (length(trim(relative_file_path)) > 0),
@@ -1145,7 +1145,7 @@ CREATE TRIGGER trg_journal_lines_posted_no_update
 BEFORE UPDATE ON journal_entry_lines
 WHEN EXISTS (
     SELECT 1 FROM journal_entries
-    WHERE id = OLD.journal_entry_id AND status = 'POSTED'
+    WHERE id IN (OLD.journal_entry_id, NEW.journal_entry_id) AND status = 'POSTED'
 )
 BEGIN
     SELECT RAISE(ABORT, 'posted journal entry line is immutable');

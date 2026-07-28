@@ -603,13 +603,31 @@ def assert_core_schema(connection: sqlite3.Connection) -> None:
         raise VerificationError(f"foreign key violations: {violations}")
 
     real_columns: list[str] = []
+    nullable_text_primary_keys: list[str] = []
+    text_primary_key_count = 0
     for table_name in sorted(actual_tables):
         for column in connection.execute(f'PRAGMA table_info("{table_name}")'):
+            column_name = column[1]
             declared_type = (column[2] or "").strip().upper()
+            explicitly_not_null = column[3]
+            primary_key_position = column[5]
             if "REAL" in declared_type:
-                real_columns.append(f"{table_name}.{column[1]}:{declared_type}")
+                real_columns.append(f"{table_name}.{column_name}:{declared_type}")
+            if column_name == "id" and declared_type == "TEXT" and primary_key_position > 0:
+                text_primary_key_count += 1
+                if explicitly_not_null != 1:
+                    nullable_text_primary_keys.append(table_name)
     if real_columns:
         raise VerificationError(f"REAL columns are prohibited: {real_columns}")
+    if text_primary_key_count != 48:
+        raise VerificationError(
+            f"expected 48 TEXT business primary keys, found {text_primary_key_count}"
+        )
+    if nullable_text_primary_keys:
+        raise VerificationError(
+            "TEXT business primary key id is nullable in built schema: "
+            + ", ".join(sorted(nullable_text_primary_keys))
+        )
 
 
 def run_negative_tests(connection: sqlite3.Connection) -> tuple[list[str], list[str]]:
@@ -645,6 +663,33 @@ def run_negative_tests(connection: sqlite3.Connection) -> tuple[list[str], list[
         connection.execute(f"ROLLBACK TO {savepoint}")
         connection.execute(f"RELEASE {savepoint}")
         raise VerificationError(f"{name}: invalid write unexpectedly succeeded")
+
+    expect_rejected(
+        "null business identifier rejected",
+        lambda: connection.execute(
+            """
+            INSERT INTO companies (
+                id, code, legal_name, name_ar, name_fr, created_at, updated_at
+            ) VALUES (NULL, 'NULL-ID', 'Null Identifier Company', 'معرف فارغ',
+                      'Identifiant nul', ?, ?)
+            """,
+            (NOW, NOW),
+        ),
+        "NOT NULL constraint failed: companies.id",
+    )
+    expect_rejected(
+        "blank business identifier rejected",
+        lambda: connection.execute(
+            """
+            INSERT INTO companies (
+                id, code, legal_name, name_ar, name_fr, created_at, updated_at
+            ) VALUES ('   ', 'BLANK-ID', 'Blank Identifier Company', 'معرف فارغ',
+                      'Identifiant vide', ?, ?)
+            """,
+            (NOW, NOW),
+        ),
+        "CHECK constraint failed",
+    )
 
     expect_rejected(
         "foreign key violation rejected",
@@ -835,6 +880,59 @@ def run_negative_tests(connection: sqlite3.Connection) -> tuple[list[str], list[
         ),
         "posted commercial document line is immutable",
     )
+
+    insert_document(
+        connection,
+        document_id="reparent-source-document",
+        document_type="SALES_ORDER",
+        document_number="SO-REPARENT",
+        workflow_status="DRAFT",
+        partner_id="customer-1",
+        idempotency_key="document:reparent-source",
+    )
+    insert_line(
+        connection,
+        line_id="line-reparent-draft",
+        document_id="reparent-source-document",
+        line_number=99,
+        quantity_scaled=1000000,
+    )
+    posted_document_before = connection.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM commercial_document_lines WHERE document_id = document.id),
+            header_discount_minor, total_ht_minor, total_tax_minor, total_ttc_minor
+        FROM commercial_documents AS document
+        WHERE id = 'sales-invoice-1'
+        """
+    ).fetchone()
+    expect_rejected(
+        "commercial line reparenting into posted document rejected",
+        lambda: connection.execute(
+            "UPDATE commercial_document_lines SET document_id = 'sales-invoice-1' "
+            "WHERE id = 'line-reparent-draft'"
+        ),
+        "posted commercial document line is immutable",
+    )
+    posted_document_after = connection.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM commercial_document_lines WHERE document_id = document.id),
+            header_discount_minor, total_ht_minor, total_tax_minor, total_ttc_minor
+        FROM commercial_documents AS document
+        WHERE id = 'sales-invoice-1'
+        """
+    ).fetchone()
+    draft_line_parent = connection.execute(
+        "SELECT document_id FROM commercial_document_lines WHERE id = 'line-reparent-draft'"
+    ).fetchone()
+    if posted_document_after != posted_document_before or draft_line_parent != (
+        "reparent-source-document",
+    ):
+        raise VerificationError(
+            "commercial-line reparenting rejection mutated posted document fixture state"
+        )
+    passed.append("commercial reparenting left posted document line count and totals unchanged")
     expect_rejected(
         "posted commercial line delete rejected",
         lambda: connection.execute("DELETE FROM commercial_document_lines WHERE id = 'line-invoice-1'"),
@@ -1111,6 +1209,62 @@ def run_negative_tests(connection: sqlite3.Connection) -> tuple[list[str], list[
         ),
         "posted journal entry line is immutable",
     )
+
+    connection.execute(
+        """
+        INSERT INTO journal_entries (
+            id, company_id, fiscal_year_id, fiscal_period_id, accounting_journal_id,
+            entry_number, entry_date, source_event_type, source_event_id, idempotency_key,
+            created_at, updated_at
+        ) VALUES ('entry-reparent-draft', 'company-1', 'fy-2026', 'period-open', 'journal-sales',
+                  'JE-REPARENT', ?, 'TEST', 'reparent', 'posting:reparent', ?, ?)
+        """,
+        (TODAY, NOW, NOW),
+    )
+    connection.execute(
+        """
+        INSERT INTO journal_entry_lines (
+            id, company_id, journal_entry_id, account_id, line_number, description,
+            debit_minor, credit_minor, created_at
+        ) VALUES ('entry-line-reparent-draft', 'company-1', 'entry-reparent-draft',
+                  'account-debit', 99, 'Reparent test', 1, 0, ?)
+        """,
+        (NOW,),
+    )
+    posted_entry_before = connection.execute(
+        """
+        SELECT COUNT(*), COALESCE(SUM(debit_minor), 0), COALESCE(SUM(credit_minor), 0)
+        FROM journal_entry_lines
+        WHERE journal_entry_id = 'entry-balanced'
+        """
+    ).fetchone()
+    expect_rejected(
+        "journal line reparenting into posted entry rejected",
+        lambda: connection.execute(
+            "UPDATE journal_entry_lines SET journal_entry_id = 'entry-balanced' "
+            "WHERE id = 'entry-line-reparent-draft'"
+        ),
+        "posted journal entry line is immutable",
+    )
+    posted_entry_after = connection.execute(
+        """
+        SELECT COUNT(*), COALESCE(SUM(debit_minor), 0), COALESCE(SUM(credit_minor), 0)
+        FROM journal_entry_lines
+        WHERE journal_entry_id = 'entry-balanced'
+        """
+    ).fetchone()
+    draft_journal_parent = connection.execute(
+        "SELECT journal_entry_id FROM journal_entry_lines WHERE id = 'entry-line-reparent-draft'"
+    ).fetchone()
+    if (
+        posted_entry_after != posted_entry_before
+        or posted_entry_after[1] != posted_entry_after[2]
+        or draft_journal_parent != ("entry-reparent-draft",)
+    ):
+        raise VerificationError(
+            "journal-line reparenting rejection mutated posted balanced entry fixture state"
+        )
+    passed.append("journal reparenting left posted entry line count and balance unchanged")
     expect_rejected(
         "posted journal line delete rejected",
         lambda: connection.execute("DELETE FROM journal_entry_lines WHERE id = 'entry-line-debit'"),
@@ -1288,6 +1442,7 @@ def run(write_schema: bool) -> int:
                 f"found exactly {len(EXPECTED_TABLES)} expected tables",
                 "PRAGMA foreign_key_check returned no rows",
                 "found no application column declared as REAL",
+                "found 48 explicitly non-null TEXT business primary keys",
             ]
         )
 

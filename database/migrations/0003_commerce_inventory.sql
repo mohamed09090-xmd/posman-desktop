@@ -1,7 +1,7 @@
 -- POSMAN Phase 01 - commercial documents, conversion lineage, payments, and inventory.
 
 CREATE TABLE commercial_documents (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id) ON DELETE RESTRICT,
     fiscal_period_id TEXT REFERENCES fiscal_periods(id) ON DELETE RESTRICT,
@@ -52,7 +52,7 @@ CREATE TABLE commercial_documents (
 );
 
 CREATE TABLE commercial_document_lines (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     document_id TEXT NOT NULL REFERENCES commercial_documents(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
@@ -83,7 +83,7 @@ CREATE TABLE commercial_document_lines (
 );
 
 CREATE TABLE document_line_links (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     source_line_id TEXT NOT NULL REFERENCES commercial_document_lines(id) ON DELETE RESTRICT,
     target_line_id TEXT NOT NULL REFERENCES commercial_document_lines(id) ON DELETE RESTRICT,
@@ -100,7 +100,7 @@ CREATE TABLE document_line_links (
 );
 
 CREATE TABLE document_status_history (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     document_id TEXT NOT NULL REFERENCES commercial_documents(id) ON DELETE RESTRICT,
     old_status TEXT,
@@ -112,7 +112,7 @@ CREATE TABLE document_status_history (
 );
 
 CREATE TABLE payments (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id) ON DELETE RESTRICT,
     fiscal_period_id TEXT REFERENCES fiscal_periods(id) ON DELETE RESTRICT,
@@ -138,7 +138,7 @@ CREATE TABLE payments (
 );
 
 CREATE TABLE payment_allocations (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     payment_id TEXT NOT NULL REFERENCES payments(id) ON DELETE RESTRICT,
     document_id TEXT NOT NULL REFERENCES commercial_documents(id) ON DELETE RESTRICT,
@@ -151,7 +151,7 @@ CREATE TABLE payment_allocations (
 );
 
 CREATE TABLE stock_movements (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
@@ -186,7 +186,7 @@ CREATE TABLE stock_movements (
 );
 
 CREATE TABLE stock_balances (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
@@ -205,7 +205,7 @@ CREATE UNIQUE INDEX uq_stock_balances_scope
     ON stock_balances(company_id, product_id, warehouse_id, ifnull(warehouse_location_id, ''));
 
 CREATE TABLE stock_reservations (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
@@ -221,7 +221,7 @@ CREATE TABLE stock_reservations (
 );
 
 CREATE TABLE inventory_counts (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
     adjustment_document_id TEXT REFERENCES commercial_documents(id) ON DELETE RESTRICT,
@@ -238,7 +238,7 @@ CREATE TABLE inventory_counts (
 );
 
 CREATE TABLE inventory_count_lines (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     inventory_count_id TEXT NOT NULL REFERENCES inventory_counts(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
@@ -294,7 +294,7 @@ CREATE TRIGGER trg_commercial_lines_posted_no_update
 BEFORE UPDATE ON commercial_document_lines
 WHEN EXISTS (
     SELECT 1 FROM commercial_documents
-    WHERE id = OLD.document_id AND posting_status = 'POSTED'
+    WHERE id IN (OLD.document_id, NEW.document_id) AND posting_status = 'POSTED'
 )
 BEGIN
     SELECT RAISE(ABORT, 'posted commercial document line is immutable');

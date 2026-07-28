@@ -1,7 +1,7 @@
 -- POSMAN Phase 01 - reference data, catalog, warehouses, pricing, and partners.
 
 CREATE TABLE units (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -17,7 +17,7 @@ CREATE TABLE units (
 );
 
 CREATE TABLE tax_rates (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -35,7 +35,7 @@ CREATE TABLE tax_rates (
 );
 
 CREATE TABLE payment_terms (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -51,7 +51,7 @@ CREATE TABLE payment_terms (
 );
 
 CREATE TABLE payment_methods (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -68,7 +68,7 @@ CREATE TABLE payment_methods (
 );
 
 CREATE TABLE warehouses (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -89,7 +89,7 @@ CREATE UNIQUE INDEX uq_warehouses_one_default
     WHERE is_default = 1 AND is_active = 1;
 
 CREATE TABLE warehouse_locations (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
@@ -105,7 +105,7 @@ CREATE TABLE warehouse_locations (
 );
 
 CREATE TABLE product_families (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     parent_family_id TEXT REFERENCES product_families(id) ON DELETE RESTRICT,
     default_tax_rate_id TEXT REFERENCES tax_rates(id) ON DELETE RESTRICT,
@@ -124,7 +124,7 @@ CREATE TABLE product_families (
 );
 
 CREATE TABLE products (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     product_family_id TEXT REFERENCES product_families(id) ON DELETE RESTRICT,
     unit_id TEXT NOT NULL REFERENCES units(id) ON DELETE RESTRICT,
@@ -153,7 +153,7 @@ CREATE UNIQUE INDEX uq_products_company_barcode
     WHERE barcode IS NOT NULL AND length(trim(barcode)) > 0;
 
 CREATE TABLE price_lists (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -174,7 +174,7 @@ CREATE UNIQUE INDEX uq_price_lists_one_default
     WHERE is_default = 1 AND is_active = 1;
 
 CREATE TABLE product_prices (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     price_list_id TEXT NOT NULL REFERENCES price_lists(id) ON DELETE RESTRICT,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
@@ -190,7 +190,7 @@ CREATE TABLE product_prices (
 );
 
 CREATE TABLE partners (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     payment_term_id TEXT REFERENCES payment_terms(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
@@ -213,7 +213,7 @@ CREATE TABLE partners (
 );
 
 CREATE TABLE partner_addresses (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     partner_id TEXT NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
     address_kind TEXT NOT NULL CHECK (address_kind IN ('BILLING', 'DELIVERY', 'BOTH')),
@@ -238,7 +238,7 @@ CREATE UNIQUE INDEX uq_partner_addresses_default
     WHERE is_default = 1 AND is_active = 1;
 
 CREATE TABLE partner_contacts (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     partner_id TEXT NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
     full_name TEXT NOT NULL CHECK (length(trim(full_name)) > 0),

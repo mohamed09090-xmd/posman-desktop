@@ -9,7 +9,7 @@ CREATE TABLE app_migrations (
 );
 
 CREATE TABLE companies (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
     legal_name TEXT NOT NULL CHECK (length(trim(legal_name)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -30,7 +30,7 @@ CREATE TABLE companies (
 );
 
 CREATE TABLE company_settings (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL UNIQUE REFERENCES companies(id) ON DELETE RESTRICT,
     default_language TEXT NOT NULL DEFAULT 'ar' CHECK (default_language IN ('ar', 'fr')),
     price_input_mode TEXT NOT NULL DEFAULT 'HT' CHECK (price_input_mode IN ('HT', 'TTC')),
@@ -47,7 +47,7 @@ CREATE TABLE company_settings (
 );
 
 CREATE TABLE fiscal_years (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     starts_on TEXT NOT NULL CHECK (length(starts_on) = 10),
@@ -63,7 +63,7 @@ CREATE TABLE fiscal_years (
 );
 
 CREATE TABLE fiscal_periods (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id) ON DELETE RESTRICT,
     period_number INTEGER NOT NULL CHECK (period_number BETWEEN 1 AND 53),
@@ -83,7 +83,7 @@ CREATE TABLE fiscal_periods (
 );
 
 CREATE TABLE document_sequences (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id) ON DELETE RESTRICT,
     document_type TEXT NOT NULL CHECK (length(trim(document_type)) > 0),
@@ -99,7 +99,7 @@ CREATE TABLE document_sequences (
 );
 
 CREATE TABLE users (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     username TEXT NOT NULL CHECK (length(trim(username)) > 0),
     display_name TEXT NOT NULL CHECK (length(trim(display_name)) > 0),
@@ -119,7 +119,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE roles (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -142,7 +142,7 @@ CREATE UNIQUE INDEX uq_roles_company_code
     WHERE company_id IS NOT NULL;
 
 CREATE TABLE permissions (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     code TEXT NOT NULL UNIQUE CHECK (length(trim(code)) > 0),
     domain TEXT NOT NULL CHECK (length(trim(domain)) > 0),
     description_ar TEXT NOT NULL CHECK (length(trim(description_ar)) > 0),
@@ -152,7 +152,7 @@ CREATE TABLE permissions (
 );
 
 CREATE TABLE user_roles (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role_id TEXT NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
@@ -162,7 +162,7 @@ CREATE TABLE user_roles (
 );
 
 CREATE TABLE role_permissions (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT REFERENCES companies(id) ON DELETE RESTRICT,
     role_id TEXT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     permission_id TEXT NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
@@ -172,7 +172,7 @@ CREATE TABLE role_permissions (
 );
 
 CREATE TABLE sessions (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash TEXT NOT NULL UNIQUE CHECK (length(token_hash) >= 32),

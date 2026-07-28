@@ -1,7 +1,7 @@
 -- POSMAN Phase 01 - accounting, printing metadata, audit, idempotency, and backups.
 
 CREATE TABLE accounts (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     parent_account_id TEXT REFERENCES accounts(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
@@ -21,7 +21,7 @@ CREATE TABLE accounts (
 );
 
 CREATE TABLE accounting_journals (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     name_ar TEXT NOT NULL CHECK (length(trim(name_ar)) > 0),
@@ -37,7 +37,7 @@ CREATE TABLE accounting_journals (
 );
 
 CREATE TABLE posting_rules (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     accounting_journal_id TEXT NOT NULL REFERENCES accounting_journals(id) ON DELETE RESTRICT,
     debit_account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
@@ -59,7 +59,7 @@ CREATE TABLE posting_rules (
 );
 
 CREATE TABLE journal_entries (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id) ON DELETE RESTRICT,
     fiscal_period_id TEXT NOT NULL REFERENCES fiscal_periods(id) ON DELETE RESTRICT,
@@ -86,7 +86,7 @@ CREATE TABLE journal_entries (
 );
 
 CREATE TABLE journal_entry_lines (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     journal_entry_id TEXT NOT NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
     account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
@@ -106,7 +106,7 @@ CREATE TABLE journal_entry_lines (
 );
 
 CREATE TABLE posting_attempts (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     result_entry_id TEXT REFERENCES journal_entries(id) ON DELETE RESTRICT,
     retry_of_attempt_id TEXT REFERENCES posting_attempts(id) ON DELETE RESTRICT,
@@ -124,7 +124,7 @@ CREATE TABLE posting_attempts (
 );
 
 CREATE TABLE document_templates (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     code TEXT NOT NULL CHECK (length(trim(code)) > 0),
     document_type TEXT NOT NULL CHECK (length(trim(document_type)) > 0),
@@ -140,7 +140,7 @@ CREATE TABLE document_templates (
 );
 
 CREATE TABLE document_template_versions (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     document_template_id TEXT NOT NULL REFERENCES document_templates(id) ON DELETE RESTRICT,
     version_number INTEGER NOT NULL CHECK (version_number >= 1),
@@ -155,7 +155,7 @@ CREATE TABLE document_template_versions (
 );
 
 CREATE TABLE rendered_documents (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     source_document_id TEXT NOT NULL REFERENCES commercial_documents(id) ON DELETE RESTRICT,
     template_version_id TEXT NOT NULL REFERENCES document_template_versions(id) ON DELETE RESTRICT,
@@ -168,7 +168,7 @@ CREATE TABLE rendered_documents (
 );
 
 CREATE TABLE attachments (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     entity_type TEXT NOT NULL CHECK (length(trim(entity_type)) > 0),
     entity_id TEXT NOT NULL CHECK (length(trim(entity_id)) > 0),
@@ -183,7 +183,7 @@ CREATE TABLE attachments (
 );
 
 CREATE TABLE audit_logs (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     actor_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
     action_code TEXT NOT NULL CHECK (length(trim(action_code)) > 0),
@@ -196,7 +196,7 @@ CREATE TABLE audit_logs (
 );
 
 CREATE TABLE idempotency_keys (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     namespace TEXT NOT NULL CHECK (length(trim(namespace)) > 0),
     idempotency_key TEXT NOT NULL CHECK (length(trim(idempotency_key)) > 0),
@@ -212,7 +212,7 @@ CREATE TABLE idempotency_keys (
 );
 
 CREATE TABLE backup_history (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     backup_kind TEXT NOT NULL CHECK (backup_kind IN ('AUTOMATIC', 'MANUAL', 'PRE_IMPORT', 'PRE_RESTORE', 'PRE_RESET')),
     relative_file_path TEXT NOT NULL CHECK (length(trim(relative_file_path)) > 0),
@@ -305,7 +305,7 @@ CREATE TRIGGER trg_journal_lines_posted_no_update
 BEFORE UPDATE ON journal_entry_lines
 WHEN EXISTS (
     SELECT 1 FROM journal_entries
-    WHERE id = OLD.journal_entry_id AND status = 'POSTED'
+    WHERE id IN (OLD.journal_entry_id, NEW.journal_entry_id) AND status = 'POSTED'
 )
 BEGIN
     SELECT RAISE(ABORT, 'posted journal entry line is immutable');
