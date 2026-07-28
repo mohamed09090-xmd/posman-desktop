@@ -6,11 +6,11 @@ POSMAN is a Windows-first, offline desktop commercial-management application for
 
 This branch contains the SQLite data foundation only:
 
-- ordered relational migrations;
+- ordered relational migrations with explicitly non-null, nonblank text business identifiers;
 - deterministic safe reference seed data;
 - a generated complete schema snapshot;
 - commercial-document lineage for partial delivery and invoicing;
-- append-only inventory, audit, and historical-document protections;
+- append-only inventory, audit, and historical-document protections, including old/new parent checks for posted child-line updates;
 - configurable accounting structures and balanced-posting protection;
 - ERD, data dictionary, migration policy, and accounting-posting documentation;
 - automated schema and invariant verification on Linux and Windows CI runners.
@@ -35,7 +35,7 @@ Python standard library is sufficient:
 python scripts/verify_schema.py
 ```
 
-The script creates a temporary SQLite database, enables foreign keys, applies all migrations and seed data, verifies the expected 49 tables, rejects `REAL` declarations, runs positive and negative fixture scenarios, executes `database/tests/invariants.sql`, and removes temporary output.
+The script creates a temporary SQLite database, enables foreign keys, applies all migrations and seed data, verifies the expected 49 tables, rejects `REAL` declarations, inspects built-schema text-primary-key nullability, proves null/blank identifiers are rejected, proves draft lines cannot be reparented into posted commercial or journal parents, runs positive and negative fixture scenarios, executes `database/tests/invariants.sql`, and removes temporary output.
 
 Regenerate the review snapshot after intentionally changing an unreleased migration:
 

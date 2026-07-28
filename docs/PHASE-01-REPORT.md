@@ -8,6 +8,7 @@
 - Pull Request title: `[Phase 01] POSMAN SQLite data foundation`
 - Active execution pack: `POSMAN-Execution-Pack-01-GitHub-Data-Foundation.md`
 - Architecture source: `docs/spec/POSMAN-Blueprint-v1.md`
+- Active correction: `POSMAN-Patch-Prompt-01A-SQLite-Integrity.md`
 - Blueprint SHA-256: `d932aa0b36099d5ad5dbbb873abc39c957393349af7e1dd6565af06f08be8a84`
 
 Both source documents were read completely before implementation. The execution pack contains 1,015 lines and the Blueprint contains 1,014 lines.
@@ -56,7 +57,7 @@ The migration files are authoritative. `database/schema.sql` is generated review
 - Unit prices and unit costs use integer scale 4.
 - Quantities use integer scale 6.
 - Percentage rates use integer percentage-point scale 4; `19.0000%` is stored as `190000`.
-- Business identifiers are UUID-compatible `TEXT`; human document numbers remain separate.
+- Business identifiers are UUID-compatible `TEXT`, explicitly non-null and nonblank; human document numbers remain separate.
 - Commercial dates are date-only ISO text; record/event timestamps are UTC ISO 8601 text.
 - Every future SQLite connection must enable `PRAGMA foreign_keys = ON`.
 - WAL is the preferred runtime mode for writable local databases, but is not encoded as a migration invariant.
@@ -66,9 +67,9 @@ The migration files are authoritative. `database/schema.sql` is generated review
 
 - `stock_movements` is the append-only inventory source of truth.
 - `stock_balances` is a rebuildable projection and is not authoritative.
-- Posted commercial document headers and lines cannot be updated or deleted.
+- Posted commercial document headers and lines cannot be updated or deleted; child-line update protection checks both old and new parent identities.
 - Status history, stock movements, audit logs, template versions, and rendered documents are append-only/immutable.
-- Posted journal entries and lines cannot be mutated or deleted.
+- Posted journal entries and lines cannot be mutated or deleted; child-line update protection checks both old and new parent identities.
 - Journal posting requires a matching open fiscal period, at least two lines, a positive total, and equal debit/credit totals.
 - Corrections use reversal, return, credit, or compensating records instead of destructive edits.
 - Account numbers and posting mappings are configurable data; no account code is permanent application logic.
@@ -97,7 +98,7 @@ POSMAN SQLite verification: PASS
 migrations: 4
 tables: 49
 triggers: 25
-passed checks: 60
+passed checks: 67
 pending application invariants: 1
 application-service invariant: aggregate transformed quantity must not exceed source quantity
 ```
@@ -124,6 +125,10 @@ The verifier also confirms:
 - `PRAGMA foreign_key_check` returns no violations;
 - all expected tables/triggers exist;
 - no application schema column declares `REAL`;
+- all 48 built-schema `TEXT` business primary keys report explicit `NOT NULL`;
+- null and whitespace-only business identifiers are rejected;
+- draft commercial and journal child lines cannot be reparented into posted parents;
+- rejected reparenting leaves posted line counts, commercial totals, and journal balance unchanged;
 - schema snapshot matches the ordered migrations;
 - Blueprint SHA-256 matches the preserved source;
 - positive commercial, inventory, lineage, and balanced-accounting fixtures succeed;
@@ -216,3 +221,23 @@ Because the execution container could not resolve `github.com` for Git CLI push,
 - Draft Pull Request opened: **yes**
 - Pull Request merged: **no**
 - PHASE 02 started: **no**
+
+## Review Patch 01A — SQLite integrity hardening
+
+The independent architectural review reproduced two SQLite integrity defects in the unreleased Phase 01 schema. Patch 01A corrects the existing migrations rather than adding a false `0005` migration.
+
+### Corrected identifier contract
+
+All 48 business tables with `TEXT` primary keys now declare `id` explicitly `NOT NULL` and reject identifiers whose trimmed length is zero. `app_migrations.id INTEGER PRIMARY KEY` is unchanged. Future Rust UUIDv7 generation remains the application policy; SQLite does not generate UUIDs.
+
+The verifier inspects the schema built by SQLite through `PRAGMA table_info` for every expected table, requires all 48 text primary keys to report explicit nullability protection, and executes negative inserts proving both `NULL` and whitespace-only company identifiers are rejected.
+
+### Closed posted-child reparenting bypasses
+
+`trg_commercial_lines_posted_no_update` now checks both `OLD.document_id` and `NEW.document_id`. `trg_journal_lines_posted_no_update` now checks both `OLD.journal_entry_id` and `NEW.journal_entry_id`.
+
+Negative fixtures create draft child lines and attempt to move them into already posted parents. SQLite must reject both updates. Follow-up assertions verify that the posted invoice retains its original line count and header totals, while the posted journal entry retains its original line count and remains balanced.
+
+### Patch validation
+
+The final verifier output and final Linux/Windows CI run are recorded in the Draft Pull Request Review Patch 01A section. The only pending application invariant remains aggregate transformed-quantity enforcement in the future Rust conversion transaction.
