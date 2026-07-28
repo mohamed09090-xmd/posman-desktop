@@ -1,8 +1,8 @@
 # POSMAN SQLite ERD
 
-The schema is split into domain diagrams to keep relationships readable. Every operational table is company-scoped unless noted otherwise. Mermaid cannot express all CHECK constraints, partial indexes, trigger rules, or aggregate application invariants; those are documented below and in the data dictionary.
+The schema is split by domain for readability. Mermaid does not express CHECK constraints, partial indexes, trigger behavior, or aggregate application-service invariants; those are documented in the data dictionary and database decisions.
 
-## Company, fiscal structure, and security
+## System, company, fiscal structure, and security
 
 ```mermaid
 erDiagram
@@ -15,12 +15,7 @@ erDiagram
     users ||--o{ user_roles : receives
     roles ||--o{ user_roles : assigned
     roles ||--o{ role_permissions : grants
-    permissions ||--o{ role_permissions : included
-    app_migrations {
-        INTEGER id PK
-        TEXT version UK
-        TEXT checksum_sha256
-    }
+    permissions ||--o{ role_permissions : includes
     companies {
         TEXT id PK
         TEXT code UK
@@ -54,9 +49,9 @@ erDiagram
     }
 ```
 
-System role templates and permissions are global reference data. A company and administrator are created only by the future first-run application.
+`app_migrations` is installation-scoped. System role templates and permissions are global safe reference data; no administrator is seeded.
 
-## Catalog and partners
+## Reference data, catalog, and partners
 
 ```mermaid
 erDiagram
@@ -97,7 +92,7 @@ erDiagram
     }
 ```
 
-## Commercial documents and partial lineage
+## Commercial documents and quantity lineage
 
 ```mermaid
 erDiagram
@@ -114,7 +109,7 @@ erDiagram
     partners ||--o{ payments : pays_or_receives
     payment_methods ||--o{ payments : uses
     payments ||--o{ payment_allocations : allocates
-    commercial_documents ||--o{ payment_allocations : settled_by
+    commercial_documents ||--o{ payment_allocations : settles
     commercial_documents {
         TEXT id PK
         TEXT document_type
@@ -138,7 +133,7 @@ erDiagram
     }
 ```
 
-### Lineage path
+### Partial conversion path
 
 ```mermaid
 flowchart LR
@@ -148,7 +143,7 @@ flowchart LR
     D2 -->|12.000000| I2[Invoice line 2]
 ```
 
-`document_line_links` is the conversion source of truth. One source line may feed several targets, and one target may aggregate compatible source lines. Aggregate over-conversion is validated by the future Rust service inside the write transaction.
+One source line may feed several targets. Compatible source lines may feed one target. Remaining quantity is derived from source quantity minus linked transformed quantities.
 
 ## Inventory
 
@@ -183,9 +178,9 @@ erDiagram
     }
 ```
 
-`stock_movements` is append-only and authoritative. `stock_balances` is a rebuildable projection. Transfer pairs share `transfer_group_id`.
+`stock_movements` is append-only and authoritative. `stock_balances` is a disposable/rebuildable projection. Transfers use paired movements sharing `transfer_group_id`.
 
-## Accounting, documents, audit, and backup
+## Accounting, print history, audit, and backup
 
 ```mermaid
 erDiagram
@@ -226,7 +221,7 @@ erDiagram
 
 - Human document numbers are unique by company, fiscal year, and document type.
 - Product code and non-empty barcode uniqueness are company-scoped.
-- Stock balance uniqueness includes a nullable location via an expression index.
-- Posted document, journal, lineage, rendered-document, template-version, stock-movement, status-history, and audit immutability are trigger-protected.
-- Journal balance and fiscal-period openness are checked during the `DRAFT` to `POSTED` transition.
-- Company-scoped repository validation remains mandatory even where globally unique IDs make single-column foreign keys sufficient in v1.
+- Nullable location uniqueness uses expression indexes for balances and count lines.
+- Posted immutability and append-only rules are trigger-protected.
+- Journal balance and fiscal-period openness are validated on the `DRAFT` → `POSTED` transition.
+- Aggregate over-conversion, company-scope consistency, CUMP, and stock authorization remain explicit Rust application-service invariants.

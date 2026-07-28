@@ -2,94 +2,88 @@
 
 ## Scope and authority
 
-This document records Phase 01 SQLite decisions derived from `docs/spec/POSMAN-Blueprint-v1.md`. Ordered migrations are the executable authority; this document explains their intent. The future Rust application service remains responsible for orchestration, decimal calculations, authorization, and multi-row business rules that SQLite cannot safely enforce without fragile triggers.
+This document records Phase 01 SQLite decisions derived from `docs/spec/POSMAN-Blueprint-v1.md`. Ordered files in `database/migrations/` are executable authority. The future Rust application layer owns workflow orchestration, authorization, decimal calculations, and multi-row rules that SQLite cannot enforce safely without hidden business logic.
 
-## SQLite connection contract
+## Connection contract
 
-Every connection must execute `PRAGMA foreign_keys = ON` before business SQL. Verification fails if this pragma is not active.
+Every SQLite connection must execute:
 
-WAL is the preferred normal journal mode for the installed local database because it permits readers while a writer commits and is appropriate for the single-computer desktop model. It is not encoded as a migration invariant because journal mode is database-file/runtime state, not a guarantee for every connection or restored copy. The future infrastructure layer should:
+```sql
+PRAGMA foreign_keys = ON;
+```
 
-1. open the local database file;
-2. enable foreign keys;
-3. evaluate `PRAGMA journal_mode = WAL` for writable runtime databases;
-4. use a bounded busy timeout;
-5. avoid assuming WAL for read-only, recovery, backup verification, or unsupported filesystem scenarios.
+The installed writable database should normally evaluate `PRAGMA journal_mode = WAL`, use a bounded busy timeout, and fall back deliberately for read-only, recovery, backup-verification, or unsupported filesystem cases. WAL is runtime database state and is not treated as a migration-only guarantee.
 
-No server, extension, cloud database, or network service is required.
+## Names and identifiers
 
-## Naming and identifiers
-
-- Tables and columns use English `snake_case` and plural table names.
-- Primary keys are named `id`.
-- Foreign keys use `<entity>_id`.
-- Business entities use UUID-compatible `TEXT` identifiers.
-- Human document numbers and entry numbers are separate, scoped business identifiers.
-- The future Rust application should generate UUIDs before insertion using a maintained UUID library. UUIDv7 is preferred for new operational records because it remains globally unique while improving insertion locality; UUIDv4 remains acceptable for imported or compatibility records. SQLite extensions are not required.
+- Tables and columns use English `snake_case`; table names are plural.
+- Primary keys are `id`; foreign keys are `<entity>_id`.
+- Business identifiers are UUID-compatible `TEXT` values.
+- Human document and journal numbers are separate scoped fields.
+- The future Rust service should generate UUIDv7 values for new operational rows using a maintained library; UUIDv4 remains acceptable for imports. No SQLite extension is required.
 
 ## Company scope
 
-POSMAN v1 supports one company per installation, but business tables carry `company_id`. Global security templates (`roles`, `permissions`, and global `role_permissions`) are the deliberate exception: system role templates have `company_id IS NULL` and are cloned or assigned during first-run setup. No company or administrator is seeded.
+Version 1 installs one company, but every business table carries `company_id`. `app_migrations` is installation-scoped. Global reference role templates, permissions, and their grants intentionally use nullable `company_id`; no company or administrator is seeded.
 
-Globally unique UUID-compatible IDs and application repository checks reduce accidental cross-company references. Full composite company-scoped foreign keys are deferred until multi-company execution is approved; the future repository layer must always filter and validate by `company_id`.
+Globally unique UUIDs and repository-layer checks prevent accidental cross-company joins in v1. A future approved multi-company phase may add composite company-scoped foreign keys through new migrations.
 
-## Fixed-point numeric policy
+## Fixed-point numbers
 
 SQLite `REAL` is prohibited for application columns.
 
-| Category | Column convention | Integer scale | Example |
+| Category | Convention | Scale | Example |
 |---|---|---:|---|
-| Final monetary total | `*_minor` | 2 | DZD 1,234.56 → `123456` |
-| Unit price or unit cost | `*_scaled` | 4 | DZD 12.3456 → `123456` |
-| Quantity | `*_scaled` | 6 | 8.125000 units → `8125000` |
-| Percentage rate | `*_rate_scaled` or `rate_scaled` | 4 percentage points | 19.0000% → `190000` |
+| Final monetary totals | `*_minor` | 2 | DZD 1,234.56 → `123456` |
+| Unit prices and costs | `*_scaled` | 4 | DZD 12.3456 → `123456` |
+| Quantities | `*_scaled` | 6 | 8.125000 → `8125000` |
+| Percentage rates | `*_rate_scaled` / `rate_scaled` | 4 percentage points | 19.0000% → `190000` |
 
-The future Rust layer must use decimal arithmetic, define rounding per calculation stage, and convert to stored scales explicitly. SQLite constraints protect signs and ranges; SQLite does not calculate commercial totals, tax distribution, CUMP, or rounding.
+The Rust layer must use decimal arithmetic and explicit rounding. SQLite validates signs/ranges but does not calculate document totals, taxes, discounts, or CUMP.
 
 ## Dates and timestamps
 
-- Commercial dates, posting dates, due dates, fiscal boundaries, and validity dates use `YYYY-MM-DD` text.
-- Record and event timestamps use UTC ISO 8601 text such as `2026-07-28T10:00:00Z`.
-- Local commercial dates remain independent from UTC record timestamps.
-- Timezone interpretation is stored in company data and handled by the application.
+Commercial, posting, due, fiscal, and validity dates are ISO `YYYY-MM-DD` text. Record/event timestamps are ISO 8601 UTC text, for example `2026-07-28T10:00:00Z`. The company timezone is stored separately.
 
-## Migrations and schema snapshot
+## Migrations and snapshot
 
-`database/migrations/` is authoritative. `database/schema.sql` is generated by `python scripts/verify_schema.py --write-schema` and verified byte-for-byte against the ordered migration concatenation. `app_migrations` records version, logical name, SHA-256 checksum, and application time. A future migration runner must apply each migration and ledger row atomically.
+Migrations are applied in filename order and recorded in `app_migrations` with SHA-256 checksums. `database/schema.sql` is generated review output and must match the migrations byte-for-byte through:
 
-## Commercial documents
+```bash
+python scripts/verify_schema.py --write-schema
+python scripts/verify_schema.py
+```
 
-A unified header and line model covers sales, purchases, and inventory documents. `document_line_links` is the lineage authority for partial conversion. It records source line, target line, transformed quantity, type, actor, and time. `source_document_id` is only a convenience link and is not sufficient for conversion accounting.
+Released migrations are immutable; corrections are new roll-forward migrations.
 
-Document type and workflow status use CHECK-constrained controlled vocabularies. `posting_status` is separate so posting immutability is explicit. Once `posting_status` is `POSTED`, the header, lines, and established lineage cannot be changed or deleted.
+## Commercial documents and conversion
 
-Aggregate transformed quantity must not exceed the source quantity. SQLite cannot safely enforce that multi-row sum with a plain CHECK, and a trigger would create hidden concurrency-sensitive workflow logic. The future Rust application service must validate and write conversion links in one transaction. Verification includes an automated detector proving that over-conversion is discoverable and intentionally labels this as a pending application-service invariant.
+A unified header/line model supports sales, purchases, inventory documents, direct invoices, returns, and credits. `document_line_links` is the quantity-level conversion source of truth. It supports one source line to multiple targets and compatible sources into one target.
+
+A link may be created from an already posted source document into a draft downstream target; otherwise posted delivery-to-invoice workflows would be impossible. Once the target is posted, new inbound lineage is rejected. Existing links touching a posted source or target cannot be updated or deleted.
+
+Aggregate transformed quantity must not exceed source quantity. This requires a `SUM` across sibling links and must be checked inside the future Rust conversion transaction. Verification deliberately creates an over-conversion under a savepoint and proves the detector finds it; no misleading row CHECK or workflow trigger is used.
 
 ## Inventory
 
-`stock_movements` is the append-only source of truth. A correction is a new movement referencing the original when applicable. `stock_balances` is a rebuildable projection and cannot replace ledger evidence. Transfer events use paired `TRANSFER_OUT` and `TRANSFER_IN` movements tied by `transfer_group_id`.
+`stock_movements` is append-only and authoritative. Corrections are new movements, optionally linked through `reversal_of_movement_id`. `stock_balances` is a rebuildable projection with the row-level identity `available = on_hand - reserved`.
 
-CUMP/CMUP calculation, negative-stock authorization, reservation consumption, and balance projection are future Rust service responsibilities. Movement rows store before/after quantity and average-cost snapshots so posting remains auditable and historical issues are not recalculated later.
+CUMP, negative-stock authorization, reservations, transfer pairing validation, and projection updates belong to Rust application services. Movement rows retain before/after quantity and average-cost snapshots for auditability.
 
 ## Accounting
 
-Account codes and posting mappings are configurable data. No Algerian account numbers are seeded or hardcoded. Journal lines enforce exactly one positive side. A transition to `POSTED` requires:
+Account codes, journals, and posting mappings are company configuration, never hardcoded legal rules. Journal entries must be inserted as `DRAFT`. The database validates the documented transition to `POSTED`: matching open fiscal period, at least two lines, positive total, and equal debit/credit.
 
-- an open matching fiscal period containing the entry date;
-- at least two lines;
-- a positive debit total;
-- equal debit and credit totals.
-
-Posted entries and their lines are immutable. Reversal uses a new entry and `reversal_of_entry_id`. Idempotency is protected by company-scoped unique keys.
+Each journal line has exactly one positive side. Posted entries and lines are immutable; reversal is a new balanced entry. Company-scoped idempotency keys prevent duplicate posting results.
 
 ## Trigger policy
 
-Triggers are limited to posted-data immutability, append-only protection, and the aggregate validation required at journal posting. Triggers do not calculate totals, select posting rules, calculate CUMP, update stock balances, or orchestrate workflow.
+The schema contains 25 triggers limited to append-only protection, posted-data immutability, forcing the documented draft-to-posted path, and validating journal posting. Triggers do not calculate CUMP, document totals, taxes, stock balances, general workflow transitions, or posting-rule selection.
 
 ## Controlled vocabularies
 
-CHECK-constrained text is used for stable, bounded states and categories in this phase. Invalid document-type/status combinations, journal sides, inventory movement types, payment states, and similar values are rejected. State-transition authorization and detailed transition graphs remain in the future Rust domain layer.
+Stable states and categories use CHECK-constrained text. This prevents obvious invalid values while detailed transition authorization remains in future Rust domain services.
 
 ## Security and privacy
 
-The schema stores password hashes and token hashes only; no password or administrator is seeded. Attachments and rendered documents store paths, sizes, and hashes rather than embedding binary files in migrations. Audit records are append-only. No telemetry, online account, secret, real business data, or external service is introduced.
+Passwords and session tokens are represented only as hashes. SQL contains no real company, person, password, tax rate, account number, token, binary attachment, telemetry, or network dependency.
