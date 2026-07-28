@@ -1,0 +1,63 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family:
+    "Segoe UI", Tahoma, Arial, sans-serif;
+  color-scheme: light;
+  background: #f5f5f2;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: #1f2521;
+  background: #f5f5f2;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.bootstrap-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding-block: 3rem;
+  padding-inline: 2rem;
+}
+
+.bootstrap-copy {
+  max-inline-size: 42rem;
+  border-inline-start: 0.25rem solid currentColor;
+  padding-inline-start: 1.5rem;
+}
+
+.bootstrap-product {
+  margin-block: 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.bootstrap-copy h1 {
+  margin-block: 0 0.75rem;
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  line-height: 1.25;
+}
+
+.bootstrap-copy p:last-child {
+  margin: 0;
+  line-height: 1.7;
+}
