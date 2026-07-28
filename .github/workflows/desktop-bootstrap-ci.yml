@@ -124,26 +124,26 @@ jobs:
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
       - name: Run Rust clippy with warnings denied
-        run: python -c "import subprocess,sys; command=['cargo','clippy','--manifest-path','src-tauri/Cargo.toml','--all-targets','--all-features','--locked','--','-D','warnings']; result=subprocess.run(command,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT); open('clippy-output.txt','w',encoding='utf-8').write(result.stdout); print(result.stdout,end=''); sys.exit(result.returncode)"
+        run: python -c "import os,subprocess,sys; from pathlib import Path; output=Path(os.environ['RUNNER_TEMP'])/'clippy-output.txt'; command=['cargo','clippy','--manifest-path','src-tauri/Cargo.toml','--all-targets','--all-features','--locked','--','-D','warnings']; result=subprocess.run(command,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT); output.write_text(result.stdout,encoding='utf-8'); print(result.stdout,end=''); sys.exit(result.returncode)"
 
       - name: Upload clippy diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: clippy-diagnostics-${{ runner.os }}
-          path: clippy-output.txt
+          path: ${{ runner.temp }}/clippy-output.txt
           if-no-files-found: error
           retention-days: 3
 
       - name: Run Rust tests
-        run: python -c "import subprocess,sys; command=['cargo','test','--manifest-path','src-tauri/Cargo.toml','--all-targets','--locked']; result=subprocess.run(command,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT); open('rust-test-output.txt','w',encoding='utf-8').write(result.stdout); print(result.stdout,end=''); sys.exit(result.returncode)"
+        run: python -c "import os,subprocess,sys; from pathlib import Path; output=Path(os.environ['RUNNER_TEMP'])/'rust-test-output.txt'; command=['cargo','test','--manifest-path','src-tauri/Cargo.toml','--all-targets','--locked']; result=subprocess.run(command,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT); output.write_text(result.stdout,encoding='utf-8'); print(result.stdout,end=''); sys.exit(result.returncode)"
 
       - name: Upload Rust test diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: rust-test-diagnostics-${{ runner.os }}
-          path: rust-test-output.txt
+          path: ${{ runner.temp }}/rust-test-output.txt
           if-no-files-found: error
           retention-days: 3
 
