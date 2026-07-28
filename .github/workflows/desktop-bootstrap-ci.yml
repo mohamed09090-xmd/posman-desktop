@@ -160,4 +160,14 @@ jobs:
         run: git diff --check
 
       - name: Confirm clean worktree
-        run: python -c "import subprocess,sys; status=subprocess.check_output(['git','status','--short'],text=True); print(status,end=''); sys.exit(1 if status else 0)"
+        id: clean-worktree
+        run: python -c "import os,subprocess,sys; from pathlib import Path; status=subprocess.check_output(['git','status','--short','--untracked-files=all'],text=True); diff=subprocess.check_output(['git','diff','--no-ext-diff'],text=True); details='STATUS\n'+status+'\nDIFF\n'+diff; output=Path(os.environ['RUNNER_TEMP'])/'worktree-diagnostics.txt'; output.write_text(details,encoding='utf-8'); print(details,end=''); sys.exit(1 if status else 0)"
+
+      - name: Upload worktree diagnostics
+        if: steps.clean-worktree.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: worktree-diagnostics-${{ runner.os }}
+          path: ${{ runner.temp }}/worktree-diagnostics.txt
+          if-no-files-found: error
+          retention-days: 3
