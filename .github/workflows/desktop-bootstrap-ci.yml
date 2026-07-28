@@ -7,7 +7,7 @@ on:
       - "bootstrap/desktop-shell"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   prepare-locks:
@@ -34,12 +34,29 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Resolve npm lockfile
+        if: hashFiles('package-lock.json') == ''
         run: npm install --package-lock-only --ignore-scripts
 
       - name: Resolve Cargo lockfile
+        if: hashFiles('src-tauri/Cargo.lock') == ''
         run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
 
+      - name: Commit resolved lockfiles on the bootstrap branch
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json src-tauri/Cargo.lock
+          if git diff --cached --quiet; then
+            echo "Lockfiles are already committed."
+          else
+            git commit -m "chore(deps): lock desktop bootstrap dependencies"
+            git push origin HEAD:bootstrap/desktop-shell
+          fi
+
       - name: Upload resolved lockfiles
+        if: hashFiles('package-lock.json') != '' && hashFiles('src-tauri/Cargo.lock') != ''
         uses: actions/upload-artifact@v4
         with:
           name: desktop-bootstrap-lockfiles
