@@ -1,4 +1,5 @@
 name: Phase 01 repository bootstrap
+# Transport-only workflow; it deletes itself after materialization.
 
 on:
   push:
