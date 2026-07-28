@@ -1,6 +1,7 @@
 name: Desktop bootstrap lock preparation
 
 on:
+  pull_request:
   push:
     branches:
       - "bootstrap/desktop-shell"
