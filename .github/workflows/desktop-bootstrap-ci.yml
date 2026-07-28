@@ -1,21 +1,65 @@
-name: Desktop bootstrap lock preparation
+name: Desktop bootstrap CI
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/desktop-bootstrap-ci.yml"
+      - ".gitignore"
+      - "AGENTS.md"
+      - "README.md"
+      - "docs/BOOTSTRAP-GATE-02-REPORT.md"
+      - "docs/architecture/desktop-shell.md"
+      - "docs/architecture/parallel-wave-02-contract.md"
+      - "index.html"
+      - "package.json"
+      - "package-lock.json"
+      - "src/**"
+      - "src-tauri/**"
+      - "tsconfig.json"
+      - "tsconfig.app.json"
+      - "tsconfig.node.json"
+      - "vite.config.ts"
   push:
     branches:
+      - "main"
       - "bootstrap/desktop-shell"
+    paths:
+      - ".github/workflows/desktop-bootstrap-ci.yml"
+      - ".gitignore"
+      - "AGENTS.md"
+      - "README.md"
+      - "docs/BOOTSTRAP-GATE-02-REPORT.md"
+      - "docs/architecture/desktop-shell.md"
+      - "docs/architecture/parallel-wave-02-contract.md"
+      - "index.html"
+      - "package.json"
+      - "package-lock.json"
+      - "src/**"
+      - "src-tauri/**"
+      - "tsconfig.json"
+      - "tsconfig.app.json"
+      - "tsconfig.node.json"
+      - "vite.config.ts"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  prepare-locks:
-    name: Prepare application lockfiles
-    runs-on: ubuntu-latest
+  validate-desktop-shell:
+    name: Desktop shell (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -25,43 +69,69 @@ jobs:
       - name: Verify accepted SQLite foundation
         run: python scripts/verify_schema.py
 
+      - name: Confirm PHASE 01 database sources are unchanged
+        run: git diff --exit-code 0c72eb75eb5db916a51d1ee42fec47f21328ad28 -- database scripts/verify_schema.py
+
       - name: Set up Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version: "24"
+          cache: npm
 
       - name: Set up Rust stable
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Resolve npm lockfile
-        if: hashFiles('package-lock.json') == ''
-        run: npm install --package-lock-only --ignore-scripts
-
-      - name: Resolve Cargo lockfile
-        if: hashFiles('src-tauri/Cargo.lock') == ''
-        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-
-      - name: Commit resolved lockfiles on the bootstrap branch
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json src-tauri/Cargo.lock
-          if git diff --cached --quiet; then
-            echo "Lockfiles are already committed."
-          else
-            git commit -m "chore(deps): lock desktop bootstrap dependencies"
-            git push origin HEAD:bootstrap/desktop-shell
-          fi
-
-      - name: Upload resolved lockfiles
-        if: hashFiles('package-lock.json') != '' && hashFiles('src-tauri/Cargo.lock') != ''
-        uses: actions/upload-artifact@v4
         with:
-          name: desktop-bootstrap-lockfiles
-          path: |
-            package-lock.json
-            src-tauri/Cargo.lock
-          if-no-files-found: error
-          retention-days: 1
+          components: rustfmt, clippy
+
+      - name: Install official Tauri Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Record tool versions
+        run: |
+          node --version
+          npm --version
+          npx tauri --version
+          rustc --version
+          cargo --version
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Type-check frontend
+        run: npm run typecheck
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Reject runtime network clients in bootstrap sources
+        run: python -c "from pathlib import Path; roots=[Path('src'),Path('src-tauri/src')]; needles=('fetch(','XMLHttpRequest','reqwest::','ureq::','http://','https://'); bad=[str(p) for r in roots for p in r.rglob('*') if p.is_file() and any(n in p.read_text(encoding='utf-8') for n in needles)]; print('\n'.join(bad)); raise SystemExit(1 if bad else 0)"
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Run Rust clippy with warnings denied
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked
+
+      - name: Compile native Tauri shell without bundling
+        run: npm run desktop:check
+
+      - name: Check Git whitespace
+        run: git diff --check
+
+      - name: Confirm clean worktree
+        run: python -c "import subprocess,sys; status=subprocess.check_output(['git','status','--short'],text=True); print(status,end=''); sys.exit(1 if status else 0)"
