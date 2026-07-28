@@ -98,16 +98,18 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
-      - name: Record tool versions
+      - name: Record platform tool versions
         run: |
           node --version
           npm --version
-          npx tauri --version
           rustc --version
           cargo --version
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Record Tauri CLI version
+        run: npx --no-install tauri --version
 
       - name: Type-check frontend
         run: npm run typecheck
