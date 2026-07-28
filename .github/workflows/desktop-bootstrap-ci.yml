@@ -141,6 +141,7 @@ jobs:
           retention-days: 3
 
       - name: Diagnose Windows Rust test loader inputs
+        id: windows-loader-diagnostics
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -149,70 +150,93 @@ jobs:
           $diagnostics = Join-Path $env:RUNNER_TEMP 'windows-loader-diagnostics.txt'
           $manifest = Join-Path $env:RUNNER_TEMP 'rust-test.manifest.xml'
 
-          cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked --no-run --message-format=json-render-diagnostics |
-            Tee-Object -FilePath $cargoJson
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
-          }
+          'Windows Rust test loader diagnosis started.' | Set-Content -Path $diagnostics -Encoding utf8
 
-          $testExecutables = Get-Content $cargoJson | ForEach-Object {
-            try {
-              $_ | ConvertFrom-Json
-            } catch {
-              $null
+          try {
+            cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked --no-run --message-format=json-render-diagnostics |
+              Tee-Object -FilePath $cargoJson
+            if ($LASTEXITCODE -ne 0) {
+              throw "cargo test --no-run failed with exit code $LASTEXITCODE."
             }
-          } | Where-Object {
-            $_.reason -eq 'compiler-artifact' -and
-            $_.profile.test -eq $true -and
-            $_.target.name -eq 'posman_desktop_lib' -and
-            $_.executable
-          } | Select-Object -ExpandProperty executable -Unique
 
-          if (-not $testExecutables) {
-            throw 'Cargo JSON did not identify the posman_desktop_lib test executable.'
-          }
+            $testExecutables = Get-Content $cargoJson | ForEach-Object {
+              try {
+                $_ | ConvertFrom-Json
+              } catch {
+                $null
+              }
+            } | Where-Object {
+              $_.reason -eq 'compiler-artifact' -and
+              $_.profile.test -eq $true -and
+              $_.target.name -eq 'posman_desktop_lib' -and
+              $_.executable
+            } | Select-Object -ExpandProperty executable -Unique
 
-          $testExecutable = $testExecutables |
-            Sort-Object { (Get-Item $_).LastWriteTimeUtc } -Descending |
-            Select-Object -First 1
+            if (-not $testExecutables) {
+              'Cargo JSON did not expose the executable; using deterministic target/deps fallback.' |
+                Add-Content -Path $diagnostics
+              $testExecutables = Get-ChildItem 'src-tauri\target\debug\deps\posman_desktop_lib-*.exe' -File |
+                Sort-Object LastWriteTimeUtc -Descending |
+                Select-Object -ExpandProperty FullName
+            }
 
-          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-          $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $visualStudio) {
-            throw 'Visual Studio C++ tools were not found.'
-          }
+            if (-not $testExecutables) {
+              throw 'The posman_desktop_lib test executable was not found.'
+            }
 
-          $toolsetRoot = Join-Path $visualStudio 'VC\Tools\MSVC'
-          $toolset = Get-ChildItem $toolsetRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
-          $dumpbin = Join-Path $toolset.FullName 'bin\Hostx64\x64\dumpbin.exe'
-          $mt = Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1 -ExpandProperty FullName
+            $testExecutable = $testExecutables |
+              Sort-Object { (Get-Item $_).LastWriteTimeUtc } -Descending |
+              Select-Object -First 1
 
-          @(
-            "Test executable: $testExecutable"
-            "dumpbin: $dumpbin"
-            "mt.exe: $mt"
-            ''
-            '=== PE IMPORTS ==='
-          ) | Set-Content -Path $diagnostics -Encoding utf8
+            $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+            $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+            if (-not $visualStudio) {
+              throw 'Visual Studio C++ tools were not found.'
+            }
 
-          & $dumpbin /headers /imports $testExecutable 2>&1 |
-            Tee-Object -FilePath $diagnostics -Append
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
-          }
+            $dumpbin = Get-ChildItem (Join-Path $visualStudio 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe') -File |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1 -ExpandProperty FullName
+            $mt = Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') -File |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1 -ExpandProperty FullName
 
-          '' | Add-Content -Path $diagnostics
-          '=== EMBEDDED MANIFEST ===' | Add-Content -Path $diagnostics
-          & $mt "-inputresource:$testExecutable;#1" "-out:$manifest" 2>&1 |
-            Tee-Object -FilePath $diagnostics -Append
-          $manifestExit = $LASTEXITCODE
+            if (-not $dumpbin) {
+              throw 'dumpbin.exe was not found.'
+            }
+            if (-not $mt) {
+              throw 'mt.exe was not found.'
+            }
 
-          if ($manifestExit -eq 0 -and (Test-Path $manifest)) {
-            Get-Content $manifest | Add-Content -Path $diagnostics
-          } else {
-            "Manifest extraction failed with exit code $manifestExit." | Add-Content -Path $diagnostics
+            @(
+              "Test executable: $testExecutable"
+              "dumpbin: $dumpbin"
+              "mt.exe: $mt"
+              ''
+              '=== PE IMPORTS ==='
+            ) | Add-Content -Path $diagnostics
+
+            & $dumpbin /headers /imports $testExecutable 2>&1 |
+              Tee-Object -FilePath $diagnostics -Append
+            if ($LASTEXITCODE -ne 0) {
+              throw "dumpbin failed with exit code $LASTEXITCODE."
+            }
+
+            '' | Add-Content -Path $diagnostics
+            '=== EMBEDDED MANIFEST ===' | Add-Content -Path $diagnostics
+            & $mt "-inputresource:$testExecutable;#1" "-out:$manifest" 2>&1 |
+              Tee-Object -FilePath $diagnostics -Append
+            $manifestExit = $LASTEXITCODE
+
+            if ($manifestExit -eq 0 -and (Test-Path $manifest)) {
+              Get-Content $manifest | Add-Content -Path $diagnostics
+            } else {
+              "Manifest extraction failed with exit code $manifestExit." | Add-Content -Path $diagnostics
+            }
+          } catch {
+            "DIAGNOSTIC ERROR: $($_.Exception.Message)" | Add-Content -Path $diagnostics
+            Get-Content $diagnostics
+            throw
           }
 
           Get-Content $diagnostics
@@ -231,7 +255,7 @@ jobs:
           retention-days: 3
 
       - name: Upload Windows loader diagnostics
-        if: always() && runner.os == 'Windows' && steps.rust-tests.outcome == 'failure'
+        if: always() && runner.os == 'Windows' && (steps.windows-loader-diagnostics.outcome == 'failure' || steps.rust-tests.outcome == 'failure')
         uses: actions/upload-artifact@v4
         with:
           name: windows-rust-loader-diagnostics
