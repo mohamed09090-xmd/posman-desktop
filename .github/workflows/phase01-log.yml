@@ -1,0 +1,35 @@
+name: Phase 01 commit log
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  publish-log:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - name: Publish exact commit log
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          {
+            echo "<!-- phase-01-exact-commit-log -->"
+            echo "## Exact Phase 01 commit log"
+            echo
+            git log --reverse --format='- `%H` — %s' origin/main..HEAD
+          } > /tmp/phase01-log.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/phase01-log.md
