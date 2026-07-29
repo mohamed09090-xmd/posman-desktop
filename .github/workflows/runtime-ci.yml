@@ -4,18 +4,202 @@ on:
   pull_request:
     paths:
       - ".github/workflows/runtime-ci.yml"
+      - "src-tauri/**"
+      - "src/platform/tauri/**"
+      - "database/migrations/**"
+      - "database/seed/reference_data.sql"
+      - "scripts/verify_schema.py"
+      - "docs/architecture/runtime-*.md"
+      - "docs/PHASE-02-REPORT.md"
   push:
     branches:
       - "phase/02-runtime-foundation"
     paths:
       - ".github/workflows/runtime-ci.yml"
+      - "src-tauri/**"
+      - "src/platform/tauri/**"
+      - "database/migrations/**"
+      - "database/seed/reference_data.sql"
+      - "scripts/verify_schema.py"
+      - "docs/architecture/runtime-*.md"
+      - "docs/PHASE-02-REPORT.md"
+
+concurrency:
+  group: runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  prepare-msrv-lock-blob:
-    name: Prepare Rust 1.85 compatible lock blob
+  validate-runtime:
+    name: Local runtime (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify accepted SQLite foundation
+        run: python scripts/verify_schema.py
+
+      - name: Confirm database sources are unchanged
+        run: git diff --exit-code a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9 -- database scripts/verify_schema.py
+
+      - name: Confirm frozen and out-of-scope files are unchanged
+        run: >-
+          git diff --exit-code a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9 --
+          src/app src/components src/i18n src/styles src/features src/bootstrap
+          package.json package-lock.json vite.config.ts src/main.tsx index.html
+          tsconfig.json tsconfig.app.json tsconfig.node.json AGENTS.md .gitignore README.md
+          docs/spec/POSMAN-Blueprint-v1.md docs/PHASE-01-REPORT.md docs/BOOTSTRAP-GATE-02-REPORT.md
+          docs/architecture/accounting-posting.md docs/architecture/data-dictionary.md
+          docs/architecture/database-decisions.md docs/architecture/erd.md
+          docs/architecture/migration-policy.md docs/architecture/parallel-wave-02-contract.md
+          docs/architecture/desktop-shell.md .github/workflows/schema-ci.yml
+          .github/workflows/desktop-bootstrap-ci.yml
+
+      - name: Record embedded migration SHA-256 values
+        shell: python
+        run: |
+          import hashlib
+          from pathlib import Path
+
+          for path in sorted(Path("database/migrations").glob("[0-9][0-9][0-9][0-9]_*.sql")):
+              digest = hashlib.sha256(path.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+              print(f"{path.name} {digest}")
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Set up Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install official Tauri Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Type-check frontend
+        run: npm run typecheck
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Run Rust clippy with warnings denied
+        id: clippy
+        shell: python
+        run: |
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          output = Path(os.environ["RUNNER_TEMP"], "runtime-clippy-output.txt")
+          command = [
+              "cargo", "clippy", "--manifest-path", "src-tauri/Cargo.toml",
+              "--all-targets", "--all-features", "--locked", "--", "-D", "warnings",
+          ]
+          result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+          output.write_text(result.stdout, encoding="utf-8")
+          print(result.stdout, end="")
+          sys.exit(result.returncode)
+
+      - name: Upload clippy diagnostics
+        if: always() && steps.clippy.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-clippy-diagnostics-${{ runner.os }}
+          path: ${{ runner.temp }}/runtime-clippy-output.txt
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Run Rust tests
+        id: rust-tests
+        shell: python
+        run: |
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          output = Path(os.environ["RUNNER_TEMP"], "runtime-test-output.txt")
+          command = [
+              "cargo", "test", "--manifest-path", "src-tauri/Cargo.toml",
+              "--all-targets", "--locked", "--", "--nocapture",
+          ]
+          result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+          output.write_text(result.stdout, encoding="utf-8")
+          print(result.stdout, end="")
+          sys.exit(result.returncode)
+
+      - name: Upload Rust test diagnostics
+        if: always() && steps.rust-tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-test-diagnostics-${{ runner.os }}
+          path: ${{ runner.temp }}/runtime-test-output.txt
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Compile native Tauri application without bundling
+        run: npm run desktop:check
+
+      - name: Check patch whitespace
+        run: git diff --check
+
+      - name: Show final worktree status
+        run: git status --short --untracked-files=all
+
+      - name: Require a clean worktree
+        shell: python
+        run: |
+          import subprocess
+          import sys
+
+          output = subprocess.check_output(
+              ["git", "status", "--short", "--untracked-files=all"], text=True
+          )
+          if output:
+              print(output, end="")
+              sys.exit("runtime validation left a dirty worktree")
+
+  msrv:
+    name: Rust 1.85 MSRV (ubuntu-latest)
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -24,50 +208,19 @@ jobs:
       - name: Set up Rust 1.85
         uses: dtolnay/rust-toolchain@1.85
 
-      - name: Resolve Cargo lockfile with MSRV fallback
-        env:
-          CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: fallback
+      - name: Install official Tauri Linux prerequisites
         run: |
-          rm src-tauri/Cargo.lock
-          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
 
-      - name: Verify the resolved graph with Rust 1.85 metadata
-        run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --format-version 1 > ${{ runner.temp }}/cargo-metadata.json
-
-      - name: Store Cargo lockfile as an unattached Git blob
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-        shell: python
-        run: |
-          import base64
-          import json
-          import os
-          import urllib.request
-          from pathlib import Path
-
-          content = base64.b64encode(Path("src-tauri/Cargo.lock").read_bytes()).decode("ascii")
-          request = urllib.request.Request(
-              f"https://api.github.com/repos/{os.environ['REPOSITORY']}/git/blobs",
-              data=json.dumps({"content": content, "encoding": "base64"}).encode("utf-8"),
-              headers={
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-              method="POST",
-          )
-          with urllib.request.urlopen(request) as response:
-              blob_sha = json.load(response)["sha"]
-          Path(os.environ["RUNNER_TEMP"], "cargo-lock-blob-sha.txt").write_text(
-              blob_sha + "\n", encoding="utf-8"
-          )
-          print(f"Cargo.lock blob SHA: {blob_sha}")
-
-      - name: Upload Cargo lock blob SHA
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase-02-msrv-cargo-lock-blob-sha
-          path: ${{ runner.temp }}/cargo-lock-blob-sha.txt
-          if-no-files-found: error
-          retention-days: 1
+      - name: Check all Rust targets with the minimum supported toolchain
+        run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
