@@ -9,4 +9,9 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
   },
+  preview: {
+    host: "127.0.0.1",
+    port: 1421,
+    strictPort: true,
+  },
 });

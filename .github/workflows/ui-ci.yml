@@ -1,0 +1,185 @@
+name: UI foundation CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ui-ci.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.ts"
+      - "src/app/**"
+      - "src/components/**"
+      - "src/i18n/**"
+      - "src/styles/**"
+      - "src/features/ui-gallery/**"
+      - "tests/**"
+      - "public/**"
+      - "docs/design/**"
+      - "docs/PHASE-03-REPORT.md"
+  push:
+    branches:
+      - "main"
+      - "phase/03-ui-foundation"
+    paths:
+      - ".github/workflows/ui-ci.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.ts"
+      - "src/app/**"
+      - "src/components/**"
+      - "src/i18n/**"
+      - "src/styles/**"
+      - "src/features/ui-gallery/**"
+      - "tests/**"
+      - "public/**"
+      - "docs/design/**"
+      - "docs/PHASE-03-REPORT.md"
+
+concurrency:
+  group: ui-foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-ui-foundation:
+    name: UI gallery and browser evidence
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify accepted SQLite foundation
+        run: python scripts/verify_schema.py
+
+      - name: Resolve event-scoped ownership range
+        id: ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_ref="origin/${{ github.base_ref }}"
+            base="$(git rev-parse "$base_ref")"
+            head="${{ github.event.pull_request.head.sha }}"
+            range="${base}...${head}"
+            git merge-base --is-ancestor "$base" HEAD
+            git merge-base --is-ancestor "$head" HEAD
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            before="${{ github.event.before }}"
+            head="${{ github.sha }}"
+            if [[ "$before" == "0000000000000000000000000000000000000000" ]]; then
+              echo "A push ownership range requires a non-zero before SHA." >&2
+              exit 1
+            fi
+            range="${before}..${head}"
+          else
+            echo "Unsupported event: ${{ github.event_name }}" >&2
+            exit 1
+          fi
+          echo "range=$range" >> "$GITHUB_OUTPUT"
+          echo "Ownership range: $range"
+
+      - name: Protect PHASE 02, database, and frozen sources
+        run: >-
+          git diff --exit-code "${{ steps.ownership.outputs.range }}" --
+          src-tauri database scripts/verify_schema.py src/platform/tauri src/main.tsx index.html
+          tsconfig.json tsconfig.app.json tsconfig.node.json AGENTS.md .gitignore
+          src/bootstrap/bootstrap.css README.md docs/spec/POSMAN-Blueprint-v1.md
+          docs/PHASE-01-REPORT.md docs/BOOTSTRAP-GATE-02-REPORT.md
+          docs/architecture/accounting-posting.md docs/architecture/data-dictionary.md
+          docs/architecture/database-decisions.md docs/architecture/erd.md
+          docs/architecture/migration-policy.md docs/architecture/parallel-wave-02-contract.md
+          docs/architecture/desktop-shell.md .github/workflows/schema-ci.yml
+          .github/workflows/desktop-bootstrap-ci.yml
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Install browser-test tooling outside the product manifest
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+          npm install --no-save --package-lock=false axe-core@4.10.3
+
+      - name: Reject runtime network clients and external assets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          roots = [
+              Path("src/app"),
+              Path("src/components"),
+              Path("src/i18n"),
+              Path("src/styles"),
+              Path("src/features/ui-gallery"),
+              Path("public"),
+          ]
+          excluded = {Path("public/fonts/OFL.txt")}
+          needles = ("fetch(", "XMLHttpRequest", "WebSocket(", "http://", "https://")
+          failures = []
+          for root in roots:
+              if not root.exists():
+                  continue
+              for path in root.rglob("*"):
+                  if not path.is_file() or path in excluded:
+                      continue
+                  try:
+                      text = path.read_text(encoding="utf-8")
+                  except UnicodeDecodeError:
+                      continue
+                  matches = [needle for needle in needles if needle in text]
+                  if matches:
+                      failures.append(f"{path}: {', '.join(matches)}")
+          print("\n".join(failures))
+          raise SystemExit(1 if failures else 0)
+          PY
+
+      - name: Type-check frontend
+        run: npm run typecheck
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Run UI unit and contract tests
+        run: npm run test:ui
+
+      - name: Run Playwright browser, accessibility, and screenshot evidence
+        env:
+          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/posman-ui-artifacts
+        run: npm run test:e2e
+
+      - name: Check Git whitespace
+        run: git diff --check
+
+      - name: Confirm clean worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(git status --short --untracked-files=all)"
+          if [[ -n "$status" ]]; then
+            printf '%s\n' "$status"
+            exit 1
+          fi
+
+      - name: Upload UI screenshots and accessibility reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-03-ui-evidence
+          path: ${{ runner.temp }}/posman-ui-artifacts
+          if-no-files-found: error
+          retention-days: 30

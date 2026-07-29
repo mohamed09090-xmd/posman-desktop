@@ -11,6 +11,8 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "build": "npm run typecheck && vite build",
+    "test:ui": "node --experimental-strip-types --test tests/ui/*.test.ts",
+    "test:e2e": "python tests/e2e/run_ui_gallery.py",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:check": "tauri build --debug --no-bundle"

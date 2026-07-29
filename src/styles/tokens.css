@@ -1,0 +1,59 @@
+:root {
+  --color-app: #f4f0e7;
+  --color-document: #fffcf6;
+  --color-text: #1e2523;
+  --color-text-secondary: #59635f;
+  --color-border: #d8d0c2;
+  --color-confirmed: #1f5a45;
+  --color-pending: #b7791f;
+  --color-error: #b74a3c;
+  --color-ink-soft: #39433f;
+  --color-paper-deep: #ebe4d7;
+  --color-selection: #e7eee8;
+  --color-focus: #1e2523;
+
+  --font-arabic: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --font-latin: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-md: 0.9375rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: clamp(1.35rem, 1.1rem + 1vw, 1.9rem);
+  --line-tight: 1.25;
+  --line-normal: 1.55;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --border-thin: 1px solid var(--color-border);
+  --border-strong: 1px solid var(--color-text);
+  --shadow-lift: 0 8px 24px rgb(30 37 35 / 0.1);
+  --shadow-focus: 0 0 0 3px rgb(30 37 35 / 0.18);
+
+  --motion-fast: 120ms;
+  --motion-normal: 160ms;
+  --z-skip: 100;
+  --z-command: 30;
+  --z-drawer: 20;
+  --z-dock: 10;
+
+  --command-height: 64px;
+  --rail-width: 168px;
+  --row-dense: 42px;
+  --row-comfortable: 50px;
+}
+
+:root[dir="ltr"] {
+  --font-ui: var(--font-latin);
+}
+
+:root[dir="rtl"] {
+  --font-ui: var(--font-arabic);
+}
