@@ -22,9 +22,8 @@ fn build() -> tauri_build::Result<()> {
     let is_windows_msvc = target_os == "windows" && target_env == "msvc";
 
     let attributes = if is_windows_msvc {
-        tauri_build::Attributes::new().windows_attributes(
-            tauri_build::WindowsAttributes::new_without_app_manifest(),
-        )
+        tauri_build::Attributes::new()
+            .windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest())
     } else {
         tauri_build::Attributes::new()
     };
@@ -40,10 +39,7 @@ fn build() -> tauri_build::Result<()> {
 
 fn emit_windows_manifest_linker_args() -> tauri_build::Result<()> {
     let manifest_dir = env::var_os("CARGO_MANIFEST_DIR").ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::NotFound,
-            "CARGO_MANIFEST_DIR is unavailable",
-        )
+        io::Error::new(io::ErrorKind::NotFound, "CARGO_MANIFEST_DIR is unavailable")
     })?;
     let manifest_path = PathBuf::from(manifest_dir).join("windows-app-manifest.xml");
     let manifest_path = manifest_path.canonicalize().map_err(|error| {
