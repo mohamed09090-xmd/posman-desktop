@@ -16,6 +16,13 @@
   block-size: 12px;
 }
 
+.process-step__marker svg,
+.notice__symbol svg,
+.state__mark svg {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
 .workspace-rail button {
   grid-template-columns: 28px minmax(0, 1fr);
   gap: var(--space-2);
