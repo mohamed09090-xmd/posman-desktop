@@ -18,6 +18,7 @@ on:
       - "docs/PHASE-03-REPORT.md"
   push:
     branches:
+      - "main"
       - "phase/03-ui-foundation"
     paths:
       - ".github/workflows/ui-ci.yml"
@@ -59,9 +60,35 @@ jobs:
       - name: Verify accepted SQLite foundation
         run: python scripts/verify_schema.py
 
+      - name: Resolve event-scoped ownership range
+        id: ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+            range="${base}...${head}"
+            git merge-base --is-ancestor "$base" HEAD
+            git merge-base --is-ancestor "$head" HEAD
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            before="${{ github.event.before }}"
+            head="${{ github.sha }}"
+            if [[ "$before" == "0000000000000000000000000000000000000000" ]]; then
+              echo "A push ownership range requires a non-zero before SHA." >&2
+              exit 1
+            fi
+            range="${before}..${head}"
+          else
+            echo "Unsupported event: ${{ github.event_name }}" >&2
+            exit 1
+          fi
+          echo "range=$range" >> "$GITHUB_OUTPUT"
+          echo "Ownership range: $range"
+
       - name: Protect PHASE 02, database, and frozen sources
         run: >-
-          git diff --exit-code a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9 --
+          git diff --exit-code "${{ steps.ownership.outputs.range }}" --
           src-tauri database scripts/verify_schema.py src/platform/tauri src/main.tsx index.html
           tsconfig.json tsconfig.app.json tsconfig.node.json AGENTS.md .gitignore
           src/bootstrap/bootstrap.css README.md docs/spec/POSMAN-Blueprint-v1.md
@@ -138,7 +165,14 @@ jobs:
         run: git diff --check
 
       - name: Confirm clean worktree
-        run: git status --short --untracked-files=all
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(git status --short --untracked-files=all)"
+          if [[ -n "$status" ]]; then
+            printf '%s\n' "$status"
+            exit 1
+          fi
 
       - name: Upload UI screenshots and accessibility reports
         if: always()
