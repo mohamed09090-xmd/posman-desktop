@@ -1,0 +1,271 @@
+name: Runtime CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/runtime-ci.yml"
+      - "src-tauri/**"
+      - "src/platform/tauri/**"
+      - "database/migrations/**"
+      - "database/seed/reference_data.sql"
+      - "scripts/verify_schema.py"
+      - "docs/architecture/runtime-*.md"
+      - "docs/PHASE-02-REPORT.md"
+  push:
+    branches:
+      - "phase/02-runtime-foundation"
+    paths:
+      - ".github/workflows/runtime-ci.yml"
+      - "src-tauri/**"
+      - "src/platform/tauri/**"
+      - "database/migrations/**"
+      - "database/seed/reference_data.sql"
+      - "scripts/verify_schema.py"
+      - "docs/architecture/runtime-*.md"
+      - "docs/PHASE-02-REPORT.md"
+
+concurrency:
+  group: runtime-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-runtime:
+    name: Local runtime (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify accepted SQLite foundation
+        run: python scripts/verify_schema.py
+
+      - name: Confirm database sources are unchanged
+        run: git diff --exit-code a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9 -- database scripts/verify_schema.py
+
+      - name: Confirm frozen and out-of-scope files are unchanged
+        run: >-
+          git diff --exit-code a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9 --
+          src/app src/components src/i18n src/styles src/features src/bootstrap
+          package.json package-lock.json vite.config.ts src/main.tsx index.html
+          tsconfig.json tsconfig.app.json tsconfig.node.json AGENTS.md .gitignore README.md
+          docs/spec/POSMAN-Blueprint-v1.md docs/PHASE-01-REPORT.md docs/BOOTSTRAP-GATE-02-REPORT.md
+          docs/architecture/accounting-posting.md docs/architecture/data-dictionary.md
+          docs/architecture/database-decisions.md docs/architecture/erd.md
+          docs/architecture/migration-policy.md docs/architecture/parallel-wave-02-contract.md
+          docs/architecture/desktop-shell.md .github/workflows/schema-ci.yml
+          .github/workflows/desktop-bootstrap-ci.yml
+
+      - name: Record embedded migration SHA-256 values
+        shell: python
+        run: |
+          import hashlib
+          from pathlib import Path
+
+          for path in sorted(Path("database/migrations").glob("[0-9][0-9][0-9][0-9]_*.sql")):
+              digest = hashlib.sha256(path.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+              print(f"{path.name} {digest}")
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Set up Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install official Tauri Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Type-check frontend
+        run: npm run typecheck
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Run Rust clippy with warnings denied
+        id: clippy
+        shell: python
+        run: |
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          output = Path(os.environ["RUNNER_TEMP"], "runtime-clippy-output.txt")
+          command = [
+              "cargo", "clippy", "--manifest-path", "src-tauri/Cargo.toml",
+              "--all-targets", "--all-features", "--locked", "--", "-D", "warnings",
+          ]
+          result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+          output.write_text(result.stdout, encoding="utf-8")
+          print(result.stdout, end="")
+          sys.exit(result.returncode)
+
+      - name: Upload clippy diagnostics
+        if: always() && steps.clippy.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-clippy-diagnostics-${{ runner.os }}
+          path: ${{ runner.temp }}/runtime-clippy-output.txt
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Run Rust tests
+        id: rust-tests
+        shell: python
+        run: |
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          output = Path(os.environ["RUNNER_TEMP"], "runtime-test-output.txt")
+          command = [
+              "cargo", "test", "--manifest-path", "src-tauri/Cargo.toml",
+              "--all-targets", "--locked", "--", "--nocapture",
+          ]
+          result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+          output.write_text(result.stdout, encoding="utf-8")
+          print(result.stdout, end="")
+          sys.exit(result.returncode)
+
+      - name: Upload Rust test diagnostics
+        if: always() && steps.rust-tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-test-diagnostics-${{ runner.os }}
+          path: ${{ runner.temp }}/runtime-test-output.txt
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Compile native Tauri application without bundling
+        run: npm run desktop:check
+
+      - name: Check patch whitespace
+        run: git diff --check
+
+      - name: Show final worktree status
+        run: git status --short --untracked-files=all
+
+      - name: Require a clean worktree
+        id: clean-worktree
+        shell: python
+        run: |
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          unstaged = subprocess.check_output(
+              ["git", "diff", "--no-ext-diff"], text=True
+          )
+          staged = subprocess.check_output(
+              ["git", "diff", "--cached", "--no-ext-diff"], text=True
+          )
+          untracked = subprocess.check_output(
+              ["git", "ls-files", "--others", "--exclude-standard"], text=True
+          )
+          before = subprocess.check_output(
+              ["git", "status", "--short", "--untracked-files=all"], text=True
+          )
+          actual_dirty = bool(unstaged or staged or untracked)
+          if not actual_dirty:
+              subprocess.run(
+                  ["git", "restore", "--worktree", "--source=HEAD", "--", "."],
+                  check=True,
+              )
+          after = subprocess.check_output(
+              ["git", "status", "--short", "--untracked-files=all"], text=True
+          )
+          details = (
+              "STATUS BEFORE WORKTREE NORMALIZATION\n"
+              + before
+              + "\nUNSTAGED DIFF\n"
+              + unstaged
+              + "\nSTAGED DIFF\n"
+              + staged
+              + "\nUNTRACKED\n"
+              + untracked
+              + "\nSTATUS AFTER WORKTREE NORMALIZATION\n"
+              + after
+          )
+          diagnostics = Path(
+              os.environ["RUNNER_TEMP"], "runtime-worktree-diagnostics.txt"
+          )
+          diagnostics.write_text(details, encoding="utf-8")
+          print(details, end="")
+          sys.exit(1 if actual_dirty or after else 0)
+
+      - name: Upload worktree diagnostics
+        if: always() && steps.clean-worktree.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-worktree-diagnostics-${{ runner.os }}
+          path: ${{ runner.temp }}/runtime-worktree-diagnostics.txt
+          if-no-files-found: error
+          retention-days: 3
+
+  msrv:
+    name: Rust 1.85 MSRV (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust 1.85
+        uses: dtolnay/rust-toolchain@1.85
+
+      - name: Install official Tauri Linux prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Check all Rust targets with the minimum supported toolchain
+        run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
