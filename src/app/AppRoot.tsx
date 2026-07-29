@@ -21,7 +21,6 @@ import {
 } from "../features/ui-gallery/screens";
 import "../styles/tokens.css";
 import "../styles/ui-foundation.css";
-import "../styles/patch-03a.css";
 
 const workspaceCopy = {
   today: ["workspace.today.title", "workspace.today.subtitle"],

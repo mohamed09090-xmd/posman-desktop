@@ -163,6 +163,13 @@ dd {
   background: var(--color-app);
 }
 
+.command-bar__search-mark {
+  flex: 0 0 auto;
+  inline-size: 18px;
+  block-size: 18px;
+  color: var(--color-text-secondary);
+}
+
 .command-bar__search:focus-within {
   border-color: var(--color-text);
   box-shadow: var(--shadow-focus);
@@ -254,8 +261,9 @@ dd {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
+  gap: var(--space-2);
   inline-size: 100%;
-  min-block-size: 54px;
+  min-block-size: 62px;
   padding: var(--space-2);
   color: var(--color-text-secondary);
   text-align: start;
@@ -311,10 +319,12 @@ dd {
 }
 
 .workspace-rail__label {
-  overflow: hidden;
+  overflow: visible;
   font-size: var(--font-size-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .workspace {
@@ -550,6 +560,11 @@ dd {
   font-weight: 800;
 }
 
+.notice__symbol svg {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
 .notice h3 {
   font-size: var(--font-size-sm);
 }
@@ -580,6 +595,11 @@ dd {
   color: var(--color-text-secondary);
   border: var(--border-thin);
   border-radius: 50%;
+}
+
+.state__mark svg {
+  inline-size: 14px;
+  block-size: 14px;
 }
 
 .state p {
@@ -763,6 +783,12 @@ dd {
   font-weight: 750;
   line-height: 1;
   transform: rotate(-0.5deg);
+}
+
+.status-stamp__symbol {
+  flex: 0 0 auto;
+  inline-size: 12px;
+  block-size: 12px;
 }
 
 :root[dir="rtl"] .status-stamp { transform: rotate(0.5deg); }
@@ -1028,6 +1054,11 @@ dd {
   font-weight: 800;
 }
 
+.process-step__marker svg {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
 .process-step--completed .process-step__marker {
   color: var(--color-document);
   background: var(--color-confirmed);
@@ -1152,7 +1183,7 @@ dd {
 }
 
 @media (max-width: 1180px) {
-  :root { --rail-width: 96px; }
+  :root { --rail-width: 156px; }
   .command-bar {
     grid-template-columns: 170px minmax(220px, 1fr) minmax(350px, 1.6fr);
     gap: var(--space-2);
@@ -1167,7 +1198,7 @@ dd {
 @media (max-width: 1024px) {
   :root {
     --command-height: 58px;
-    --rail-width: 84px;
+    --rail-width: 148px;
   }
   .command-bar {
     grid-template-columns: 145px minmax(190px, 1fr) minmax(330px, 1.5fr);
@@ -1178,8 +1209,13 @@ dd {
   .command-bar__actions { gap: var(--space-2); }
   .command-bar__actions .button { padding-inline: var(--space-2); }
   .workspace-rail ol { padding-inline: var(--space-1); }
-  .workspace-rail button { grid-template-columns: 24px minmax(0, 1fr); padding-inline: var(--space-1); }
-  .workspace-rail__label { font-size: var(--font-size-xs); }
+  .workspace-rail button {
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: var(--space-2);
+    min-block-size: 62px;
+    padding-inline: var(--space-2);
+  }
+  .workspace-rail__label { font-size: var(--font-size-sm); }
   .workspace-header { padding-block: var(--space-3) var(--space-2); }
   .workspace-header p { display: none; }
   .workspace__content { padding-block-start: var(--space-3); }
