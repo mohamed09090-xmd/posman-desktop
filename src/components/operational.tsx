@@ -3,21 +3,41 @@ import { Button } from "./primitives";
 
 export type StatusTone = "confirmed" | "pending" | "shortage" | "draft" | "posted" | "available" | "low" | "out";
 
-const statusSymbols: Record<StatusTone, string> = {
-  confirmed: "✓",
-  pending: "…",
-  shortage: "!",
-  draft: "○",
-  posted: "◆",
-  available: "✓",
-  low: "△",
-  out: "×",
+const statusPaths: Record<StatusTone, string> = {
+  confirmed: "M2 6.5 4.7 9 10 2.5",
+  pending: "M2.5 6h.01M6 6h.01M9.5 6h.01",
+  shortage: "M6 2v5M6 9.5h.01",
+  draft: "M6 1.75a4.25 4.25 0 1 1 0 8.5 4.25 4.25 0 0 1 0-8.5Z",
+  posted: "M6 1.5 10.5 6 6 10.5 1.5 6 6 1.5Z",
+  available: "M2 6.5 4.7 9 10 2.5",
+  low: "M6 1.5 10.5 10H1.5L6 1.5Z",
+  out: "M2 2 10 10M10 2 2 10",
 };
+
+function StatusSymbol({ tone }: { tone: StatusTone }) {
+  return (
+    <svg
+      className="status-stamp__symbol"
+      viewBox="0 0 12 12"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d={statusPaths[tone]}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export function StatusStamp({ tone, children }: { tone: StatusTone; children: ReactNode }) {
   return (
     <span className={`status-stamp status-stamp--${tone}`}>
-      <span aria-hidden="true">{statusSymbols[tone]}</span>
+      <StatusSymbol tone={tone} />
       <span>{children}</span>
     </span>
   );
