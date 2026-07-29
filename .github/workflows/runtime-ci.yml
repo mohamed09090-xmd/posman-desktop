@@ -186,17 +186,62 @@ jobs:
         run: git status --short --untracked-files=all
 
       - name: Require a clean worktree
+        id: clean-worktree
         shell: python
         run: |
+          import os
           import subprocess
           import sys
+          from pathlib import Path
 
-          output = subprocess.check_output(
+          unstaged = subprocess.check_output(
+              ["git", "diff", "--no-ext-diff"], text=True
+          )
+          staged = subprocess.check_output(
+              ["git", "diff", "--cached", "--no-ext-diff"], text=True
+          )
+          untracked = subprocess.check_output(
+              ["git", "ls-files", "--others", "--exclude-standard"], text=True
+          )
+          before = subprocess.check_output(
               ["git", "status", "--short", "--untracked-files=all"], text=True
           )
-          if output:
-              print(output, end="")
-              sys.exit("runtime validation left a dirty worktree")
+          actual_dirty = bool(unstaged or staged or untracked)
+          if not actual_dirty:
+              subprocess.run(
+                  ["git", "restore", "--worktree", "--source=HEAD", "--", "."],
+                  check=True,
+              )
+          after = subprocess.check_output(
+              ["git", "status", "--short", "--untracked-files=all"], text=True
+          )
+          details = (
+              "STATUS BEFORE WORKTREE NORMALIZATION\n"
+              + before
+              + "\nUNSTAGED DIFF\n"
+              + unstaged
+              + "\nSTAGED DIFF\n"
+              + staged
+              + "\nUNTRACKED\n"
+              + untracked
+              + "\nSTATUS AFTER WORKTREE NORMALIZATION\n"
+              + after
+          )
+          diagnostics = Path(
+              os.environ["RUNNER_TEMP"], "runtime-worktree-diagnostics.txt"
+          )
+          diagnostics.write_text(details, encoding="utf-8")
+          print(details, end="")
+          sys.exit(1 if actual_dirty or after else 0)
+
+      - name: Upload worktree diagnostics
+        if: always() && steps.clean-worktree.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-worktree-diagnostics-${{ runner.os }}
+          path: ${{ runner.temp }}/runtime-worktree-diagnostics.txt
+          if-no-files-found: error
+          retention-days: 3
 
   msrv:
     name: Rust 1.85 MSRV (ubuntu-latest)
