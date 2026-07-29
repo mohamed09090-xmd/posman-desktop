@@ -274,6 +274,7 @@ jobs:
 
             $secondOutput = & $mt "-inputresource:$application;#2" "-out:$secondManifest" 2>&1
             $secondExit = $LASTEXITCODE
+            $global:LASTEXITCODE = 0
             if ($secondExit -eq 0) { throw 'An unexpected second application manifest resource was found.' }
 
             $versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($application)
