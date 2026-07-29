@@ -161,5 +161,5 @@ export function DetailDrawer({
 }
 
 export function ActionDock({ children, label }: { children: ReactNode; label: string }) {
-  return <footer className="action-dock" aria-label={label}>{children}</footer>;
+  return <div className="action-dock" role="group" aria-label={label}>{children}</div>;
 }
