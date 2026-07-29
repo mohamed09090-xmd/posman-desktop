@@ -87,7 +87,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{configure_application, RuntimeRoot};
+    use super::{configure_application, RuntimeRoot, RuntimeService};
     use crate::infrastructure::database::open_configured_connection;
     use std::{
         fs,
@@ -95,6 +95,7 @@ mod tests {
         sync::atomic::{AtomicU64, Ordering},
         time::{SystemTime, UNIX_EPOCH},
     };
+    use tauri::Manager;
 
     static TEST_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -128,15 +129,27 @@ mod tests {
         }
     }
 
+    #[allow(deprecated)]
+    fn execute_setup_once(application: &mut tauri::App<tauri::test::MockRuntime>) {
+        application.run_iteration(|_, _| {});
+    }
+
     #[test]
     fn application_setup_builds_with_mock_runtime() {
         let directory = TestDirectory::new();
-        let _application = configure_application(
+        let mut application = configure_application(
             tauri::test::mock_builder(),
             RuntimeRoot::Explicit(directory.path().to_path_buf()),
         )
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("failed to build the POSMAN runtime with Tauri's mock runtime");
+
+        execute_setup_once(&mut application);
+
+        let status = application.state::<RuntimeService>().status();
+        assert!(status.database_ready);
+        assert_eq!(status.schema_version, "0004");
+        assert_eq!(status.migration_count, 4);
 
         let database_path = directory.path().join("data").join("posman.sqlite3");
         assert!(database_path.is_file());
