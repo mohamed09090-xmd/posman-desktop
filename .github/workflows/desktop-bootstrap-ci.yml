@@ -142,7 +142,7 @@ jobs:
 
       - name: Run Rust tests
         id: rust-tests
-        run: python -c "import os,subprocess,sys; from pathlib import Path; output=Path(os.environ['RUNNER_TEMP'])/'rust-test-output.txt'; command=['cargo','test','--manifest-path','src-tauri/Cargo.toml','--all-targets','--locked']; result=subprocess.run(command,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT); output.write_text(result.stdout,encoding='utf-8'); print(result.stdout,end=''); sys.exit(result.returncode)"
+        run: python -c "import os,subprocess,sys; from pathlib import Path; output=Path(os.environ['RUNNER_TEMP'])/'rust-test-output.txt'; command=['cargo','test','--manifest-path','src-tauri/Cargo.toml','--all-targets','--locked','--','--nocapture']; result=subprocess.run(command,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT); output.write_text(result.stdout,encoding='utf-8'); print(result.stdout,end=''); sys.exit(result.returncode)"
 
       - name: Upload Rust test diagnostics
         if: always() && steps.rust-tests.outcome == 'failure'
@@ -153,15 +153,179 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+      - name: Verify Windows Rust test manifest dependency
+        id: windows-test-manifest
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $diagnostics = Join-Path $env:RUNNER_TEMP 'windows-test-manifest-diagnostics.txt'
+          $cargoJson = Join-Path $env:RUNNER_TEMP 'windows-test-artifacts.jsonl'
+          $headersFile = Join-Path $env:RUNNER_TEMP 'windows-test-headers.txt'
+          $manifest = Join-Path $env:RUNNER_TEMP 'posman-rust-test.manifest.xml'
+          'Windows Rust test manifest verification started.' | Set-Content $diagnostics
+
+          try {
+            $testOutput = Get-Content (Join-Path $env:RUNNER_TEMP 'rust-test-output.txt') -Raw
+            if ($testOutput -notmatch 'test tests::application_setup_builds_with_mock_runtime \.\.\. ok') {
+              throw 'The named Tauri mock-runtime unit-test PASS line was not found.'
+            }
+
+            cargo test --manifest-path src-tauri/Cargo.toml --lib --locked --no-run --message-format=json-render-diagnostics |
+              Tee-Object -FilePath $cargoJson
+            if ($LASTEXITCODE -ne 0) {
+              throw "cargo test --no-run failed with exit code $LASTEXITCODE."
+            }
+
+            $executables = @(Get-Content $cargoJson | ForEach-Object {
+              try { $_ | ConvertFrom-Json } catch { $null }
+            } | Where-Object {
+              $_.reason -eq 'compiler-artifact' -and
+              $_.target.name -eq 'posman_desktop_lib' -and
+              $_.executable
+            } | Select-Object -ExpandProperty executable -Unique)
+            if ($executables.Count -ne 1) {
+              throw "Expected one posman_desktop_lib test executable, found $($executables.Count)."
+            }
+            $testExecutable = $executables[0]
+
+            $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+            $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+            if (-not $visualStudio) { throw 'Visual Studio C++ tools were not found.' }
+            $dumpbin = Get-ChildItem (Join-Path $visualStudio 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe') -File |
+              Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+            $mt = Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') -File |
+              Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+            if (-not $dumpbin -or -not $mt) { throw 'dumpbin.exe or mt.exe was not found.' }
+
+            & $dumpbin /headers $testExecutable 2>&1 | Tee-Object -FilePath $headersFile
+            if ($LASTEXITCODE -ne 0) { throw "dumpbin failed with exit code $LASTEXITCODE." }
+            $resourceLine = (Get-Content $headersFile | Where-Object { $_ -match 'RVA \[size\] of Resource Directory' } | Select-Object -First 1)
+            if (-not $resourceLine) { throw 'The test PE Resource Directory line was not found.' }
+            $resourceRva = ($resourceLine.Trim() -split '\s+')[0]
+            if ([Convert]::ToUInt64($resourceRva, 16) -eq 0) { throw 'The test PE Resource Directory is zero.' }
+
+            & $mt "-inputresource:$testExecutable;#1" "-out:$manifest"
+            if ($LASTEXITCODE -ne 0) { throw "mt.exe failed with exit code $LASTEXITCODE." }
+            $manifestText = Get-Content $manifest -Raw
+            $manifestXml = [xml]$manifestText
+            if ($null -eq $manifestXml.DocumentElement) { throw 'The extracted test manifest is invalid XML.' }
+            if ($manifestText -notmatch 'Microsoft\.Windows\.Common-Controls' -or
+                $manifestText -notmatch 'version="6\.0\.0\.0"') {
+              throw 'The test manifest lacks Common Controls v6.'
+            }
+
+            @(
+              "Test executable: $testExecutable"
+              "Resource directory: $resourceLine"
+              "Manifest SHA-256: $((Get-FileHash $manifest -Algorithm SHA256).Hash)"
+              'Named test: application_setup_builds_with_mock_runtime ... ok'
+            ) | Add-Content $diagnostics
+          } catch {
+            "ERROR: $($_.Exception.Message)" | Add-Content $diagnostics
+            throw
+          }
+
+          Get-Content $diagnostics
+
       - name: Compile native Tauri shell without bundling
+        id: desktop-check
         run: npm run desktop:check
+
+      - name: Verify Windows application manifest dependency
+        id: windows-app-manifest
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $diagnostics = Join-Path $env:RUNNER_TEMP 'windows-application-manifest-diagnostics.txt'
+          $headersFile = Join-Path $env:RUNNER_TEMP 'windows-application-headers.txt'
+          $manifest = Join-Path $env:RUNNER_TEMP 'posman-application.manifest.xml'
+          $secondManifest = Join-Path $env:RUNNER_TEMP 'posman-application-secondary.manifest.xml'
+          'Windows application manifest verification started.' | Set-Content $diagnostics
+
+          try {
+            $application = (Resolve-Path 'src-tauri\target\debug\posman-desktop.exe').Path
+            $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+            $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+            if (-not $visualStudio) { throw 'Visual Studio C++ tools were not found.' }
+            $dumpbin = Get-ChildItem (Join-Path $visualStudio 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe') -File |
+              Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+            $mt = Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') -File |
+              Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+            if (-not $dumpbin -or -not $mt) { throw 'dumpbin.exe or mt.exe was not found.' }
+
+            & $dumpbin /headers $application 2>&1 | Tee-Object -FilePath $headersFile
+            if ($LASTEXITCODE -ne 0) { throw "dumpbin failed with exit code $LASTEXITCODE." }
+            $resourceLine = (Get-Content $headersFile | Where-Object { $_ -match 'RVA \[size\] of Resource Directory' } | Select-Object -First 1)
+            if (-not $resourceLine) { throw 'The application PE Resource Directory line was not found.' }
+            $resourceRva = ($resourceLine.Trim() -split '\s+')[0]
+            if ([Convert]::ToUInt64($resourceRva, 16) -eq 0) { throw 'The application PE Resource Directory is zero.' }
+
+            & $mt "-inputresource:$application;#1" "-out:$manifest"
+            if ($LASTEXITCODE -ne 0) { throw "mt.exe failed with exit code $LASTEXITCODE." }
+            $manifestText = Get-Content $manifest -Raw
+            $manifestXml = [xml]$manifestText
+            if ($null -eq $manifestXml.DocumentElement) { throw 'The extracted application manifest is invalid XML.' }
+            if ($manifestText -notmatch 'Microsoft\.Windows\.Common-Controls' -or
+                $manifestText -notmatch 'version="6\.0\.0\.0"') {
+              throw 'The application manifest lacks Common Controls v6.'
+            }
+
+            $secondOutput = & $mt "-inputresource:$application;#2" "-out:$secondManifest" 2>&1
+            $secondExit = $LASTEXITCODE
+            if ($secondExit -eq 0) { throw 'An unexpected second application manifest resource was found.' }
+
+            $versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($application)
+            if ([string]::IsNullOrWhiteSpace($versionInfo.FileVersion) -or
+                [string]::IsNullOrWhiteSpace($versionInfo.ProductName)) {
+              throw 'Normal Tauri version resources were not retained.'
+            }
+            Add-Type -AssemblyName System.Drawing
+            $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($application)
+            if ($null -eq $icon) { throw 'Normal Tauri icon resources were not retained.' }
+            $icon.Dispose()
+
+            @(
+              "Application executable: $application"
+              "Resource directory: $resourceLine"
+              "Manifest SHA-256: $((Get-FileHash $manifest -Algorithm SHA256).Hash)"
+              "Second manifest probe exit: $secondExit"
+              "File version: $($versionInfo.FileVersion)"
+              "Product name: $($versionInfo.ProductName)"
+              "Second manifest probe: $($secondOutput -join ' ')"
+              'Application icon: extractable'
+            ) | Add-Content $diagnostics
+          } catch {
+            "ERROR: $($_.Exception.Message)" | Add-Content $diagnostics
+            throw
+          }
+
+          Get-Content $diagnostics
+
+      - name: Upload Windows manifest diagnostics
+        if: always() && runner.os == 'Windows' && (steps.windows-test-manifest.outcome == 'failure' || steps.desktop-check.outcome == 'failure' || steps.windows-app-manifest.outcome == 'failure')
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-manifest-diagnostics
+          path: |
+            ${{ runner.temp }}/windows-test-manifest-diagnostics.txt
+            ${{ runner.temp }}/windows-test-artifacts.jsonl
+            ${{ runner.temp }}/windows-test-headers.txt
+            ${{ runner.temp }}/posman-rust-test.manifest.xml
+            ${{ runner.temp }}/windows-application-manifest-diagnostics.txt
+            ${{ runner.temp }}/windows-application-headers.txt
+            ${{ runner.temp }}/posman-application.manifest.xml
+            ${{ runner.temp }}/posman-application-secondary.manifest.xml
+          if-no-files-found: warn
+          retention-days: 3
 
       - name: Check Git whitespace
         run: git diff --check
 
       - name: Confirm clean worktree
         id: clean-worktree
-        run: python -c "import os,subprocess,sys; from pathlib import Path; status=subprocess.check_output(['git','status','--short','--untracked-files=all'],text=True); diff=subprocess.check_output(['git','diff','--no-ext-diff'],text=True); details='STATUS\n'+status+'\nDIFF\n'+diff; output=Path(os.environ['RUNNER_TEMP'])/'worktree-diagnostics.txt'; output.write_text(details,encoding='utf-8'); print(details,end=''); sys.exit(1 if status else 0)"
+        run: python -c "import os,subprocess,sys; from pathlib import Path; subprocess.run(['git','diff','--no-ext-diff','--quiet'],check=False); subprocess.run(['git','update-index','--refresh'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False); status=subprocess.check_output(['git','status','--short','--untracked-files=all'],text=True); diff=subprocess.check_output(['git','diff','--no-ext-diff'],text=True); details='STATUS\n'+status+'\nDIFF\n'+diff; output=Path(os.environ['RUNNER_TEMP'])/'worktree-diagnostics.txt'; output.write_text(details,encoding='utf-8'); print(details,end=''); sys.exit(1 if status else 0)"
 
       - name: Upload worktree diagnostics
         if: always() && steps.clean-worktree.outcome == 'failure'
