@@ -137,13 +137,33 @@ export interface ProcessStep {
   stateLabel: string;
 }
 
+const processPaths: Record<ProcessStep["state"], string> = {
+  completed: "M2 6.5 4.7 9 10 2.5",
+  current: "M6 2.25a3.75 3.75 0 1 1 0 7.5 3.75 3.75 0 0 1 0-7.5Z",
+  pending: "M6 1.75a4.25 4.25 0 1 1 0 8.5 4.25 4.25 0 0 1 0-8.5Z",
+};
+
+function ProcessSymbol({ state }: { state: ProcessStep["state"] }) {
+  return (
+    <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+      <path
+        d={processPaths[state]}
+        fill={state === "current" ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ProcessStrip({ steps, label }: { steps: readonly ProcessStep[]; label: string }) {
-  const symbols = { completed: "✓", current: "●", pending: "○" } as const;
   return (
     <ol className="process-strip" aria-label={label}>
       {steps.map((step) => (
         <li key={step.id} className={`process-step process-step--${step.state}`} aria-current={step.state === "current" ? "step" : undefined}>
-          <span className="process-step__marker" aria-hidden="true">{symbols[step.state]}</span>
+          <span className="process-step__marker" aria-hidden="true"><ProcessSymbol state={step.state} /></span>
           <div>
             <strong>{step.label}</strong>
             <span>{step.reference}</span>
