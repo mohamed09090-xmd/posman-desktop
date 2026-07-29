@@ -52,7 +52,15 @@ export function CommandBar({
       </div>
       <div className="command-bar__search">
         <label className="sr-only" htmlFor="global-search">{t("command.searchLabel")}</label>
-        <span aria-hidden="true">⌕</span>
+        <svg
+          className="command-bar__search-mark"
+          viewBox="0 0 20 20"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <circle cx="8.5" cy="8.5" r="5.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <path d="m12.4 12.4 4.1 4.1" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
         <input
           id="global-search"
           type="search"
@@ -161,7 +169,7 @@ export function WorkspaceHeader({
     <header className="workspace-header">
       <div className="workspace-header__title">
         <span className="eyebrow">{t("app.fixtureBadge")}</span>
-        <h1>{title}</h1>
+        <h1 id={view === "products" ? "products-heading" : undefined}>{title}</h1>
         <p>{subtitle}</p>
       </div>
       {items.length > 1 ? (
