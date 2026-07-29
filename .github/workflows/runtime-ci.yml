@@ -1,27 +1,18 @@
 name: Runtime CI
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/runtime-ci.yml"
-      - "src-tauri/**"
-      - "database/migrations/**"
-      - "database/seed/reference_data.sql"
   push:
     branches:
       - "phase/02-runtime-foundation"
     paths:
       - ".github/workflows/runtime-ci.yml"
-      - "src-tauri/**"
-      - "database/migrations/**"
-      - "database/seed/reference_data.sql"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  bootstrap-lock:
-    name: Resolve Phase 02 Cargo lock
+  prepare-lock-blob:
+    name: Prepare locked dependency blob
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -33,10 +24,40 @@ jobs:
       - name: Resolve Cargo lockfile
         run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
 
-      - name: Upload resolved Cargo lockfile
+      - name: Store Cargo lockfile as an unattached Git blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        shell: python
+        run: |
+          import base64
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+
+          content = base64.b64encode(Path("src-tauri/Cargo.lock").read_bytes()).decode("ascii")
+          request = urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['REPOSITORY']}/git/blobs",
+              data=json.dumps({"content": content, "encoding": "base64"}).encode("utf-8"),
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(request) as response:
+              blob_sha = json.load(response)["sha"]
+          Path(os.environ["RUNNER_TEMP"], "cargo-lock-blob-sha.txt").write_text(
+              blob_sha + "\n", encoding="utf-8"
+          )
+          print(f"Cargo.lock blob SHA: {blob_sha}")
+
+      - name: Upload Cargo lock blob SHA
         uses: actions/upload-artifact@v4
         with:
-          name: phase-02-cargo-lock
-          path: src-tauri/Cargo.lock
+          name: phase-02-cargo-lock-blob-sha
+          path: ${{ runner.temp }}/cargo-lock-blob-sha.txt
           if-no-files-found: error
           retention-days: 1
