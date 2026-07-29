@@ -9,7 +9,7 @@ Implementation evidence for the shared POSMAN desktop Bootstrap Gate. Acceptance
 - Repository: `https://github.com/mohamed09090-xmd/posman-desktop`
 - Accepted baseline: `0c72eb75eb5db916a51d1ee42fec47f21328ad28`
 - Branch: `bootstrap/desktop-shell`
-- Final head: `c65b95ef4de7f893b9adb2d3151abaae767a7b2c` (technical green implementation head; documentation commit follows)
+- Documentation-inclusive validated head: `5e697c05c9aec49dffa3fe6f56293ccf7ee7920f`
 - Draft PR: `https://github.com/mohamed09090-xmd/posman-desktop/pull/2`
 - PR state at handoff: open, Draft, unmerged
 
@@ -83,12 +83,12 @@ The execution environment available to the implementation session did not contai
 
 ## Final CI evidence
 
-- Final documentation-inclusive run: `https://github.com/mohamed09090-xmd/posman-desktop/actions/runs/30415056213` (technical green run before documentation commit)
-- Ubuntu job: `Desktop shell (ubuntu-latest)` — success, job `90459640934`
-- Windows job: `Desktop shell (windows-latest)` — success, job `90459640895`
-- Separate SQLite schema workflow: `https://github.com/mohamed09090-xmd/posman-desktop/actions/runs/30415056172` — success
+- Documentation-inclusive desktop run: `https://github.com/mohamed09090-xmd/posman-desktop/actions/runs/30415757191`
+- Ubuntu job: `Desktop shell (ubuntu-latest)` — success, job `90461798866`
+- Windows job: `Desktop shell (windows-latest)` — success, job `90461798828`
+- Documentation-inclusive SQLite schema workflow: `https://github.com/mohamed09090-xmd/posman-desktop/actions/runs/30415757177` — success
 
-Both platform worktrees were clean in this cited run. A documentation-inclusive rerun is required after this report is committed; its exact URL will be recorded in a follow-up evidence update.
+Both platform worktrees were clean in this documentation-inclusive run. This evidence-recording update is documentation-only and is validated by the subsequent branch-head workflows reported in the final handoff.
 
 ## Windows named Rust test
 
@@ -112,7 +112,7 @@ The workflow deterministically resolves the exact `posman_desktop_lib-*.exe` com
 - valid XML contains `Microsoft.Windows.Common-Controls` and `6.0.0.0`;
 - the named mock-runtime test PASS line exists in the actual test output.
 
-Evidence from final run:
+Evidence from the documentation-inclusive run:
 
 ```text
 Test executable: D:\a\posman-desktop\posman-desktop\src-tauri\target\debug\deps\posman_desktop_lib-3babbb0151fd5d43.exe
@@ -131,7 +131,7 @@ After `npm run desktop:check`, the workflow verifies the exact debug `posman-des
 - file-version/product metadata remain present;
 - an associated application icon remains extractable.
 
-Evidence from final run:
+Evidence from the documentation-inclusive run:
 
 ```text
 Application executable: D:\a\posman-desktop\posman-desktop\src-tauri\target\debug\posman-desktop.exe
