@@ -93,10 +93,12 @@ def validate_keyboard_path(page: Page) -> None:
 
 def main() -> int:
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+    vite_log = ARTIFACT_DIR / "vite.log"
+    log_handle = vite_log.open("w", encoding="utf-8")
     process = subprocess.Popen(
         ["npm", "run", "dev", "--", "--host", "127.0.0.1", "--port", "1420"],
         cwd=ROOT,
-        stdout=subprocess.PIPE,
+        stdout=log_handle,
         stderr=subprocess.STDOUT,
         text=True,
         start_new_session=True,
@@ -166,16 +168,13 @@ def main() -> int:
         print(f"UI browser evidence passed. Artifacts: {ARTIFACT_DIR}")
         return 0
     except Exception as error:
-        output = ""
-        if process.stdout:
-            try:
-                output = process.stdout.read()
-            except Exception:
-                output = ""
+        log_handle.flush()
         print(f"UI browser evidence failed: {error}", file=sys.stderr)
-        if output:
-            print("--- Vite output ---", file=sys.stderr)
-            print(output, file=sys.stderr)
+        if vite_log.is_file():
+            output = vite_log.read_text(encoding="utf-8", errors="replace")
+            if output:
+                print("--- Vite output ---", file=sys.stderr)
+                print(output, file=sys.stderr)
         return 1
     finally:
         try:
@@ -189,6 +188,7 @@ def main() -> int:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
+        log_handle.close()
 
 
 if __name__ == "__main__":
