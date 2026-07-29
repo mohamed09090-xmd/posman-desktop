@@ -122,11 +122,12 @@ fn verify_ready(
         });
     }
 
-    let mut foreign_key_check = connection
-        .prepare("PRAGMA foreign_key_check")
-        .map_err(|error| RuntimeError::IntegrityFailure {
-            detail: format!("failed to prepare PRAGMA foreign_key_check: {error}"),
-        })?;
+    let mut foreign_key_check =
+        connection
+            .prepare("PRAGMA foreign_key_check")
+            .map_err(|error| RuntimeError::IntegrityFailure {
+                detail: format!("failed to prepare PRAGMA foreign_key_check: {error}"),
+            })?;
     let mut rows = foreign_key_check
         .query([])
         .map_err(|error| RuntimeError::IntegrityFailure {

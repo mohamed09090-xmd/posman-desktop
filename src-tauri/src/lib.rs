@@ -65,7 +65,9 @@ fn configure_application<R: Runtime>(
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::runtime::get_runtime_status])
+        .invoke_handler(tauri::generate_handler![
+            commands::runtime::get_runtime_status
+        ])
 }
 
 fn boxed_runtime_error(error: RuntimeError) -> Box<dyn Error> {

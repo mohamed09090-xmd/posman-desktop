@@ -15,10 +15,11 @@ pub struct ConnectionContract {
 pub fn open_configured_connection(
     database_path: &Path,
 ) -> Result<(Connection, ConnectionContract), RuntimeError> {
-    let connection = Connection::open(database_path).map_err(|source| RuntimeError::DatabaseOpen {
-        path: database_path.to_path_buf(),
-        source,
-    })?;
+    let connection =
+        Connection::open(database_path).map_err(|source| RuntimeError::DatabaseOpen {
+            path: database_path.to_path_buf(),
+            source,
+        })?;
 
     connection
         .execute_batch("PRAGMA foreign_keys = ON;\nPRAGMA busy_timeout = 5000;")

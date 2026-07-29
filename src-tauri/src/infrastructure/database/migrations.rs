@@ -125,9 +125,7 @@ fn read_ledger(connection: &Connection) -> Result<Vec<AppliedMigration>, Runtime
     }
 
     let mut statement = connection
-        .prepare(
-            "SELECT id, version, name, checksum_sha256 FROM app_migrations ORDER BY id ASC",
-        )
+        .prepare("SELECT id, version, name, checksum_sha256 FROM app_migrations ORDER BY id ASC")
         .map_err(|error| RuntimeError::MigrationLedgerInvalid {
             detail: format!("failed to prepare the ledger query: {error}"),
         })?;
@@ -150,10 +148,7 @@ fn read_ledger(connection: &Connection) -> Result<Vec<AppliedMigration>, Runtime
         })
 }
 
-fn validate_ledger(
-    catalog: &[Migration],
-    ledger: &[AppliedMigration],
-) -> Result<(), RuntimeError> {
+fn validate_ledger(catalog: &[Migration], ledger: &[AppliedMigration]) -> Result<(), RuntimeError> {
     let supported = catalog
         .last()
         .expect("catalog validation guarantees a final migration");
@@ -213,13 +208,13 @@ fn apply_one(connection: &mut Connection, migration: &Migration) -> Result<(), R
             source,
         })?;
 
-    transaction
-        .execute_batch(migration.sql)
-        .map_err(|source| RuntimeError::MigrationExecution {
+    transaction.execute_batch(migration.sql).map_err(|source| {
+        RuntimeError::MigrationExecution {
             version: migration.version.to_owned(),
             name: migration.name.to_owned(),
             source,
-        })?;
+        }
+    })?;
 
     transaction
         .execute(

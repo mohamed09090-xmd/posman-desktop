@@ -13,11 +13,7 @@ use super::{
     migrations::{apply_migrations, Migration, MIGRATIONS},
     RuntimeDatabase, REFERENCE_SEED_SQL,
 };
-use crate::{
-    application::RuntimeStatus,
-    error::RuntimeError,
-    infrastructure::paths::RuntimePaths,
-};
+use crate::{application::RuntimeStatus, error::RuntimeError, infrastructure::paths::RuntimePaths};
 
 static TEST_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -78,11 +74,15 @@ fn fresh_database_creates_directories_schema_seed_and_connection_contract() {
         &paths.templates,
         &paths.logs,
     ] {
-        assert!(path.is_dir(), "missing runtime directory {}", path.display());
+        assert!(
+            path.is_dir(),
+            "missing runtime directory {}",
+            path.display()
+        );
     }
     assert!(paths.database.is_file());
 
-    let (connection, _) = open_configured_connection(&paths.database)
+    let (connection, contract) = open_configured_connection(&paths.database)
         .expect("runtime connection should satisfy the PRAGMA contract");
     assert_eq!(
         scalar_i64(
@@ -105,7 +105,10 @@ fn fresh_database_creates_directories_schema_seed_and_connection_contract() {
         ),
         6
     );
-    assert_eq!(scalar_i64(&connection, "SELECT COUNT(*) FROM permissions"), 22);
+    assert_eq!(
+        scalar_i64(&connection, "SELECT COUNT(*) FROM permissions"),
+        22
+    );
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
         4
@@ -129,14 +132,15 @@ fn fresh_database_creates_directories_schema_seed_and_connection_contract() {
     assert_eq!(status.migration_count, 4);
     assert!(status.database_ready);
     assert!(status.foreign_keys_enabled);
+    assert_eq!(status.journal_mode, contract.journal_mode);
     assert!(!status.journal_mode.is_empty());
 }
 
 #[test]
 fn restart_is_idempotent_for_migrations_and_reference_seed() {
     let (_directory, paths, first_runtime) = initialize_fixture();
-    let (first_connection, _) = open_configured_connection(&paths.database)
-        .expect("first runtime connection should open");
+    let (first_connection, _) =
+        open_configured_connection(&paths.database).expect("first runtime connection should open");
     let first_counts = (
         scalar_i64(&first_connection, "SELECT COUNT(*) FROM app_migrations"),
         scalar_i64(&first_connection, "SELECT COUNT(*) FROM roles"),
@@ -147,8 +151,8 @@ fn restart_is_idempotent_for_migrations_and_reference_seed() {
 
     let second_runtime = RuntimeDatabase::initialize(&paths.database)
         .expect("second initialization should be idempotent");
-    let (second_connection, _) = open_configured_connection(&paths.database)
-        .expect("second runtime connection should open");
+    let (second_connection, _) =
+        open_configured_connection(&paths.database).expect("second runtime connection should open");
     let second_counts = (
         scalar_i64(&second_connection, "SELECT COUNT(*) FROM app_migrations"),
         scalar_i64(&second_connection, "SELECT COUNT(*) FROM roles"),
@@ -186,7 +190,10 @@ fn checksum_mismatch_is_fatal_and_names_the_version() {
 
     let (connection, _) = open_configured_connection(&paths.database)
         .expect("database should remain inspectable after rejected startup");
-    assert_eq!(scalar_i64(&connection, "SELECT COUNT(*) FROM roles"), roles_before);
+    assert_eq!(
+        scalar_i64(&connection, "SELECT COUNT(*) FROM roles"),
+        roles_before
+    );
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
         4
@@ -241,10 +248,13 @@ fn ledger_gap_is_rejected_before_seed_or_migration_work() {
         Ok(_) => panic!("ledger gap should reject startup"),
         Err(error) => error,
     };
-    assert!(matches!(&error, RuntimeError::MigrationLedgerInvalid { .. }));
+    assert!(matches!(
+        &error,
+        RuntimeError::MigrationLedgerInvalid { .. }
+    ));
 
-    let (connection, _) = open_configured_connection(&paths.database)
-        .expect("gap fixture should remain inspectable");
+    let (connection, _) =
+        open_configured_connection(&paths.database).expect("gap fixture should remain inspectable");
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
         3
@@ -272,7 +282,10 @@ fn ledger_metadata_mismatch_is_rejected() {
         Ok(_) => panic!("metadata mismatch should reject startup"),
         Err(error) => error,
     };
-    assert!(matches!(&error, RuntimeError::MigrationLedgerInvalid { .. }));
+    assert!(matches!(
+        &error,
+        RuntimeError::MigrationLedgerInvalid { .. }
+    ));
     assert!(error.to_string().contains("0002"));
 }
 
@@ -303,8 +316,8 @@ fn migration_failure_rolls_back_partial_writes_and_stops_catalog() {
     let database_path = directory.path().join("atomic.sqlite3");
     let (mut connection, _) = open_configured_connection(&database_path)
         .expect("atomicity fixture connection should open");
-    let error = apply_migrations(&mut connection, &CATALOG)
-        .expect_err("the injected migration must fail");
+    let error =
+        apply_migrations(&mut connection, &CATALOG).expect_err("the injected migration must fail");
     assert!(matches!(
         &error,
         RuntimeError::MigrationExecution { version, .. } if version == "0002"
@@ -341,8 +354,8 @@ fn migration_failure_rolls_back_partial_writes_and_stops_catalog() {
 fn seed_is_idempotent_and_failure_rolls_back_all_seed_writes() {
     let directory = TestDirectory::new();
     let database_path = directory.path().join("seed.sqlite3");
-    let (mut connection, _) = open_configured_connection(&database_path)
-        .expect("seed fixture connection should open");
+    let (mut connection, _) =
+        open_configured_connection(&database_path).expect("seed fixture connection should open");
     apply_migrations(&mut connection, &MIGRATIONS).expect("production migrations should apply");
 
     let failing_seed =
@@ -351,7 +364,10 @@ fn seed_is_idempotent_and_failure_rolls_back_all_seed_writes() {
         .expect_err("the injected seed must fail atomically");
     assert!(matches!(&error, RuntimeError::SeedExecution { .. }));
     assert_eq!(scalar_i64(&connection, "SELECT COUNT(*) FROM roles"), 0);
-    assert_eq!(scalar_i64(&connection, "SELECT COUNT(*) FROM permissions"), 0);
+    assert_eq!(
+        scalar_i64(&connection, "SELECT COUNT(*) FROM permissions"),
+        0
+    );
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM role_permissions"),
         0
