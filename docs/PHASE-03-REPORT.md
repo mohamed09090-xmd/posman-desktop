@@ -2,124 +2,99 @@
 
 ## Disposition
 
-Implementation evidence for **PHASE 03 — Original UI Foundation**, including **Patch 03A**. External acceptance remains the responsibility of the architect/reviewer; this report is not self-approval.
+Implementation evidence for **PHASE 03 — Original UI Foundation**, including **Patch 03A** and the final structural cleanup. External acceptance remains the responsibility of the architect/reviewer; this report is not self-approval.
 
 ## Repository coordinates
 
 - Repository: `https://github.com/mohamed09090-xmd/posman-desktop`
 - Original PHASE 03 baseline: `a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9`
-- Accepted PHASE 02 main after squash merge: `7112e7f029a6419c7e58f89947f66ccad8bb69e4`
-- Patch 03A reviewed starting head: `a7d0bd4c071bd7e7f17283f1f3d3db5c9cb6d245`
-- Validated Patch 03A code head: `ca6996177013c4d7820e01059f88ce9acae0abcd`
+- Accepted PHASE 02 main: `7112e7f029a6419c7e58f89947f66ccad8bb69e4`
+- Final cleanup starting head: `f2b2bbd6a1f078bf63dc44e9c28bbd9cf7e9987a`
+- Validated cleanup implementation head: `53275f534650360989b84822ea5be8f70c15925e`
 - Branch: `phase/03-ui-foundation`
-- Draft Pull Request: `https://github.com/mohamed09090-xmd/posman-desktop/pull/4`
-- Pull Request state at evidence capture: open, Draft, unmerged
+- Pull Request: `https://github.com/mohamed09090-xmd/posman-desktop/pull/4`
+- Pull Request state at this evidence capture: open, Draft, unmerged
+
+The documentation-only commit containing this report follows the validated cleanup implementation head. GitHub Pull Request metadata and the final CI runs are authoritative for the eventual pre-merge branch head.
 
 ## Selected direction
 
-The implemented direction remains **دفتر العمليات المعاصر / Contemporary Operations Ledger**. Patch 03A preserves its indexed workspace rail, ruled operational sections, table-first content, document canvases, process lineage, status stamps, and contextual action docks. It does not introduce a generic admin-dashboard layout or unrelated UI scope.
+The implemented direction remains **دفتر العمليات المعاصر / Contemporary Operations Ledger**. It preserves the indexed workspace rail, ruled operational sections, table-first content, document canvases, process lineage, status stamps, and contextual action docks. The cleanup does not alter accepted appearance, dimensions, behavior, accessibility semantics, or responsive operation.
 
-## Patch 03A scope implemented
+## Final structural cleanup
 
-### Accessibility
+The temporary Patch 03A stylesheet was fully absorbed into the foundation styles:
 
-- Added the translated inventory workspace heading as the real `products-heading` target used by the products region.
-- Changed `ActionDock` to a valid labelled ARIA group.
-- Replaced the search mark, status marks, process marks, notice marks, and empty-state mark with inline decorative SVG elements using `aria-hidden`.
-- Axe now requests `violations`, `incomplete`, and `passes` and fails on:
-  - any violation;
-  - any `critical` or `serious` incomplete result.
-- No allowlist or broad suppression was added.
+- The base `--rail-width: 168px` token now lives in `src/styles/tokens.css`.
+- Workspace Rail dimensions, label wrapping, and the 1180px/1024px responsive values now live in their existing sections in `src/styles/ui-foundation.css`.
+- Search, status, notice, empty-state, and document-process SVG dimensions now live beside their component rules in `src/styles/ui-foundation.css`.
+- The accepted rail widths remain 168px, 156px, and 148px at the applicable breakpoints.
+- Workspace Rail labels retain visible overflow, normal wrapping, `text-overflow: clip`, and the accepted small font size.
+- The obsolete 116px, 96px, and 84px rail values were replaced rather than overridden.
+- The obsolete Workspace Rail `text-overflow: ellipsis`, `white-space: nowrap`, hidden overflow, and 1024px extra-small font rule were removed rather than overridden.
+- `src/styles/patch-03a.css` was deleted.
+- Its import was deleted from `src/app/AppRoot.tsx`.
 
-### Workspace rail clarity
+No duplicate Patch 03A selector block or temporary stylesheet remains.
 
-- Preserved the Operations Ledger numbered rail and current font size.
-- Increased the rail width at desktop and minimum supported viewports.
-- Removed ellipsis and `nowrap` from module names and permitted normal wrapping to two lines or as required.
-- Added an automated geometry check for every one of the seven module labels at:
-  - Arabic 1280×800;
-  - French 1280×800;
-  - Arabic 1024×640;
-  - French 1024×640.
-- The check rejects zero-size labels, horizontal or vertical clipping, ellipsis, and `nowrap`.
+## Cleanup commits
 
-### Screenshot evidence
+- `53275f534650360989b84822ea5be8f70c15925e` — `refactor(ui): consolidate Patch 03A foundation styles`
+- A documentation-only commit records this final evidence after the validated implementation commit.
 
-- Skip-link keyboard validation runs on a separate page from the Arabic Today screenshot.
-- Arabic Today asserts that the complete `CommandBar` is inside the viewport before capture.
-- All five screenshots and all Axe reports were regenerated and visually reviewed.
-
-### Integration CI
-
-- Added `main` to UI workflow push branches.
-- Pull-request ownership resolves the current remote base branch and checks `base...head`.
-- Push ownership checks `before..sha`.
-- The successful ownership range was:
-  `7112e7f029a6419c7e58f89947f66ccad8bb69e4...ca6996177013c4d7820e01059f88ce9acae0abcd`.
-- UI tests run on GitHub's PR merge result containing accepted PHASE 02 and PHASE 03.
-- The ownership guard still rejects changes to `src-tauri/**`, `database/**`, `scripts/verify_schema.py`, migrations, bootstrap architecture, PHASE 02 sources, and all listed frozen files.
-
-## Patch 03A files
-
-### Created
-
-- `src/styles/patch-03a.css`
+## Cleanup files
 
 ### Modified
 
-- `.github/workflows/ui-ci.yml`
-- `docs/PHASE-03-REPORT.md`
 - `src/app/AppRoot.tsx`
-- `src/components/layout.tsx`
-- `src/components/operational.tsx`
-- `src/components/primitives.tsx`
-- `tests/e2e/run_ui_gallery.py`
+- `src/styles/tokens.css`
+- `src/styles/ui-foundation.css`
+- `docs/PHASE-03-REPORT.md`
 
 ### Deleted
 
+- `src/styles/patch-03a.css`
+
+### Created
+
 - None.
 
-No product dependency, runtime dependency, database file, migration, Tauri source, PHASE 02 file, or frozen architecture source was changed.
+No file under `src-tauri/**`, `database/**`, migrations, `scripts/verify_schema.py`, `src/platform/tauri/**`, PHASE 02 ownership, bootstrap architecture, or the frozen-file contract was modified.
 
-## Validation evidence
+## Pre-documentation validation evidence
 
-### UI foundation CI
+### UI Foundation CI
 
-- Run: `https://github.com/mohamed09090-xmd/posman-desktop/actions/runs/30485394370`
-- Result: SUCCESS on Ubuntu 24.04.
-- Validated code head: `ca6996177013c4d7820e01059f88ce9acae0abcd` through PR merge result.
+- Run: `https://github.com/mohamed09090-xmd/posman-desktop/actions/runs/30490896793`
+- Result: SUCCESS.
+- Validated implementation head: `53275f534650360989b84822ea5be8f70c15925e` through the Pull Request merge result.
 
-Successful commands and gates:
+Successful gates:
 
 - `python scripts/verify_schema.py`
-- current-main `base...head` ownership guard
+- current-main ownership range resolution
+- PHASE 02, database, and frozen-source protection
 - `npm ci`
-- runtime network/external asset scan
+- runtime network and external-asset rejection
 - `npm run typecheck`
 - `npm run build`
 - `npm run test:ui`
 - `npm run test:e2e`
 - `git diff --check`
 - clean-worktree assertion
-- artifact upload
+- evidence artifact upload
 
-### Desktop bootstrap CI
+### Desktop Bootstrap CI
 
-- Run: `https://github.com/mohamed09090-xmd/posman-desktop/actions/runs/30485394275`
+- Run: `https://github.com/mohamed09090-xmd/posman-desktop/actions/runs/30490896915`
 - Ubuntu job: SUCCESS.
 - Windows job: SUCCESS.
 
-Both jobs passed accepted SQLite verification, PHASE 01 database-source protection, Node/Rust setup, `npm ci`, frontend typecheck/build, bootstrap network scan, Rust formatting, clippy with warnings denied, Rust tests, native Tauri compilation without bundling, whitespace validation, and clean-worktree validation. Windows also passed the required manifest dependency checks.
-
-### Local structural checks
-
-- `python -m py_compile tests/e2e/run_ui_gallery.py` — PASS.
-- Workflow YAML parse — PASS.
-- The implementation environment did not provide the required Node 24/npm 11 and Rust toolchain locally, so GitHub Actions is authoritative for npm and desktop commands.
+Both jobs passed accepted SQLite verification, PHASE 01 database-source protection, Node/Rust setup, `npm ci`, frontend typecheck/build, bootstrap network scan, Rust formatting, clippy with warnings denied, Rust tests, native Tauri compilation without bundling, whitespace validation, and clean-worktree validation. Windows also passed the required test and application manifest dependency checks.
 
 ## Accessibility results
 
-Every captured screen has zero Axe violations, zero incomplete results, and zero unresolved critical/serious incomplete results:
+Every captured screen has zero Axe violations and zero incomplete results:
 
 | Screen | Violations | Incomplete | Critical/serious incomplete | Passed rules |
 |---|---:|---:|---:|---:|
@@ -129,48 +104,54 @@ Every captured screen has zero Axe violations, zero incomplete results, and zero
 | Product list with drawer | 0 | 0 | 0 | 45 |
 | Sales cycle | 0 | 0 | 0 | 36 |
 
-The strengthened gate initially and correctly exposed `color-contrast` as a serious incomplete result for decorative text status marks. Those marks and equivalent decorative marks were converted to SVG; the next validated run reported zero incomplete results on all five screens.
+The Axe gate fails on any violation and on any critical or serious incomplete result. No allowlist or broad result suppression exists.
 
 ## Viewport and visual evidence
 
-Automated browser assertions found no page-level horizontal overflow on all captured views. Rail label clipping checks passed for both languages at 1280×800 and 1024×640.
+Automated geometry checks passed for every one of the seven Workspace Rail labels at:
+
+- Arabic 1280×800
+- French 1280×800
+- Arabic 1024×640
+- French 1024×640
+
+The checks reject zero-size labels, horizontal or vertical clipping, ellipsis, and `nowrap`. Browser assertions also found no page-level horizontal overflow on the captured views.
 
 Artifact:
 
-- Page: `https://github.com/mohamed09090-xmd/posman-desktop/actions/runs/30485394370/artifacts/8737424115`
+- Page: `https://github.com/mohamed09090-xmd/posman-desktop/actions/runs/30490896793/artifacts/8739648412`
 - Name: `phase-03-ui-evidence`
-- Artifact ID: `8737424115`
-- Size: 572,729 bytes
-- Digest: `sha256:255cde54a5ee75a8cb19df0d2ca81cbc5701b5dfd93c9662d976d7e91342e8e6`
+- Artifact ID: `8739648412`
+- Size: 572,731 bytes
+- Digest: `sha256:503009f500ea8301c855f5c4d950d9540e29da3d03f0e7f3aec88996b85fcd38`
 - Retention expiry: 2026-08-28
 
-The downloaded artifact contains five PNG screenshots, five full Axe JSON reports, an Axe summary, and the Vite log. Visual review confirmed:
+The downloaded artifact contains five PNG screenshots, five full Axe JSON reports, the Axe summary, and the Vite log. Visual review confirmed that the cleanup preserved:
 
-- complete Arabic Today `CommandBar` with no skip-link focus displacement;
+- the complete Arabic Today CommandBar;
 - complete Arabic and French rail labels without ellipsis;
-- usable Arabic invoice at 1024×640;
-- intact product grid and detail drawer;
-- intact sales-cycle lineage and status marks.
+- the usable Arabic invoice at 1024×640;
+- the product grid and detail drawer;
+- the sales-cycle lineage and status marks.
 
 ## Architectural decisions
 
-- Accessibility uncertainty is treated as a failed gate when impact is critical or serious.
-- Decorative marks are graphical and excluded from the accessibility tree; operational states retain adjacent readable text and do not rely on color alone.
-- The rail remains a ledger index rather than collapsing into icon-only navigation.
-- CI ownership is event-scoped and base-aware, allowing accepted PHASE 02 on `main` while rejecting PHASE 03 modifications to runtime, database, migration, bootstrap, and frozen sources.
+- Patch-specific styling is now owned by the permanent token and component foundation files rather than a trailing override stylesheet.
+- Accepted responsive values are represented once at the relevant cascade locations; obsolete values are removed rather than shadowed.
+- The numbered rail remains a readable ledger index and does not collapse into icon-only navigation.
+- Decorative marks remain SVG elements excluded from the accessibility tree while operational states retain adjacent readable text.
 - All UI evidence remains deterministic, fixture-only, offline, and free of runtime network clients.
 
 ## Deferred scope and risks
 
 - Official IBM Plex WOFF2 binaries remain deferred; the offline Windows system fallback stack remains active.
 - DataGrid virtualization remains a future requirement for operational datasets larger than the small fixtures.
-- UI actions remain demonstration-only and require reviewed domain/application commands in a later authorized phase.
-- No SQLite access, Tauri invocation from the gallery, service/API layer, authentication, CRUD, stock calculation, CUMP, accounting posting, PDF/printing, backup/restore, installer, reports engine, cloud, telemetry, or runtime network was introduced.
+- Gallery actions remain demonstration-only and require separately authorized domain/application commands.
+- No SQLite application access, Tauri gallery invocation, service/API layer, CRUD, inventory calculation, accounting posting, PDF/printing, cloud, telemetry, or runtime network client was introduced.
 
 ## Safety confirmations
 
-- No force-push, rebase, history rewrite, merge commit, or auto-merge was performed on PHASE 03.
-- Pull Request #4 remains Draft, open, and unmerged.
-- Accepted PHASE 02 is tested through the PR merge result but was not merged into or copied onto the PHASE 03 branch.
+- No force-push, rebase, history rewrite, merge-main, or auto-merge was performed.
+- Accepted PHASE 02 was tested through the Pull Request merge result but was not merged into or copied onto the PHASE 03 branch.
 - No branch was deleted.
 - PHASE 04 and every later phase were not started.
