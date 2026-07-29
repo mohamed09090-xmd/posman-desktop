@@ -2,6 +2,18 @@
 
 These rules apply to every implementation agent working in this repository.
 
+## Mandatory continuity bootstrap
+
+Before planning, reviewing, or implementing project work:
+
+1. Read `docs/continuity/CURRENT-STATE.md` and follow its recovery procedure.
+2. Read `docs/continuity/RECOVERY-PROMPT.md` when reconstructing context after a lost conversation, account change, or agent handoff.
+3. Verify the checkpoint against the live `main` SHA, merged and open Pull Requests, Git history, and completed CI. The live accepted repository state outranks a stale checkpoint.
+4. Keep the checkpoint current through a separate docs-only Draft PR after each newly accepted phase; never record an unmerged phase as accepted.
+5. Do not start the checkpoint's next candidate phase unless the user explicitly authorizes it.
+
+## Standing repository rules
+
 1. Read `docs/spec/POSMAN-Blueprint-v1.md` before changing domain logic or architecture.
 2. Keep POSMAN Windows-first, offline, local-first, and based on bundled SQLite. Do not introduce a server, cloud dependency, telemetry, online account, subscription, or external database without explicit approval.
 3. Never use floating-point storage for money, prices, costs, tax rates, discounts, or quantities. Follow the documented fixed-point scales.
