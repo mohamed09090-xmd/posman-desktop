@@ -1,6 +1,9 @@
 name: Runtime CI
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/runtime-ci.yml"
   push:
     branches:
       - "phase/02-runtime-foundation"
