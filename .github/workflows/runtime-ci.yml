@@ -1,0 +1,42 @@
+name: Runtime CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/runtime-ci.yml"
+      - "src-tauri/**"
+      - "database/migrations/**"
+      - "database/seed/reference_data.sql"
+  push:
+    branches:
+      - "phase/02-runtime-foundation"
+    paths:
+      - ".github/workflows/runtime-ci.yml"
+      - "src-tauri/**"
+      - "database/migrations/**"
+      - "database/seed/reference_data.sql"
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap-lock:
+    name: Resolve Phase 02 Cargo lock
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust 1.85
+        uses: dtolnay/rust-toolchain@1.85
+
+      - name: Resolve Cargo lockfile
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+
+      - name: Upload resolved Cargo lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-02-cargo-lock
+          path: src-tauri/Cargo.lock
+          if-no-files-found: error
+          retention-days: 1
