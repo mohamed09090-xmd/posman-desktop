@@ -84,12 +84,27 @@ export interface InlineNoticeProps {
   live?: boolean;
 }
 
-const noticeSymbols: Record<NoticeTone, string> = {
-  info: "i",
-  success: "✓",
-  error: "!",
-  warning: "△",
+const noticePaths: Record<NoticeTone, string> = {
+  info: "M6 5v4M6 2.5h.01",
+  success: "M2 6.5 4.7 9 10 2.5",
+  error: "M6 2v5M6 9.5h.01",
+  warning: "M6 1.5 10.5 10H1.5L6 1.5Z",
 };
+
+function NoticeSymbol({ tone }: { tone: NoticeTone }) {
+  return (
+    <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+      <path
+        d={noticePaths[tone]}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export function InlineNotice({ title, children, tone = "info", live = false }: InlineNoticeProps) {
   return (
@@ -98,7 +113,7 @@ export function InlineNotice({ title, children, tone = "info", live = false }: I
       aria-live={live ? "polite" : undefined}
       aria-atomic={live || undefined}
     >
-      <span className="notice__symbol" aria-hidden="true">{noticeSymbols[tone]}</span>
+      <span className="notice__symbol" aria-hidden="true"><NoticeSymbol tone={tone} /></span>
       <div>
         <h3>{title}</h3>
         <div className="notice__body">{children}</div>
@@ -115,7 +130,11 @@ export interface StateProps {
 export function EmptyState({ title, children }: StateProps) {
   return (
     <div className="state state--empty" role="status">
-      <span className="state__mark" aria-hidden="true">—</span>
+      <span className="state__mark" aria-hidden="true">
+        <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+          <path d="M2 6h8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </span>
       {title ? <h3>{title}</h3> : null}
       {children ? <div>{children}</div> : null}
     </div>
