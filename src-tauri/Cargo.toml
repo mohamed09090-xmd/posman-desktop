@@ -1,0 +1,28 @@
+[package]
+name = "posman-desktop"
+version = "0.1.0"
+description = "POSMAN offline desktop shell"
+authors = ["POSMAN"]
+edition = "2021"
+rust-version = "1.85"
+build = "build.rs"
+
+[lib]
+name = "posman_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
