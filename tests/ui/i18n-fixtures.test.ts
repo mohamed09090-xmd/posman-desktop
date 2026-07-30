@@ -14,6 +14,21 @@ import {
   productFixtures,
 } from "../../src/features/ui-gallery/fixtures/index.ts";
 
+const runtimeMessageKeys = [
+  "runtime.initializing",
+  "runtime.ready",
+  "runtime.preview",
+  "runtime.errorTitle",
+  "runtime.errorGeneric",
+  "runtime.retry",
+  "runtime.schemaVersion",
+  "runtime.migrationCount",
+  "runtime.journalMode",
+  "runtime.foreignKeys",
+  "runtime.foreignKeysEnabled",
+  "runtime.retrying",
+] as const;
+
 test("Arabic is the default RTL locale", () => {
   assert.equal(DEFAULT_LOCALE, "ar-DZ");
   assert.equal(directionForLocale(DEFAULT_LOCALE), "rtl");
@@ -25,6 +40,13 @@ test("Arabic and French dictionaries have identical complete keys", () => {
   for (const [key, value] of Object.entries(arMessages)) {
     assert.ok(value.trim(), `Arabic translation is empty: ${key}`);
     assert.ok(frMessages[key as keyof typeof frMessages].trim(), `French translation is empty: ${key}`);
+  }
+});
+
+test("runtime messages exist and are non-empty in Arabic and French", () => {
+  for (const key of runtimeMessageKeys) {
+    assert.ok(arMessages[key].trim(), `Arabic runtime translation is empty: ${key}`);
+    assert.ok(frMessages[key].trim(), `French runtime translation is empty: ${key}`);
   }
 });
 
@@ -50,7 +72,9 @@ test("Product filter supports localized text, code, and empty results", () => {
 });
 
 test("UI foundation contains reduced-motion and avoids prohibited visual patterns", () => {
-  const css = readFileSync(new URL("../../src/styles/ui-foundation.css", import.meta.url), "utf8");
+  const foundationCss = readFileSync(new URL("../../src/styles/ui-foundation.css", import.meta.url), "utf8");
+  const runtimeCss = readFileSync(new URL("../../src/features/runtime/runtime-status.css", import.meta.url), "utf8");
+  const css = `${foundationCss}\n${runtimeCss}`;
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(css, /linear-gradient|radial-gradient|backdrop-filter/i);
   assert.doesNotMatch(css, /border-radius:\s*(?:1[2-9]|[2-9]\d)px/i);
