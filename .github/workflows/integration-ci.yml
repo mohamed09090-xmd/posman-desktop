@@ -1,0 +1,103 @@
+name: Phase 04 dependency bootstrap
+
+on:
+  push:
+    branches:
+      - "phase/04-frontend-runtime-integration"
+
+permissions:
+  contents: write
+
+jobs:
+  materialize-locked-dependency:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Phase 04 branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase/04-frontend-runtime-integration
+          fetch-depth: 0
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Configure bounded commit identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Materialize exact Tauri API lock and integration script
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --save-exact @tauri-apps/api@2.11.1
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("package.json")
+          package = json.loads(path.read_text(encoding="utf-8"))
+          package["scripts"]["test:integration"] = (
+              "node --experimental-strip-types --test tests/integration/*.test.ts"
+          )
+          path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          PY
+          git add package.json package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(frontend): add locked Tauri API dependency"
+            git push origin HEAD:phase/04-frontend-runtime-integration
+          fi
+
+      - name: Add localized runtime messages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/i18n/dictionaries.ts")
+          text = path.read_text(encoding="utf-8")
+          if '"runtime.initializing"' not in text:
+              ar_marker = '  "demo.feedbackLabel": "حالة الإجراء التجريبي",\n} as const;'
+              ar_runtime = '''  "demo.feedbackLabel": "حالة الإجراء التجريبي",
+  "runtime.initializing": "جارٍ التحقق من البيانات المحلية…",
+  "runtime.ready": "قاعدة البيانات المحلية جاهزة",
+  "runtime.preview": "وضع معاينة الواجهة — حالة التشغيل المحلي غير متاحة",
+  "runtime.errorTitle": "تعذر التحقق من التشغيل المحلي",
+  "runtime.errorGeneric": "لم نتمكن من تأكيد جاهزية البيانات المحلية. أعد المحاولة.",
+  "runtime.retry": "إعادة المحاولة",
+  "runtime.schemaVersion": "إصدار المخطط",
+  "runtime.migrationCount": "عدد الترحيلات",
+  "runtime.journalMode": "نمط السجل",
+  "runtime.foreignKeys": "المفاتيح الخارجية",
+  "runtime.foreignKeysEnabled": "مفعّلة",
+  "runtime.retrying": "جارٍ إعادة التحقق…",
+} as const;'''
+              fr_marker = '  "demo.feedbackLabel": "État de l’action de démonstration",\n} satisfies Record<MessageKey, string>;'
+              fr_runtime = '''  "demo.feedbackLabel": "État de l’action de démonstration",
+  "runtime.initializing": "Vérification des données locales…",
+  "runtime.ready": "La base de données locale est prête",
+  "runtime.preview": "Mode aperçu de l’interface — état du runtime local indisponible",
+  "runtime.errorTitle": "Vérification du runtime local impossible",
+  "runtime.errorGeneric": "La disponibilité des données locales n’a pas pu être confirmée. Réessayez.",
+  "runtime.retry": "Réessayer",
+  "runtime.schemaVersion": "Version du schéma",
+  "runtime.migrationCount": "Migrations",
+  "runtime.journalMode": "Mode du journal",
+  "runtime.foreignKeys": "Clés étrangères",
+  "runtime.foreignKeysEnabled": "activées",
+  "runtime.retrying": "Nouvelle vérification…",
+} satisfies Record<MessageKey, string>;'''
+              if ar_marker not in text or fr_marker not in text:
+                  raise SystemExit("Expected dictionary insertion markers were not found")
+              text = text.replace(ar_marker, ar_runtime).replace(fr_marker, fr_runtime)
+              path.write_text(text, encoding="utf-8")
+          PY
+          git add src/i18n/dictionaries.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(ui): add localized runtime readiness messages"
+            git push origin HEAD:phase/04-frontend-runtime-integration
+          fi
