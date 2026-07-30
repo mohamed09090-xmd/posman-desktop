@@ -177,6 +177,11 @@ mod tests {
         let webview = tauri::WebviewWindowBuilder::new(&application, "main", Default::default())
             .build()
             .expect("failed to build mock webview for IPC test");
+        let ipc_url = if cfg!(any(windows, target_os = "android")) {
+            String::from("http") + "://tauri.localhost"
+        } else {
+            String::from("tauri://localhost")
+        };
 
         let response = tauri::test::get_ipc_response(
             &webview,
@@ -184,13 +189,9 @@ mod tests {
                 cmd: "get_runtime_status".into(),
                 callback: tauri::ipc::CallbackFn(0),
                 error: tauri::ipc::CallbackFn(1),
-                url: if cfg!(any(windows, target_os = "android")) {
-                    "http://tauri.localhost"
-                } else {
-                    "tauri://localhost"
-                }
-                .parse()
-                .expect("local Tauri IPC URL should parse"),
+                url: ipc_url
+                    .parse()
+                    .expect("local Tauri IPC URL should parse"),
                 body: tauri::ipc::InvokeBody::default(),
                 headers: Default::default(),
                 invoke_key: tauri::test::INVOKE_KEY.to_string(),

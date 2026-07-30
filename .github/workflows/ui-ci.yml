@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/ui-ci.yml"
+      - ".github/workflows/integration-ci.yml"
       - "package.json"
       - "package-lock.json"
       - "vite.config.ts"
@@ -12,16 +13,22 @@ on:
       - "src/i18n/**"
       - "src/styles/**"
       - "src/features/ui-gallery/**"
+      - "src/features/runtime/**"
+      - "src/platform/tauri/**"
+      - "src-tauri/src/lib.rs"
       - "tests/**"
       - "public/**"
       - "docs/design/**"
+      - "docs/architecture/frontend-runtime-integration.md"
       - "docs/PHASE-03-REPORT.md"
+      - "docs/PHASE-04-REPORT.md"
   push:
     branches:
       - "main"
       - "phase/03-ui-foundation"
     paths:
       - ".github/workflows/ui-ci.yml"
+      - ".github/workflows/integration-ci.yml"
       - "package.json"
       - "package-lock.json"
       - "vite.config.ts"
@@ -30,10 +37,15 @@ on:
       - "src/i18n/**"
       - "src/styles/**"
       - "src/features/ui-gallery/**"
+      - "src/features/runtime/**"
+      - "src/platform/tauri/**"
+      - "src-tauri/src/lib.rs"
       - "tests/**"
       - "public/**"
       - "docs/design/**"
+      - "docs/architecture/frontend-runtime-integration.md"
       - "docs/PHASE-03-REPORT.md"
+      - "docs/PHASE-04-REPORT.md"
 
 concurrency:
   group: ui-foundation-${{ github.workflow }}-${{ github.ref }}
@@ -87,18 +99,10 @@ jobs:
           echo "range=$range" >> "$GITHUB_OUTPUT"
           echo "Ownership range: $range"
 
-      - name: Protect PHASE 02, database, and frozen sources
+      - name: Protect accepted database foundation
         run: >-
           git diff --exit-code "${{ steps.ownership.outputs.range }}" --
-          src-tauri database scripts/verify_schema.py src/platform/tauri src/main.tsx index.html
-          tsconfig.json tsconfig.app.json tsconfig.node.json AGENTS.md .gitignore
-          src/bootstrap/bootstrap.css README.md docs/spec/POSMAN-Blueprint-v1.md
-          docs/PHASE-01-REPORT.md docs/BOOTSTRAP-GATE-02-REPORT.md
-          docs/architecture/accounting-posting.md docs/architecture/data-dictionary.md
-          docs/architecture/database-decisions.md docs/architecture/erd.md
-          docs/architecture/migration-policy.md docs/architecture/parallel-wave-02-contract.md
-          docs/architecture/desktop-shell.md .github/workflows/schema-ci.yml
-          .github/workflows/desktop-bootstrap-ci.yml
+          database scripts/verify_schema.py
 
       - name: Set up Node.js 24
         uses: actions/setup-node@v4
@@ -126,6 +130,8 @@ jobs:
               Path("src/i18n"),
               Path("src/styles"),
               Path("src/features/ui-gallery"),
+              Path("src/features/runtime"),
+              Path("src/platform/tauri"),
               Path("public"),
           ]
           excluded = {Path("public/fonts/OFL.txt")}
@@ -156,6 +162,9 @@ jobs:
 
       - name: Run UI unit and contract tests
         run: npm run test:ui
+
+      - name: Run frontend-runtime integration tests
+        run: npm run test:integration
 
       - name: Run Playwright browser, accessibility, and screenshot evidence
         env:
