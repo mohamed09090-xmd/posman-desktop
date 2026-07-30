@@ -2,6 +2,8 @@
 
 > Snapshot verified on 2026-07-30 against the accepted product baseline. This file is a recovery aid, not a replacement for the live repository, merged Pull Requests, the Blueprint, or accepted architecture documents.
 
+Start recovery from [PROJECT-MEMORY-INDEX.md](PROJECT-MEMORY-INDEX.md). It links the complete operating contract, PHASE 01–10 roadmap, decision register, current tree, historical execution packs, and copy-ready recovery prompt.
+
 ## 1. Recovery coordinates
 
 | Item | Accepted value |
@@ -45,6 +47,8 @@ Authority order when recovering context:
 
 An active execution pack may narrow the scope further, but it cannot silently override accepted architecture, repository instructions, or user decisions.
 
+The full role and evidence behavior is defined in [AI-OPERATING-CONTRACT.md](AI-OPERATING-CONTRACT.md).
+
 ## 4. Accepted delivery ledger
 
 | Gate | PR | Accepted squash on `main` | Result |
@@ -62,6 +66,8 @@ Supporting reports:
 - [PHASE 03 report](../PHASE-03-REPORT.md)
 
 No PHASE 04 implementation was accepted or started at the time of this checkpoint.
+
+The canonical engineering plan through POSMAN v1.0.0 is recorded in [MASTER-ROADMAP-PHASES-01-10.md](MASTER-ROADMAP-PHASES-01-10.md). PHASE 05–10 are planned boundaries, not accepted implementation and not authorization to begin.
 
 ## 5. Implemented architecture
 
@@ -164,20 +170,22 @@ PHASE 04 should exclude company writes, authentication, general CRUD, inventory 
 
 Before authoring its execution pack, inspect the live source and define an ownership contract that protects accepted PHASE 01–03 files while identifying the smallest necessary shared integration points.
 
+PHASE 05–10 cover first-run/reference data, inventory/purchasing, sales transformation, accounting posting, documents/reports/backup, and distribution/release. Their dependencies, scope, exclusions, and acceptance gates are in the master roadmap.
+
 ## 9. Recovery procedure
 
 When continuing from a new account, lost conversation, or new AI session:
 
 1. Open the repository and read [AGENTS.md](../../AGENTS.md).
-2. Read this checkpoint and [RECOVERY-PROMPT.md](RECOVERY-PROMPT.md).
-3. Verify the live `main` SHA and compare it with the accepted product baseline above.
-4. Inspect merged and open PRs created after this checkpoint.
-5. Read the Blueprint and all accepted reports/architecture documents relevant to the next task.
+2. Follow the mandatory order in [PROJECT-MEMORY-INDEX.md](PROJECT-MEMORY-INDEX.md).
+3. Read [RECOVERY-PROMPT.md](RECOVERY-PROMPT.md), the Blueprint, and all accepted reports/architecture documents relevant to the next task.
+4. Verify the live `main` SHA and compare it with the accepted product baseline above.
+5. Inspect merged and open PRs created after this checkpoint.
 6. Run or inspect the repository's existing validation workflows before claiming the baseline is healthy.
 7. Produce a short recovery report listing verified facts, differences since this snapshot, unresolved risks, and the proposed next action.
 8. Do not modify code, open a branch, or start a phase until the user explicitly authorizes it.
 
-If repository access is unavailable, ask the user to attach this file, `AGENTS.md`, the Blueprint, and the latest accepted phase reports. Do not reconstruct critical state from memory.
+If repository access is unavailable, ask the user to attach the complete `docs/continuity/` directory, `AGENTS.md`, the Blueprint, and the latest accepted phase reports. Do not reconstruct critical state from memory.
 
 ## 10. Checkpoint maintenance
 
@@ -185,8 +193,8 @@ After each newly accepted merge:
 
 1. Verify the exact new `main` SHA, squash title, PR state, changed files, CI results, and phase boundaries.
 2. Update the accepted delivery ledger and implemented/not-implemented sections.
-3. Move the next-candidate section only after separating accepted facts from proposed scope.
-4. Update `RECOVERY-PROMPT.md` if the role contract, recovery sequence, or authoritative files change.
-5. Submit continuity changes in a docs-only Draft PR; do not mix them into business implementation.
-6. Never claim acceptance from an unmerged branch or an implementer's report alone.
-
+3. Update the roadmap, decision register, and project tree when their facts change.
+4. Move the next-candidate section only after separating accepted facts from proposed scope.
+5. Update `AI-OPERATING-CONTRACT.md` and `RECOVERY-PROMPT.md` if the role contract, recovery sequence, or authoritative files change.
+6. Submit continuity changes in a docs-only Draft PR; do not mix them into business implementation.
+7. Never claim acceptance from an unmerged branch or an implementer's report alone.

@@ -6,11 +6,13 @@ These rules apply to every implementation agent working in this repository.
 
 Before planning, reviewing, or implementing project work:
 
-1. Read `docs/continuity/CURRENT-STATE.md` and follow its recovery procedure.
-2. Read `docs/continuity/RECOVERY-PROMPT.md` when reconstructing context after a lost conversation, account change, or agent handoff.
-3. Verify the checkpoint against the live `main` SHA, merged and open Pull Requests, Git history, and completed CI. The live accepted repository state outranks a stale checkpoint.
-4. Keep the checkpoint current through a separate docs-only Draft PR after each newly accepted phase; never record an unmerged phase as accepted.
-5. Do not start the checkpoint's next candidate phase unless the user explicitly authorizes it.
+1. Read `docs/continuity/PROJECT-MEMORY-INDEX.md` and follow its mandatory reading order.
+2. Read `docs/continuity/CURRENT-STATE.md`, `docs/continuity/AI-OPERATING-CONTRACT.md`, `docs/continuity/MASTER-ROADMAP-PHASES-01-10.md`, `docs/continuity/DECISION-REGISTER.md`, and `docs/continuity/PROJECT-TREE.md` before proposing project work.
+3. Read `docs/continuity/RECOVERY-PROMPT.md` when reconstructing context after a lost conversation, account change, or agent handoff.
+4. Verify the checkpoint against the live `main` SHA, merged and open Pull Requests, Git history, changed files, and completed CI. The live accepted repository state outranks a stale checkpoint.
+5. Distinguish accepted, verified work from reported, proposed, deferred, and rejected work. A roadmap entry is not authorization.
+6. Keep the memory package current through a separate docs-only Draft PR after each newly accepted phase; never record an unmerged phase as accepted.
+7. Do not start the checkpoint's next candidate phase unless the user explicitly authorizes it.
 
 ## Standing repository rules
 
