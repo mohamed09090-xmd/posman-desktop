@@ -1,200 +1,155 @@
-# POSMAN Continuity Checkpoint 03
+# POSMAN Continuity Checkpoint 04
 
-> Snapshot verified on 2026-07-30 against the accepted product baseline. This file is a recovery aid, not a replacement for the live repository, merged Pull Requests, the Blueprint, or accepted architecture documents.
+> Snapshot verified against accepted `main` SHA `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307` after PHASE 04 and POST-MERGE HOTFIX 04C. Live GitHub evidence remains authoritative.
 
-Start recovery from [PROJECT-MEMORY-INDEX.md](PROJECT-MEMORY-INDEX.md). It links the complete operating contract, PHASE 01–10 roadmap, decision register, current tree, historical execution packs, and copy-ready recovery prompt.
+Start with [PROJECT-MEMORY-INDEX.md](PROJECT-MEMORY-INDEX.md).
 
 ## 1. Recovery coordinates
 
 | Item | Accepted value |
 | --- | --- |
 | Repository | `https://github.com/mohamed09090-xmd/posman-desktop` |
+| Visibility | Public |
 | Default branch | `main` |
-| Last accepted product baseline | `f4cda85b24f9d69ebb0442c02f8a037da8ba9baf` |
-| Latest accepted product phase | `PHASE 03 — Original UI Foundation` |
-| Next candidate phase | `PHASE 04 — Frontend–Runtime Integration Gate` |
-| PHASE 04 status | Not started and not authorized by this checkpoint |
+| Current accepted `main` | `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307` |
+| Latest accepted product phase | PHASE 04 — Frontend Runtime Integration |
+| Latest accepted correction | POST-MERGE HOTFIX 04C |
+| Open continuity PR | Draft PR [#5](https://github.com/mohamed09090-xmd/posman-desktop/pull/5), branch `docs/continuity-checkpoint-03` |
+| Next candidate | PHASE 05 — planned, unstarted, unauthorized |
 
-Always fetch and verify the live `main` SHA, merged PRs, open PRs, and CI before relying on this snapshot. If the live repository conflicts with this file, stop and reconcile the difference from Git history and accepted review evidence.
+## 2. Accepted delivery ledger
 
-## 2. Product intent
-
-POSMAN is a Windows-first, offline, local-first desktop commercial-management application inspired by the scope of Sage 100 Gestion Commerciale without copying its interface. It is intended to install and run without a separately installed database server or cloud account.
-
-The target product includes company setup, catalogue and families, customers and suppliers, initial stock, inventory movement tracking, purchases, direct sales, the order-to-delivery-to-invoice cycle, customizable business documents, and automatic accounting posting. Arabic (`ar-DZ`, RTL) is the default language and French (`fr-DZ`, LTR) is supported.
-
-The authoritative product specification is [POSMAN Blueprint v1](../spec/POSMAN-Blueprint-v1.md).
-
-## 3. Collaboration and authority contract
-
-The normal collaboration model is:
-
-- The user owns product decisions and acceptance.
-- The primary AI acts as software architect, planner, prompt author, and independent reviewer.
-- A separate implementation agent may execute an approved phase package and return an evidence-based report.
-- The primary AI must not treat an implementer's report as proof by itself; it verifies the branch, diff, CI, artifacts, and scope.
-- No phase is self-accepted. A phase becomes accepted only after explicit review and an authorized merge.
-- The primary AI must not implement, push, merge, mark a PR ready, or start a later phase unless the user explicitly authorizes that action.
-- Work uses small scoped branches and Draft Pull Requests. No force-push, history rewrite, direct commit to `main`, auto-merge, or unapproved merge.
-
-Authority order when recovering context:
-
-1. Live `main`, Git history, merged PR metadata, and completed CI evidence.
-2. Repository instructions in [AGENTS.md](../../AGENTS.md).
-3. The Blueprint and accepted architecture/phase reports.
-4. This checkpoint and conversation summaries.
-5. Unmerged branch reports or agent claims.
-
-An active execution pack may narrow the scope further, but it cannot silently override accepted architecture, repository instructions, or user decisions.
-
-The full role and evidence behavior is defined in [AI-OPERATING-CONTRACT.md](AI-OPERATING-CONTRACT.md).
-
-## 4. Accepted delivery ledger
-
-| Gate | PR | Accepted squash on `main` | Result |
+| Delivery unit | PR | Accepted squash on `main` | Status |
 | --- | ---: | --- | --- |
 | PHASE 01 — SQLite Data Foundation | [#1](https://github.com/mohamed09090-xmd/posman-desktop/pull/1) | `0c72eb75eb5db916a51d1ee42fec47f21328ad28` | Accepted |
 | Bootstrap Gate — Tauri Desktop Shell | [#2](https://github.com/mohamed09090-xmd/posman-desktop/pull/2) | `a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9` | Accepted |
 | PHASE 02 — Local Runtime Foundation | [#3](https://github.com/mohamed09090-xmd/posman-desktop/pull/3) | `7112e7f029a6419c7e58f89947f66ccad8bb69e4` | Accepted |
 | PHASE 03 — Original UI Foundation | [#4](https://github.com/mohamed09090-xmd/posman-desktop/pull/4) | `f4cda85b24f9d69ebb0442c02f8a037da8ba9baf` | Accepted |
+| PHASE 04 — Frontend Runtime Integration | [#6](https://github.com/mohamed09090-xmd/posman-desktop/pull/6) | `a86635a8bc7dd8f3b7683f8f2f33d40c454441bb` | Accepted |
+| POST-MERGE HOTFIX 04C | [#7](https://github.com/mohamed09090-xmd/posman-desktop/pull/7) | `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307` | Accepted |
 
-Supporting reports:
+Accepted reports and architecture:
 
 - [PHASE 01 report](../PHASE-01-REPORT.md)
 - [Bootstrap Gate report](../BOOTSTRAP-GATE-02-REPORT.md)
 - [PHASE 02 report](../PHASE-02-REPORT.md)
 - [PHASE 03 report](../PHASE-03-REPORT.md)
+- [PHASE 04 report](../PHASE-04-REPORT.md)
+- [Hotfix 04C report](../HOTFIX-04C-REPORT.md)
+- [Frontend runtime integration architecture](../architecture/frontend-runtime-integration.md)
 
-No PHASE 04 implementation was accepted or started at the time of this checkpoint.
+## 3. Accepted PHASE 04 behavior
 
-The canonical engineering plan through POSMAN v1.0.0 is recorded in [MASTER-ROADMAP-PHASES-01-10.md](MASTER-ROADMAP-PHASES-01-10.md). PHASE 05–10 are planned boundaries, not accepted implementation and not authorization to begin.
+PHASE 04 connected the accepted frontend shell to the existing read-only runtime command without introducing business operations.
 
-## 5. Implemented architecture
+- A typed Tauri gateway is centralized under `src/platform/tauri/**`; UI components do not scatter raw `invoke` calls.
+- The frontend consumes **only** `get_runtime_status`.
+- Runtime payloads are validated before use, and thrown/unknown failures are normalized into safe user-facing errors without exposing SQL, paths, stack traces, or raw Rust details.
+- The UI models `initializing`, `ready`, `error`, and browser `preview` states.
+- Retry behavior is explicit and tested.
+- Stale responses, unmounts, and React StrictMode activate/deactivate/activate behavior are protected so obsolete results do not overwrite current state and duplicate invocation is avoided.
+- Arabic remains the default with RTL behavior; French uses LTR. Runtime state and safe errors are integrated in both languages.
+- Browser tests use a controlled development-only adapter seam; production bundle checks reject the development hook.
+- No business CRUD, business write path, extra Tauri command, or direct SQL access was introduced.
 
-### Desktop shell
+## 4. Accepted Hotfix 04C behavior
 
-- Tauri 2 desktop shell with Rust, React, TypeScript, and Vite.
-- Offline runtime with no HTTP client, cloud service, telemetry, sidecar, subscription, or external database.
-- Explicit local CSP and a minimal Tauri capability associated with the main window.
-- Windows/MSVC uses a shared embedded Common Controls v6 manifest while preserving Tauri application icons and version resources.
+Hotfix 04C corrected the Integration CI ownership model without changing PHASE 04 product source.
 
-See [desktop shell architecture](../architecture/desktop-shell.md).
+- Removed the fixed PHASE 03 ownership baseline from `.github/workflows/integration-ci.yml`.
+- Pull-request ownership is now event-scoped from the target branch to the triggering PR head using a three-dot range, with ancestry checks against the checked-out head.
+- Push ownership is event-scoped from `github.event.before` to `github.sha` using a two-dot range; an all-zero `before` SHA is rejected.
+- Removed the unused `workflow_call` interface after verifying no repository caller depended on it.
+- Preserved `permissions: contents: read`.
+- Preserved the write-capability guard and the complete Integration validation gate.
+- Ownership evidence and the final whitespace/worktree comparison use the resolved event-scoped range.
 
-### Data foundation
+## 5. Current implemented architecture
 
-- Four ordered SQLite migrations define 49 tables and 25 integrity triggers.
-- SQLite is the authoritative local store.
-- Monetary and quantitative values use fixed-point integers; application business columns do not use `REAL`.
-- Business text identifiers are non-null, non-blank primary keys. Future application-created identifiers are intended to use UUIDv7 generated in Rust.
-- `stock_movements` is the append-only inventory source of truth; `stock_balances` is a rebuildable projection.
-- Posted commercial documents, posted journal entries, stock movements, rendered historical documents, and audit records are immutable.
-- Corrections use returns, reversals, credit documents, or compensating entries.
-- Accounting posting requires an open period, at least two lines, positive totals, and equal debit and credit.
-- Accepted migrations must never be edited; corrections require a new ordered migration.
+### Desktop and data foundation
 
-Fixed-point storage scales:
+- Tauri 2 + React + TypeScript + Vite + Rust.
+- Bundled SQLite through `rusqlite`; no separately installed database server.
+- Four accepted ordered migrations, 49 tables, and 25 integrity triggers.
+- Fixed-point integer storage for monetary and quantitative truth.
+- Append-only `stock_movements`; rebuildable `stock_balances` projection.
+- Posted commercial, stock, accounting, rendered-document, and audit history is immutable.
+- Runtime initialization creates the local data structure, validates the exact migration ledger, applies deterministic seed data, and exposes sanitized readiness state.
 
-| Value | Integer scale |
-| --- | ---: |
-| Final money amounts | 2 decimal places |
-| Unit prices and unit costs | 4 decimal places |
-| Quantities | 6 decimal places |
-| Percentage points | 4 decimal places; `19.0000%` is stored as `190000` |
+### Runtime integration path
 
-See [database decisions](../architecture/database-decisions.md), [data dictionary](../architecture/data-dictionary.md), [ERD](../architecture/erd.md), and [accounting posting](../architecture/accounting-posting.md).
+```text
+React runtime feature
+  → typed frontend Tauri gateway
+  → get_runtime_status
+  → Rust RuntimeService
+  → bundled local SQLite readiness checks
+```
 
-### Local runtime
+The frontend displays runtime health only. Rust remains the authority for validation, transactions, inventory, totals, and accounting when those later services are authorized.
 
-- `rusqlite` with bundled SQLite; no database server, ORM, Tauri SQL plugin, or global `rusqlite::Connection`.
-- Production data root is resolved from Tauri `local_data_dir()` under `POSMAN`.
-- Runtime creates local `data`, `backups`, `documents`, `templates`, and `logs` directories and uses `data/posman.sqlite3`.
-- Every connection enables foreign keys, sets a 5000 ms busy timeout, and requests WAL while reporting the actual journal mode.
-- Migrations and deterministic seed data are embedded from the accepted `database/**` sources.
-- Migration ledger validation checks a contiguous prefix and exact version, name, and SHA-256 values. Gaps, checksum changes, metadata mismatches, and databases newer than the application are rejected without destructive reset or downgrade.
-- Readiness verifies the migration count, current schema version, table count, and `foreign_key_check`.
-- Tauri initializes the runtime during `setup` and exposes only the read-only, sanitized `get_runtime_status` command.
+### Bilingual UI foundation
 
-See [runtime database architecture](../architecture/runtime-database.md) and [runtime command contracts](../architecture/runtime-command-contracts.md).
+- Contemporary Operations Ledger visual system.
+- Arabic `ar-DZ` default with RTL; French `fr-DZ` with LTR.
+- Typed dictionaries, logical CSS, keyboard-visible focus, reduced-motion support, and accessibility evidence.
+- Existing gallery and sample commercial screens remain fixtures, not working business modules.
 
-### UI foundation
+## 6. Current repository tree additions from PHASE 04/04C
 
-- Original visual direction: **Contemporary Operations Ledger**.
-- The interface is operations-led rather than a generic admin dashboard: numbered workspace rail, document canvas, process strip, status stamps, action dock, operational grids, and detail drawers.
-- Arabic is the default and switches correctly between RTL Arabic and LTR French without reload.
-- Typed dictionaries share identical keys and use `Intl` for DZD, dates, quantities, and numbers.
-- Central CSS tokens and logical properties support both directions and desktop viewports.
-- Accessibility evidence for the accepted representative screens reported zero Axe violations and zero incomplete checks, with keyboard-visible focus, semantic labels, reduced-motion support, and no page-level horizontal overflow.
-- UI actions and data remain fixtures only. They do not claim persistence or business processing.
-- No component framework, heavy router, state-management framework, or runtime network dependency was introduced.
+The accepted tree now includes:
 
-See [UI foundation](../design/ui-foundation.md), [component inventory](../design/component-inventory.md), and [design direction study](../design/direction-study.md).
+- `src/platform/tauri/**`
+- `src/features/runtime/**`
+- `tests/integration/**`
+- `.github/workflows/integration-ci.yml`
+- `docs/PHASE-04-REPORT.md`
+- `docs/HOTFIX-04C-REPORT.md`
+- `docs/architecture/frontend-runtime-integration.md`
 
-## 6. What is deliberately not implemented
+See [PROJECT-TREE.md](PROJECT-TREE.md) for path ownership.
 
-The accepted baseline does **not** yet include:
+## 7. Product boundary
 
-- Frontend calls to Tauri commands.
-- Frontend consumption of `get_runtime_status`.
-- Real company setup, authentication, roles, or permissions.
-- Catalogue, partner, purchasing, sales, stock, or accounting CRUD services.
-- CUMP calculation, negative-stock policy enforcement, reservation consumption, business-total calculation, tax rounding, or accounting-rule selection.
-- Document transformation services or enforcement of aggregate transformed quantity.
-- PDF generation, printing, template designer, report engine, backup/restore workflows, installer, signing, packaged-release validation, cloud sync, telemetry, or online accounts.
+Accepted:
 
-Do not describe gallery fixtures, buttons, or sample documents as working business features.
+- PHASE 01–04.
+- POST-MERGE HOTFIX 04C.
+- Read-only frontend/runtime health integration.
 
-## 7. Preserved invariants and deferred work
+Not implemented yet:
 
-The following must remain explicit in future phase packages:
+- Company setup or first-run completion.
+- Authentication, users, roles, permissions, or password recovery.
+- Catalogue, family, product, customer, or supplier CRUD.
+- Inventory writes, opening stock posting, reservations, CUMP/CMUP, purchasing, or stock reconciliation workflows.
+- Sales documents, order-to-delivery-to-invoice transformation, returns, or commercial total calculation.
+- Accounting-rule selection or journal posting.
+- Printing, PDF generation, template editing, reports, backup/restore, installer, signing, or packaged release validation.
 
-- The sum of quantities transformed from a source document line must not exceed the source quantity. This is the single known PHASE 01 invariant intentionally deferred to a Rust application transaction.
-- Backup-before-future-migration and full backup/restore are documented but not implemented.
-- Data-grid virtualization remains deferred until operational data volumes require it.
-- IBM Plex licensing is present, but bundled WOFF2 font files and exact typography remain deferred; the accepted UI uses offline system fallbacks.
-- Installer, signing, and packaged Windows validation remain outside the accepted baseline.
+PHASE 05–10 remain planned only. This checkpoint does not authorize any of them.
 
-## 8. Next candidate: PHASE 04 integration gate
+## 8. Next candidate: PHASE 05
 
-PHASE 04 is a planning candidate only. It must not begin without explicit user authorization and an approved execution package.
+PHASE 05 is the next roadmap candidate for first-run setup, security, and reference data. It is **not started and not authorized** by this checkpoint. A future execution pack must define exact baseline, ownership, product decisions, migrations if any, tests, and stop conditions before implementation.
 
-Its recommended narrow goal is to connect the accepted frontend shell to the accepted read-only runtime status safely:
+## 9. Public repository safety boundary
 
-- Add a typed frontend adapter around the Tauri invocation boundary.
-- Consume only the existing `get_runtime_status` command.
-- Represent initialization, ready, and sanitized failure states in the application shell.
-- Preserve browser-based UI tests through a controlled mock and add real Tauri integration evidence.
-- Keep the app offline and preserve Arabic/RTL, French/LTR, accessibility, and the Operations Ledger direction.
-- Remove or clearly replace any demonstration-only runtime indicator that would conflict with the real status.
+This repository is public. Never commit:
 
-PHASE 04 should exclude company writes, authentication, general CRUD, inventory calculations, accounting posting, printing, backup/restore, installer work, and all other business modules.
+- secrets, passwords, tokens, credentials, or private keys;
+- real `.env` files;
+- customer, employee, supplier, or company data;
+- production or recovered SQLite databases, WAL/SHM/journal files, or backups;
+- private logs, documents, PDFs, exports, or diagnostic bundles.
 
-Before authoring its execution pack, inspect the live source and define an ownership contract that protects accepted PHASE 01–03 files while identifying the smallest necessary shared integration points.
+Use synthetic fixtures only.
 
-PHASE 05–10 cover first-run/reference data, inventory/purchasing, sales transformation, accounting posting, documents/reports/backup, and distribution/release. Their dependencies, scope, exclusions, and acceptance gates are in the master roadmap.
+## 10. Recovery procedure
 
-## 9. Recovery procedure
-
-When continuing from a new account, lost conversation, or new AI session:
-
-1. Open the repository and read [AGENTS.md](../../AGENTS.md).
-2. Follow the mandatory order in [PROJECT-MEMORY-INDEX.md](PROJECT-MEMORY-INDEX.md).
-3. Read [RECOVERY-PROMPT.md](RECOVERY-PROMPT.md), the Blueprint, and all accepted reports/architecture documents relevant to the next task.
-4. Verify the live `main` SHA and compare it with the accepted product baseline above.
-5. Inspect merged and open PRs created after this checkpoint.
-6. Run or inspect the repository's existing validation workflows before claiming the baseline is healthy.
-7. Produce a short recovery report listing verified facts, differences since this snapshot, unresolved risks, and the proposed next action.
-8. Do not modify code, open a branch, or start a phase until the user explicitly authorizes it.
-
-If repository access is unavailable, ask the user to attach the complete `docs/continuity/` directory, `AGENTS.md`, the Blueprint, and the latest accepted phase reports. Do not reconstruct critical state from memory.
-
-## 10. Checkpoint maintenance
-
-After each newly accepted merge:
-
-1. Verify the exact new `main` SHA, squash title, PR state, changed files, CI results, and phase boundaries.
-2. Update the accepted delivery ledger and implemented/not-implemented sections.
-3. Update the roadmap, decision register, and project tree when their facts change.
-4. Move the next-candidate section only after separating accepted facts from proposed scope.
-5. Update `AI-OPERATING-CONTRACT.md` and `RECOVERY-PROMPT.md` if the role contract, recovery sequence, or authoritative files change.
-6. Submit continuity changes in a docs-only Draft PR; do not mix them into business implementation.
-7. Never claim acceptance from an unmerged branch or an implementer's report alone.
+1. Read [AGENTS.md](../../AGENTS.md) and follow [PROJECT-MEMORY-INDEX.md](PROJECT-MEMORY-INDEX.md).
+2. Verify live `main` equals the documented accepted SHA or report drift.
+3. Inspect merged PRs #1, #2, #3, #4, #6, and #7 and open PR #5.
+4. Verify PR states, heads, bases, changed files, and completed CI before claiming health.
+5. Distinguish accepted implementation from fixture UI and planned roadmap work.
+6. Do not modify code, merge, mark a PR ready, enable auto-merge, or start PHASE 05 without explicit user authorization.
