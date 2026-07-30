@@ -1,6 +1,7 @@
 name: Frontend Runtime Integration
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - ".github/workflows/integration-ci.yml"
@@ -55,7 +56,6 @@ jobs:
       BASELINE_SHA: f4cda85b24f9d69ebb0442c02f8a037da8ba9baf
       EVIDENCE_DIR: ${{ runner.temp }}/phase-04-integration-evidence
       UI_ARTIFACT_DIR: ${{ runner.temp }}/posman-ui-artifacts
-
     steps:
       - name: Check out Pull Request head
         if: github.event_name == 'pull_request'
@@ -104,15 +104,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
+            libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev \
+            libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Verify accepted SQLite foundation
         shell: bash
@@ -128,52 +121,37 @@ jobs:
           import sys
           from pathlib import Path
 
-          baseline = os.environ["BASELINE_SHA"]
           changed = subprocess.check_output(
-              ["git", "diff", "--name-only", f"{baseline}...HEAD"], text=True
+              ["git", "diff", "--name-only", f"{os.environ['BASELINE_SHA']}...HEAD"],
+              text=True,
           ).splitlines()
           exact = {
-              "package.json",
-              "package-lock.json",
-              "src/app/AppRoot.tsx",
-              "src/components/layout.tsx",
-              "src/i18n/dictionaries.ts",
-              "src-tauri/src/lib.rs",
-              "tests/ui/i18n-fixtures.test.ts",
-              "tests/e2e/run_ui_gallery.py",
-              ".github/workflows/integration-ci.yml",
-              ".github/workflows/ui-ci.yml",
-              ".github/workflows/runtime-ci.yml",
+              "package.json", "package-lock.json", "src/app/AppRoot.tsx",
+              "src/components/layout.tsx", "src/i18n/dictionaries.ts",
+              "src-tauri/src/lib.rs", "tests/ui/i18n-fixtures.test.ts",
+              "tests/e2e/run_ui_gallery.py", ".github/workflows/integration-ci.yml",
+              ".github/workflows/ui-ci.yml", ".github/workflows/runtime-ci.yml",
               "docs/architecture/frontend-runtime-integration.md",
               "docs/PHASE-04-REPORT.md",
           }
-          prefixes = (
-              "src/platform/tauri/",
-              "src/features/runtime/",
-              "tests/integration/",
+          prefixes = ("src/platform/tauri/", "src/features/runtime/", "tests/integration/")
+          unexpected = [p for p in changed if p not in exact and not p.startswith(prefixes)]
+          Path(os.environ["EVIDENCE_DIR"], "ownership-diff.txt").write_text(
+              "\n".join(changed) + "\n", encoding="utf-8"
           )
-          unexpected = [
-              path for path in changed
-              if path not in exact and not path.startswith(prefixes)
-          ]
-          evidence = Path(os.environ["EVIDENCE_DIR"], "ownership-diff.txt")
-          evidence.write_text("\n".join(changed) + "\n", encoding="utf-8")
           print("\n".join(changed))
           if unexpected:
-              print("Unexpected Phase 04 paths:", file=sys.stderr)
-              print("\n".join(unexpected), file=sys.stderr)
+              print("Unexpected Phase 04 paths:\n" + "\n".join(unexpected), file=sys.stderr)
               raise SystemExit(1)
 
       - name: Confirm no write-capable workflow remains
         shell: python
         run: |
           from pathlib import Path
-
-          failures = []
-          for path in Path(".github/workflows").glob("*.yml"):
-              text = path.read_text(encoding="utf-8")
-              if "contents: write" in text:
-                  failures.append(str(path))
+          failures = [
+              str(path) for path in Path(".github/workflows").glob("*.yml")
+              if "contents: write" in path.read_text(encoding="utf-8")
+          ]
           print("\n".join(failures))
           raise SystemExit(1 if failures else 0)
 
@@ -195,21 +173,14 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-
           roots = [
-              Path("src/app"),
-              Path("src/components"),
-              Path("src/i18n"),
-              Path("src/styles"),
-              Path("src/features/runtime"),
-              Path("src/platform/tauri"),
+              Path("src/app"), Path("src/components"), Path("src/i18n"),
+              Path("src/styles"), Path("src/features/runtime"), Path("src/platform/tauri"),
           ]
           needles = ("fetch(", "XMLHttpRequest", "WebSocket(", "http://", "https://")
           failures = []
           for root in roots:
-              if not root.exists():
-                  continue
-              for path in root.rglob("*"):
+              for path in root.rglob("*") if root.exists() else ():
                   if not path.is_file():
                       continue
                   try:
@@ -222,16 +193,11 @@ jobs:
           print("\n".join(failures))
           raise SystemExit(1 if failures else 0)
 
-      - name: Type-check frontend
+      - name: Type-check and build frontend
         shell: bash
         run: |
           set -euo pipefail
           npm run typecheck 2>&1 | tee "$EVIDENCE_DIR/frontend-typecheck.log"
-
-      - name: Build frontend
-        shell: bash
-        run: |
-          set -euo pipefail
           npm run build 2>&1 | tee "$EVIDENCE_DIR/frontend-build.log"
 
       - name: Confirm production bundle excludes DEV runtime hook
@@ -239,7 +205,6 @@ jobs:
         run: |
           import os
           from pathlib import Path
-
           dist = Path("dist")
           if not dist.is_dir():
               raise SystemExit("Production dist directory is missing")
@@ -263,16 +228,11 @@ jobs:
           print(evidence.read_text(encoding="utf-8"), end="")
           raise SystemExit(1 if matches else 0)
 
-      - name: Run UI unit and contract tests
+      - name: Run frontend tests
         shell: bash
         run: |
           set -euo pipefail
           npm run test:ui 2>&1 | tee "$EVIDENCE_DIR/ui-tests.log"
-
-      - name: Run frontend-runtime integration tests
-        shell: bash
-        run: |
-          set -euo pipefail
           npm run test:integration 2>&1 | tee "$EVIDENCE_DIR/frontend-integration-tests.log"
 
       - name: Run Playwright browser, accessibility, and screenshot evidence
@@ -283,46 +243,24 @@ jobs:
           set -euo pipefail
           npm run test:e2e 2>&1 | tee "$EVIDENCE_DIR/e2e-output.log"
 
-      - name: Check Rust formatting
+      - name: Validate Rust and native desktop application
         shell: bash
         run: |
           set -euo pipefail
           cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check 2>&1 | tee "$EVIDENCE_DIR/rust-fmt.log"
-
-      - name: Run Rust clippy with warnings denied
-        shell: bash
-        run: |
-          set -euo pipefail
           cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings 2>&1 | tee "$EVIDENCE_DIR/rust-clippy.log"
-
-      - name: Run Rust IPC and runtime tests
-        shell: bash
-        run: |
-          set -euo pipefail
           cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture 2>&1 | tee "$EVIDENCE_DIR/rust-tests.log"
-
-      - name: Compile native Tauri application without bundling
-        shell: bash
-        run: |
-          set -euo pipefail
           npm run desktop:check 2>&1 | tee "$EVIDENCE_DIR/desktop-check.log"
 
-      - name: Check Phase 04 patch whitespace
+      - name: Check Phase 04 patch and worktree
         shell: bash
         run: |
           set -euo pipefail
           git diff --check "$BASELINE_SHA...HEAD" 2>&1 | tee "$EVIDENCE_DIR/git-diff-check.log"
           git diff --check 2>&1 | tee -a "$EVIDENCE_DIR/git-diff-check.log"
-
-      - name: Confirm clean worktree
-        shell: bash
-        run: |
-          set -euo pipefail
           status="$(git status --short --untracked-files=all)"
           printf '%s\n' "$status" | tee "$EVIDENCE_DIR/worktree-status.txt"
-          if [[ -n "$status" ]]; then
-            exit 1
-          fi
+          [[ -z "$status" ]]
 
       - name: Upload Phase 04 integration evidence
         if: always()

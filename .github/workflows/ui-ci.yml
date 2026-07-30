@@ -192,3 +192,7 @@ jobs:
           path: ${{ runner.temp }}/posman-ui-artifacts
           if-no-files-found: error
           retention-days: 30
+
+  validate-frontend-runtime-integration:
+    name: Frontend Runtime Integration
+    uses: ./.github/workflows/integration-ci.yml
