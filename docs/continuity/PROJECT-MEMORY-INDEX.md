@@ -1,6 +1,17 @@
 # POSMAN Project Memory Index
 
-> This directory is the durable handoff for a new account or AI session. It preserves the observable product reasoning, delivery method, accepted state, and future roadmap. It cannot copy a model's hidden chain of thought or identity; it instead records the decisions, evidence rules, priorities, and working behavior needed to continue consistently.
+> Recovery checkpoint through accepted PHASE 04 and POST-MERGE HOTFIX 04C. The live repository remains authoritative.
+
+## Current accepted coordinates
+
+| Item | Value |
+| --- | --- |
+| Repository | `https://github.com/mohamed09090-xmd/posman-desktop` |
+| Accepted `main` | `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307` |
+| Latest accepted phase | PHASE 04 — Frontend Runtime Integration |
+| Latest accepted correction | POST-MERGE HOTFIX 04C |
+| Next candidate | PHASE 05 — planned, unstarted, unauthorized |
+| Continuity Draft PR | [#5](https://github.com/mohamed09090-xmd/posman-desktop/pull/5) |
 
 ## Mandatory reading order
 
@@ -14,59 +25,39 @@ Read these files in order before proposing or executing project work:
 6. [Current project tree](PROJECT-TREE.md)
 7. [Recovery prompt](RECOVERY-PROMPT.md)
 8. [Product Blueprint](../spec/POSMAN-Blueprint-v1.md)
-9. The accepted phase reports and architecture documents linked from the current state
-10. The archived execution pack for the phase being investigated
+9. [PHASE 04 report](../PHASE-04-REPORT.md)
+10. [Hotfix 04C report](../HOTFIX-04C-REPORT.md)
+11. [Frontend runtime integration architecture](../architecture/frontend-runtime-integration.md)
+12. Other accepted phase reports and architecture documents linked from [CURRENT-STATE.md](CURRENT-STATE.md)
 
-The live repository remains authoritative. Verify `main`, merged PRs, open PRs, changed files, and CI before trusting any snapshot.
+Then verify live `main`, merged and open PR metadata, changed files, and completed GitHub Actions. Do not continue automatically from an open branch.
 
-## What each memory file owns
-
-| File | Purpose | Update trigger |
-| --- | --- | --- |
-| `CURRENT-STATE.md` | Accepted baseline, completed work, active PRs, next candidate, and immediate risks | Every accepted merge or material blocker |
-| `AI-OPERATING-CONTRACT.md` | Assistant role, personality, review behavior, evidence discipline, and communication style | Only when the user changes the collaboration model |
-| `MASTER-ROADMAP-PHASES-01-10.md` | Complete engineering delivery sequence, dependencies, parallelization, scope, and acceptance gates | When the user accepts a roadmap change |
-| `DECISION-REGISTER.md` | Product, architecture, UX, data, security, and process decisions, including rejected alternatives | When a decision is accepted, replaced, or reopened |
-| `PROJECT-TREE.md` | Current repository layout and the responsibility of each path | Every structural change |
-| `RECOVERY-PROMPT.md` | Copy-ready prompt for a new ChatGPT account | When mandatory reading or recovery procedure changes |
-
-## Canonical source hierarchy
-
-When sources disagree, use this order:
+## Source hierarchy
 
 1. Explicit current user instruction.
 2. Live accepted `main`, Git history, merged PR metadata, and completed CI evidence.
 3. `AGENTS.md` and the active approved execution pack.
 4. Accepted Blueprint, architecture documents, and phase reports.
 5. This continuity package.
-6. Draft PRs, unmerged branch reports, implementation-agent claims, and old conversation summaries.
+6. Draft PRs, unmerged reports, implementation-agent claims, and old conversation summaries.
 
-Do not silently resolve a conflict. Report it, identify the higher-authority source, and ask for a decision if the correct action is not mechanically determined.
+Report conflicts instead of silently resolving them.
+
+## Memory file ownership
+
+| File | Purpose | Update trigger |
+| --- | --- | --- |
+| `CURRENT-STATE.md` | Accepted baseline, delivery ledger, implemented boundary, active PRs, and next candidate | Every accepted merge or material blocker |
+| `AI-OPERATING-CONTRACT.md` | Roles, evidence discipline, Git rules, safety, and communication behavior | Collaboration or delivery-policy change |
+| `MASTER-ROADMAP-PHASES-01-10.md` | Accepted versus planned phases, dependencies, scope, exclusions, and gates | Accepted roadmap change or phase acceptance |
+| `DECISION-REGISTER.md` | Accepted product, architecture, data, UX, security, and process decisions | Decision accepted, replaced, or reopened |
+| `PROJECT-TREE.md` | Current repository structure and path responsibilities | Structural change |
+| `RECOVERY-PROMPT.md` | Copy-ready recovery instruction for a new account | Recovery baseline or procedure change |
 
 ## Historical execution records
 
-The exact execution instructions that produced the accepted foundation are archived under:
+Exact historical packs currently available are indexed in [the archive README](../execution-packs/archive/README.md). They are evidence, not active instructions. No PHASE 04 or Hotfix 04C prompt is archived unless an authoritative original source is available; reconstructed text must never be presented as the original.
 
-```text
-docs/execution-packs/archive/
-├── PHASE-01-DATA-FOUNDATION.md
-├── BOOTSTRAP-GATE-02-03-DESKTOP-SHELL.md
-├── PHASE-02-RUNTIME-FOUNDATION.md
-├── PHASE-03-ORIGINAL-UI-FOUNDATION.md
-└── patches/
-    ├── PATCH-01A-SQLITE-INTEGRITY.md
-    ├── PATCH-01B-WINDOWS-RUST-TEST.md
-    └── PATCH-01C-TAURI-WINDOWS-MANIFEST.md
-```
+## Public repository warning
 
-These are historical evidence and prompt templates. They are not active instructions and must not be rerun blindly against a newer baseline.
-
-## Fast recovery
-
-If time is limited:
-
-1. Paste [RECOVERY-PROMPT.md](RECOVERY-PROMPT.md) into the new conversation.
-2. Give the assistant access to the repository.
-3. Require a recovery report before any write.
-4. Compare that report with [CURRENT-STATE.md](CURRENT-STATE.md).
-5. Authorize only the next bounded action.
+The repository is public. Never commit secrets, credentials, tokens, private keys, real `.env` files, customer or company data, production databases, SQLite runtime artifacts, backups, or private logs.
