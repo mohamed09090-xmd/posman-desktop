@@ -125,9 +125,19 @@ Patch 04A retires only the conflicting portions:
 
 - UI Foundation CI continues to verify the SQLite foundation and all UI/type/build/E2E/accessibility/clean-worktree checks, but its event-scoped ownership guard now protects the database foundation rather than rejecting runtime integration paths.
 - Runtime CI retains the database-source guard and all cross-platform Rust/frontend/native/MSRV/clean-worktree checks, while the obsolete frontend freeze is removed.
-- `Frontend Runtime Integration` is the read-only, phase-specific owner. It compares the final tree to the accepted PHASE 03 baseline and permits only the explicit PHASE 04 path set. It cannot commit or push.
+- `Frontend Runtime Integration` is the read-only, phase-specific owner. It applies the explicit PHASE 04 path allowlist only to the event-scoped change that triggered the workflow. It cannot commit or push.
 
 A temporary branch-only lock-preparation workflow was used because the executor had no direct npm network environment. It verified a package-only diff and a stationary remote head, produced one fast-forward dependency commit, and was deleted immediately. No `contents: write` workflow may remain in the final tree.
+
+## Hotfix 04C integration workflow event scope
+
+`Frontend Runtime Integration` supports only `pull_request` and pushes to `main`; it is not currently a reusable workflow.
+
+For a pull request, the ownership range is `origin/${{ github.base_ref }}` resolved to its commit through `${{ github.event.pull_request.head.sha }}` using three-dot comparison. Both resolved commits must be ancestors of the checked-out pull-request head.
+
+For a push, the ownership range is `${{ github.event.before }}..${{ github.sha }}`. A zero `before` SHA is rejected, and any unsupported event is rejected.
+
+The ownership guard and final `git diff --check` therefore inspect only the change that caused the current run, rather than all repository history since PHASE 03. The existing Phase 04 allowlist, read-only workflow permissions, and write-permission guard remain enforced.
 
 ## Startup limitation
 
