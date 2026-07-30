@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   createRuntimeStatusGateway,
   type InvokeFunction,
@@ -7,17 +7,8 @@ import {
 
 declare global {
   interface Window {
-    __TAURI_INTERNALS__?: unknown;
     __POSMAN_DEV_RUNTIME_INVOKER__?: InvokeFunction;
   }
-}
-
-function hasTauriBridge(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.__TAURI_INTERNALS__ === "object" &&
-    window.__TAURI_INTERNALS__ !== null
-  );
 }
 
 export function resolveRuntimeStatusGateway(): RuntimeStatusGateway | null {
@@ -28,7 +19,7 @@ export function resolveRuntimeStatusGateway(): RuntimeStatusGateway | null {
     }
   }
 
-  if (!hasTauriBridge()) {
+  if (!isTauri()) {
     return null;
   }
 

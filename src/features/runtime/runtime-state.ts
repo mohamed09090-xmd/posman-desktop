@@ -40,6 +40,7 @@ export class RuntimeStatusController {
   private state: RuntimeViewState;
   private active = false;
   private pending = false;
+  private activationSequence = 0;
   private requestSequence = 0;
 
   constructor(gateway: RuntimeStatusGatewayLike | null) {
@@ -56,14 +57,27 @@ export class RuntimeStatusController {
 
   activate(): void {
     this.active = true;
-    if (this.gateway) {
-      void this.request(false);
+    if (!this.gateway) {
+      return;
     }
+
+    const activationId = ++this.activationSequence;
+    queueMicrotask(() => {
+      if (
+        !this.active ||
+        activationId !== this.activationSequence ||
+        this.pending
+      ) {
+        return;
+      }
+      void this.request(false);
+    });
   }
 
   deactivate(): void {
     this.active = false;
     this.pending = false;
+    this.activationSequence += 1;
     this.requestSequence += 1;
   }
 
@@ -71,6 +85,7 @@ export class RuntimeStatusController {
     if (!this.gateway || this.pending) {
       return false;
     }
+    this.activationSequence += 1;
     void this.request(true);
     return true;
   };

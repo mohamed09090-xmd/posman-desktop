@@ -14,16 +14,29 @@ function StatusMark({ tone }: { tone: "neutral" | "ready" | "warning" | "error" 
   );
 }
 
+function PrimaryStatusText({ children }: { children: string }) {
+  return (
+    <strong className="runtime-status__primary" data-testid="runtime-status-primary">
+      {children}
+    </strong>
+  );
+}
+
 export function RuntimeStatusIndicator() {
   const { state } = useRuntimeStatus();
   const { formatNumber, t } = useI18n();
 
   if (state.kind === "ready") {
     return (
-      <div className="runtime-status runtime-status--ready" data-testid="runtime-status-ready">
+      <div
+        className="runtime-status runtime-status--ready"
+        data-testid="runtime-status-ready"
+        role="status"
+        aria-live="polite"
+      >
         <StatusMark tone="ready" />
         <span className="runtime-status__copy">
-          <strong>{t("runtime.ready")}</strong>
+          <PrimaryStatusText>{t("runtime.ready")}</PrimaryStatusText>
           <small>
             {t("runtime.schemaVersion")}: <bdi>{state.status.schemaVersion}</bdi>
             <span aria-hidden="true"> · </span>
@@ -40,9 +53,10 @@ export function RuntimeStatusIndicator() {
         className="runtime-status runtime-status--preview"
         data-testid="runtime-status-preview"
         role="status"
+        aria-live="polite"
       >
         <StatusMark tone="warning" />
-        <span>{t("runtime.preview")}</span>
+        <PrimaryStatusText>{t("runtime.preview")}</PrimaryStatusText>
       </div>
     );
   }
@@ -51,7 +65,7 @@ export function RuntimeStatusIndicator() {
     return (
       <div className="runtime-status runtime-status--error" data-testid="runtime-status-error">
         <StatusMark tone="error" />
-        <span>{t("runtime.errorTitle")}</span>
+        <PrimaryStatusText>{t("runtime.errorTitle")}</PrimaryStatusText>
       </div>
     );
   }
@@ -64,7 +78,9 @@ export function RuntimeStatusIndicator() {
       aria-live="polite"
     >
       <StatusMark tone="neutral" />
-      <span>{state.retrying ? t("runtime.retrying") : t("runtime.initializing")}</span>
+      <PrimaryStatusText>
+        {state.retrying ? t("runtime.retrying") : t("runtime.initializing")}
+      </PrimaryStatusText>
     </div>
   );
 }

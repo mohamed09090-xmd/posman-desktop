@@ -11,7 +11,7 @@
   max-inline-size: 100%;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
-  line-height: var(--line-tight);
+  line-height: 1.15;
 }
 
 .runtime-status__mark {
@@ -40,24 +40,33 @@
   display: grid;
   gap: 1px;
   min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
-.runtime-status__copy strong,
-.runtime-status__copy small,
-.runtime-status > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.runtime-status__copy strong {
-  color: var(--color-text);
+.runtime-status__primary {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: visible;
+  color: inherit;
   font-size: var(--font-size-xs);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.runtime-status__copy .runtime-status__primary {
+  color: var(--color-text);
 }
 
 .runtime-status__copy small {
+  max-inline-size: 100%;
+  overflow: hidden;
   font-family: var(--font-mono);
   font-size: 0.65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .runtime-status--error {
@@ -124,7 +133,7 @@
 
 @media (max-width: 1180px) {
   .runtime-status-host {
-    max-inline-size: 165px;
+    max-inline-size: 190px;
   }
 
   .runtime-status__copy small {
@@ -135,7 +144,7 @@
 @media (max-width: 1024px) {
   .command-bar__company.runtime-status-host {
     display: flex;
-    max-inline-size: 145px;
+    max-inline-size: 170px;
   }
 
   .runtime-status-host > .command-bar__company-name {

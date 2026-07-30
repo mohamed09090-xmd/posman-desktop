@@ -192,6 +192,36 @@ def assert_runtime_status_visible(page: Page, label: str) -> None:
         raise AssertionError(f"{label}: runtime status is clipped or invisible: {result}")
 
 
+def assert_runtime_primary_unclipped(page: Page, label: str) -> None:
+    result = page.locator("[data-testid='runtime-status-primary']").evaluate(
+        """(element) => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return {
+            text: element.textContent?.trim() ?? '',
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+            clientHeight: element.clientHeight,
+            scrollHeight: element.scrollHeight,
+            rectWidth: rect.width,
+            rectHeight: rect.height,
+            textOverflow: style.textOverflow,
+            whiteSpace: style.whiteSpace,
+          };
+        }"""
+    )
+    if (
+        not result["text"]
+        or result["rectWidth"] <= 0
+        or result["rectHeight"] <= 0
+        or result["scrollWidth"] > result["clientWidth"] + 1
+        or result["scrollHeight"] > result["clientHeight"] + 1
+        or result["textOverflow"] == "ellipsis"
+        or result["whiteSpace"] == "nowrap"
+    ):
+        raise AssertionError(f"{label}: primary runtime status is clipped: {result}")
+
+
 def assert_workspace_labels_visible(page: Page, label: str) -> None:
     results = page.locator(".workspace-rail__label").evaluate_all(
         """(elements) => elements.map((element) => {
@@ -333,6 +363,7 @@ def main() -> int:
                 assert page.locator("html").get_attribute("dir") == "rtl"
                 assert_command_bar_visible(page, "Arabic Today 1280x800")
                 assert_runtime_status_visible(page, "Arabic preview 1280x800")
+                assert_runtime_primary_unclipped(page, "Arabic preview 1280x800")
                 assert_workspace_labels_visible(page, "Arabic rail 1280x800")
                 assert_no_page_overflow(page, "Arabic Today 1280x800")
                 axe_summaries["arabic-today"] = run_axe(page, "arabic-today")
@@ -342,6 +373,7 @@ def main() -> int:
                 assert page.locator("html").get_attribute("lang") == "fr-DZ"
                 assert page.locator("html").get_attribute("dir") == "ltr"
                 page.locator("text=Registre des opérations du jour").wait_for()
+                assert_runtime_primary_unclipped(page, "French preview 1280x800")
                 assert_workspace_labels_visible(page, "French rail 1280x800")
                 assert_no_page_overflow(page, "French Today 1280x800")
                 axe_summaries["french-today"] = run_axe(page, "french-today")
@@ -350,9 +382,11 @@ def main() -> int:
                 page.close()
 
                 page, errors = new_page(browser, 1024, 640)
+                assert_runtime_primary_unclipped(page, "Arabic preview 1024x640")
                 assert_workspace_labels_visible(page, "Arabic rail 1024x640")
                 page.locator("[data-testid='language-switch']").click()
                 page.locator("text=Registre des opérations du jour").wait_for()
+                assert_runtime_primary_unclipped(page, "French preview 1024x640")
                 assert_workspace_labels_visible(page, "French rail 1024x640")
                 page.locator("[data-testid='language-switch']").click()
                 page.locator("[data-testid='today-screen']").wait_for()
@@ -390,19 +424,30 @@ def main() -> int:
                 page.close()
 
                 page, errors = new_page(browser, 1280, 800, runtime_script("ready"))
-                page.locator("[data-testid='runtime-status-ready']").wait_for()
+                ready = page.locator("[data-testid='runtime-status-ready']")
+                ready.wait_for()
+                assert ready.get_attribute("role") == "status"
+                assert ready.get_attribute("aria-live") == "polite"
                 assert page.locator("html").get_attribute("lang") == "ar-DZ"
                 assert page.locator("html").get_attribute("dir") == "rtl"
-                assert "0004" in page.locator("[data-testid='runtime-status-ready']").inner_text()
+                assert "0004" in ready.inner_text()
                 assert_runtime_call_contract(page, 1)
                 assert_command_bar_visible(page, "Arabic runtime ready 1280x800")
                 assert_runtime_status_visible(page, "Arabic runtime ready 1280x800")
-                assert_workspace_labels_visible(page, "Arabic runtime ready rail")
+                assert_runtime_primary_unclipped(page, "Arabic runtime ready 1280x800")
+                assert_workspace_labels_visible(page, "Arabic runtime ready rail 1280x800")
                 assert_no_page_overflow(page, "Arabic runtime ready 1280x800")
                 axe_summaries["phase-04-ar-runtime-ready"] = run_axe(
                     page, "phase-04-ar-runtime-ready"
                 )
                 screenshot(page, "phase-04-ar-runtime-ready.png")
+                page.set_viewport_size({"width": 1024, "height": 640})
+                assert_command_bar_visible(page, "Arabic runtime ready 1024x640")
+                assert_runtime_status_visible(page, "Arabic runtime ready 1024x640")
+                assert_runtime_primary_unclipped(page, "Arabic runtime ready 1024x640")
+                assert_workspace_labels_visible(page, "Arabic runtime ready rail 1024x640")
+                assert_no_page_overflow(page, "Arabic runtime ready 1024x640")
+                assert_runtime_call_contract(page, 1)
                 assert_clean_console(errors, "Arabic runtime ready")
                 page.close()
 
@@ -415,12 +460,20 @@ def main() -> int:
                 assert_runtime_call_contract(page, 1)
                 assert_command_bar_visible(page, "French runtime ready 1280x800")
                 assert_runtime_status_visible(page, "French runtime ready 1280x800")
-                assert_workspace_labels_visible(page, "French runtime ready rail")
+                assert_runtime_primary_unclipped(page, "French runtime ready 1280x800")
+                assert_workspace_labels_visible(page, "French runtime ready rail 1280x800")
                 assert_no_page_overflow(page, "French runtime ready 1280x800")
                 axe_summaries["phase-04-fr-runtime-ready"] = run_axe(
                     page, "phase-04-fr-runtime-ready"
                 )
                 screenshot(page, "phase-04-fr-runtime-ready.png")
+                page.set_viewport_size({"width": 1024, "height": 640})
+                assert_command_bar_visible(page, "French runtime ready 1024x640")
+                assert_runtime_status_visible(page, "French runtime ready 1024x640")
+                assert_runtime_primary_unclipped(page, "French runtime ready 1024x640")
+                assert_workspace_labels_visible(page, "French runtime ready rail 1024x640")
+                assert_no_page_overflow(page, "French runtime ready 1024x640")
+                assert_runtime_call_contract(page, 1)
                 assert_clean_console(errors, "French runtime ready")
                 page.close()
 
@@ -431,10 +484,9 @@ def main() -> int:
                 assert "posman.sqlite3" not in body_text
                 assert "SELECT" not in body_text
                 assert "C:\\Users" not in body_text
-                assert page.locator("[data-testid='runtime-error-notice']").get_attribute(
-                    "data-error-code"
-                ) == "RUNTIME_STATUS_UNAVAILABLE"
+                assert notice.get_attribute("data-error-code") == "RUNTIME_STATUS_UNAVAILABLE"
                 assert_command_bar_visible(page, "Arabic runtime error 1024x640")
+                assert_runtime_primary_unclipped(page, "Arabic runtime error 1024x640")
                 assert_workspace_labels_visible(page, "Arabic runtime error rail")
                 assert_no_page_overflow(page, "Arabic runtime error 1024x640")
                 axe_summaries["phase-04-ar-runtime-error"] = run_axe(
@@ -449,6 +501,7 @@ def main() -> int:
                 page.locator("[data-testid='runtime-status-ready']").wait_for()
                 assert_runtime_call_contract(page, 2)
                 assert_runtime_status_visible(page, "Arabic runtime retry ready 1024x640")
+                assert_runtime_primary_unclipped(page, "Arabic runtime retry ready 1024x640")
                 assert_no_page_overflow(page, "Arabic runtime retry ready 1024x640")
                 axe_summaries["phase-04-ar-runtime-retry"] = run_axe(
                     page, "phase-04-ar-runtime-retry"
@@ -464,6 +517,9 @@ def main() -> int:
                 click_page.locator("[data-testid='runtime-retry']").click()
                 click_page.locator("[data-testid='runtime-status-ready']").wait_for()
                 assert_runtime_call_contract(click_page, 2)
+                assert_runtime_primary_unclipped(
+                    click_page, "Arabic pointer retry ready 1024x640"
+                )
                 assert_clean_console(click_errors, "Arabic error and pointer retry")
                 click_page.close()
 
@@ -476,6 +532,7 @@ def main() -> int:
                 assert page.locator("[data-testid='runtime-status-ready']").count() == 0
                 assert_command_bar_visible(page, "French runtime preview 1024x640")
                 assert_runtime_status_visible(page, "French runtime preview 1024x640")
+                assert_runtime_primary_unclipped(page, "French runtime preview 1024x640")
                 assert_workspace_labels_visible(page, "French runtime preview rail")
                 assert_no_page_overflow(page, "French runtime preview 1024x640")
                 axe_summaries["phase-04-fr-runtime-preview"] = run_axe(
@@ -492,6 +549,7 @@ def main() -> int:
                     "data-error-code"
                 ) == "RUNTIME_STATUS_INVALID_RESPONSE"
                 assert_runtime_call_contract(page, 1)
+                assert_runtime_primary_unclipped(page, "Malformed runtime response 1024x640")
                 assert_no_page_overflow(page, "Malformed runtime response 1024x640")
                 axe_summaries["phase-04-malformed-response"] = run_axe(
                     page, "phase-04-malformed-response"

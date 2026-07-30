@@ -32,6 +32,10 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve();
+}
+
 async function waitFor(
   controller: RuntimeStatusController,
   predicate: (state: RuntimeViewState) => boolean,
@@ -82,7 +86,9 @@ test("gateway rejects null and arrays", async (t) => {
       const gateway = createRuntimeStatusGateway(async () => payload);
       await assert.rejects(
         gateway.getRuntimeStatus(),
-        (error: unknown) => error instanceof RuntimeGatewayError && error.code === RUNTIME_STATUS_INVALID_RESPONSE,
+        (error: unknown) =>
+          error instanceof RuntimeGatewayError &&
+          error.code === RUNTIME_STATUS_INVALID_RESPONSE,
       );
     });
   }
@@ -102,19 +108,23 @@ test("gateway rejects every field with the wrong type", async (t) => {
       const gateway = createRuntimeStatusGateway(async () => payload);
       await assert.rejects(
         gateway.getRuntimeStatus(),
-        (error: unknown) => error instanceof RuntimeGatewayError && error.code === RUNTIME_STATUS_INVALID_RESPONSE,
+        (error: unknown) =>
+          error instanceof RuntimeGatewayError &&
+          error.code === RUNTIME_STATUS_INVALID_RESPONSE,
       );
     });
   }
 });
 
-test("gateway rejects negative and fractional migration counts", async (t) => {
-  for (const migrationCount of [-1, 1.5, Number.NaN]) {
+test("gateway rejects negative, fractional, and non-finite migration counts", async (t) => {
+  for (const migrationCount of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
     await t.test(String(migrationCount), async () => {
       const gateway = createRuntimeStatusGateway(async () => ({ ...readyStatus, migrationCount }));
       await assert.rejects(
         gateway.getRuntimeStatus(),
-        (error: unknown) => error instanceof RuntimeGatewayError && error.code === RUNTIME_STATUS_INVALID_RESPONSE,
+        (error: unknown) =>
+          error instanceof RuntimeGatewayError &&
+          error.code === RUNTIME_STATUS_INVALID_RESPONSE,
       );
     });
   }
@@ -129,7 +139,9 @@ test("gateway rejects strings that are empty after trimming", async (t) => {
       const gateway = createRuntimeStatusGateway(async () => payload);
       await assert.rejects(
         gateway.getRuntimeStatus(),
-        (error: unknown) => error instanceof RuntimeGatewayError && error.code === RUNTIME_STATUS_INVALID_RESPONSE,
+        (error: unknown) =>
+          error instanceof RuntimeGatewayError &&
+          error.code === RUNTIME_STATUS_INVALID_RESPONSE,
       );
     });
   }
@@ -150,14 +162,21 @@ test("gateway preserves the known structured Rust error code without exposing it
 });
 
 test("gateway maps unknown thrown values and unrecognized codes to a stable generic code", async (t) => {
-  for (const thrownValue of ["failure", 42, { message: "raw" }, { code: "SENSITIVE_INTERNAL_CODE" }]) {
+  for (const thrownValue of [
+    "failure",
+    42,
+    { message: "raw" },
+    { code: "SENSITIVE_INTERNAL_CODE" },
+  ]) {
     await t.test(JSON.stringify(thrownValue), async () => {
       const gateway = createRuntimeStatusGateway(async () => {
         throw thrownValue;
       });
       await assert.rejects(
         gateway.getRuntimeStatus(),
-        (error: unknown) => error instanceof RuntimeGatewayError && error.code === RUNTIME_STATUS_REQUEST_FAILED,
+        (error: unknown) =>
+          error instanceof RuntimeGatewayError &&
+          error.code === RUNTIME_STATUS_REQUEST_FAILED,
       );
     });
   }
@@ -175,6 +194,27 @@ test("runtime state moves from initializing to ready", async () => {
     kind: "ready",
     status: readyStatus,
   });
+  controller.deactivate();
+});
+
+test("StrictMode-style activate/deactivate/activate before the microtask invokes once", async () => {
+  const response = deferred<RuntimeStatus>();
+  let invocationCount = 0;
+  const controller = new RuntimeStatusController({
+    getRuntimeStatus() {
+      invocationCount += 1;
+      return response.promise;
+    },
+  });
+
+  controller.activate();
+  controller.deactivate();
+  controller.activate();
+  await flushMicrotasks();
+
+  assert.equal(invocationCount, 1);
+  response.resolve(readyStatus);
+  assert.equal((await waitFor(controller, (state) => state.kind === "ready")).kind, "ready");
   controller.deactivate();
 });
 
@@ -213,7 +253,7 @@ test("runtime state rejects structurally valid payloads that are not ready", asy
   controller.deactivate();
 });
 
-test("a stale response from an earlier StrictMode-style activation cannot overwrite the latest result", async () => {
+test("a stale response from an earlier request cannot overwrite the latest result", async () => {
   const first = deferred<RuntimeStatus>();
   const second = deferred<RuntimeStatus>();
   let invocation = 0;
@@ -225,8 +265,14 @@ test("a stale response from an earlier StrictMode-style activation cannot overwr
   });
 
   controller.activate();
+  await flushMicrotasks();
+  assert.equal(invocation, 1);
+
   controller.deactivate();
   controller.activate();
+  await flushMicrotasks();
+  assert.equal(invocation, 2);
+
   second.resolve({ ...readyStatus, schemaVersion: "0005", migrationCount: 5 });
   const latest = await waitFor(controller, (state) => state.kind === "ready");
   assert.equal(latest.kind === "ready" ? latest.status.schemaVersion : "", "0005");
@@ -243,6 +289,7 @@ test("deactivation prevents state updates after unmount", async () => {
   const controller = new RuntimeStatusController({ getRuntimeStatus: () => response.promise });
 
   controller.activate();
+  await flushMicrotasks();
   controller.deactivate();
   response.resolve(readyStatus);
   await new Promise<void>((resolve) => setImmediate(resolve));
