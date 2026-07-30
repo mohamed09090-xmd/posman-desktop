@@ -54,8 +54,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASELINE_SHA: f4cda85b24f9d69ebb0442c02f8a037da8ba9baf
-      EVIDENCE_DIR: ${{ runner.temp }}/phase-04-integration-evidence
-      UI_ARTIFACT_DIR: ${{ runner.temp }}/posman-ui-artifacts
     steps:
       - name: Check out Pull Request head
         if: github.event_name == 'pull_request'
@@ -75,14 +73,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$EVIDENCE_DIR"
+          evidence_dir="${RUNNER_TEMP}/phase-04-integration-evidence"
+          ui_artifact_dir="${RUNNER_TEMP}/posman-ui-artifacts"
+          echo "EVIDENCE_DIR=${evidence_dir}" >> "$GITHUB_ENV"
+          echo "UI_ARTIFACT_DIR=${ui_artifact_dir}" >> "$GITHUB_ENV"
+          mkdir -p "$evidence_dir"
           {
             echo "repository=${GITHUB_REPOSITORY}"
             echo "event=${GITHUB_EVENT_NAME}"
             echo "sha=$(git rev-parse HEAD)"
             echo "baseline=${BASELINE_SHA}"
             echo "ref=${GITHUB_REF}"
-          } | tee "$EVIDENCE_DIR/metadata.txt"
+          } | tee "$evidence_dir/metadata.txt"
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -237,7 +239,7 @@ jobs:
 
       - name: Run Playwright browser, accessibility, and screenshot evidence
         env:
-          POSMAN_ARTIFACT_DIR: ${{ env.UI_ARTIFACT_DIR }}
+          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/posman-ui-artifacts
         shell: bash
         run: |
           set -euo pipefail
@@ -268,7 +270,7 @@ jobs:
         with:
           name: phase-04-integration-evidence
           path: |
-            ${{ env.EVIDENCE_DIR }}
-            ${{ env.UI_ARTIFACT_DIR }}
+            ${{ runner.temp }}/phase-04-integration-evidence
+            ${{ runner.temp }}/posman-ui-artifacts
           if-no-files-found: error
           retention-days: 30
