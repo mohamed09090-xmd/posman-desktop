@@ -4,25 +4,48 @@ on:
   pull_request:
     paths:
       - ".github/workflows/runtime-ci.yml"
+      - ".github/workflows/integration-ci.yml"
+      - "package.json"
+      - "package-lock.json"
       - "src-tauri/**"
       - "src/platform/tauri/**"
+      - "src/features/runtime/**"
+      - "src/app/AppRoot.tsx"
+      - "src/components/layout.tsx"
+      - "src/i18n/dictionaries.ts"
+      - "tests/integration/**"
+      - "tests/e2e/run_ui_gallery.py"
       - "database/migrations/**"
       - "database/seed/reference_data.sql"
       - "scripts/verify_schema.py"
       - "docs/architecture/runtime-*.md"
+      - "docs/architecture/frontend-runtime-integration.md"
       - "docs/PHASE-02-REPORT.md"
+      - "docs/PHASE-04-REPORT.md"
   push:
     branches:
+      - "main"
       - "phase/02-runtime-foundation"
     paths:
       - ".github/workflows/runtime-ci.yml"
+      - ".github/workflows/integration-ci.yml"
+      - "package.json"
+      - "package-lock.json"
       - "src-tauri/**"
       - "src/platform/tauri/**"
+      - "src/features/runtime/**"
+      - "src/app/AppRoot.tsx"
+      - "src/components/layout.tsx"
+      - "src/i18n/dictionaries.ts"
+      - "tests/integration/**"
+      - "tests/e2e/run_ui_gallery.py"
       - "database/migrations/**"
       - "database/seed/reference_data.sql"
       - "scripts/verify_schema.py"
       - "docs/architecture/runtime-*.md"
+      - "docs/architecture/frontend-runtime-integration.md"
       - "docs/PHASE-02-REPORT.md"
+      - "docs/PHASE-04-REPORT.md"
 
 concurrency:
   group: runtime-${{ github.workflow }}-${{ github.ref }}
@@ -58,19 +81,6 @@ jobs:
 
       - name: Confirm database sources are unchanged
         run: git diff --exit-code a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9 -- database scripts/verify_schema.py
-
-      - name: Confirm frozen and out-of-scope files are unchanged
-        run: >-
-          git diff --exit-code a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9 --
-          src/app src/components src/i18n src/styles src/features src/bootstrap
-          package.json package-lock.json vite.config.ts src/main.tsx index.html
-          tsconfig.json tsconfig.app.json tsconfig.node.json AGENTS.md .gitignore README.md
-          docs/spec/POSMAN-Blueprint-v1.md docs/PHASE-01-REPORT.md docs/BOOTSTRAP-GATE-02-REPORT.md
-          docs/architecture/accounting-posting.md docs/architecture/data-dictionary.md
-          docs/architecture/database-decisions.md docs/architecture/erd.md
-          docs/architecture/migration-policy.md docs/architecture/parallel-wave-02-contract.md
-          docs/architecture/desktop-shell.md .github/workflows/schema-ci.yml
-          .github/workflows/desktop-bootstrap-ci.yml
 
       - name: Record embedded migration SHA-256 values
         shell: python

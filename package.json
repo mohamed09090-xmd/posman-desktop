@@ -15,9 +15,11 @@
     "test:e2e": "python tests/e2e/run_ui_gallery.py",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
-    "desktop:check": "tauri build --debug --no-bundle"
+    "desktop:check": "tauri build --debug --no-bundle",
+    "test:integration": "node --experimental-strip-types --test tests/integration/*.test.ts"
   },
   "dependencies": {
+    "@tauri-apps/api": "2.11.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
