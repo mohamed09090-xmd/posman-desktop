@@ -1,69 +1,43 @@
 # POSMAN Project Tree and Ownership Map
 
-> Verified product tree at `main` SHA `f4cda85b24f9d69ebb0442c02f8a037da8ba9baf`, plus continuity files proposed by Draft PR #5. Generated build output, dependency folders, and local runtime data are intentionally excluded from Git.
+> Verified accepted product tree at `main` SHA `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307`, plus continuity files maintained in Draft PR #5. Generated dependencies, build output, and local runtime data are excluded from Git.
 
 ## 1. Current repository tree
 
 ```text
 posman-desktop/
-├── .editorconfig
-├── .gitattributes
-├── .gitignore
-├── AGENTS.md
-├── README.md
-├── index.html
-├── package.json
-├── package-lock.json
-├── tsconfig.json
-├── tsconfig.app.json
-├── tsconfig.node.json
-├── vite.config.ts
-│
 ├── .github/
-│   ├── pull_request_template.md
 │   └── workflows/
 │       ├── schema-ci.yml
 │       ├── desktop-bootstrap-ci.yml
 │       ├── runtime-ci.yml
-│       └── ui-ci.yml
-│
+│       ├── ui-ci.yml
+│       └── integration-ci.yml
 ├── database/
-│   ├── migrations/
-│   │   ├── 0001_system_company_security.sql
-│   │   ├── 0002_reference_catalog_partners.sql
-│   │   ├── 0003_commerce_inventory.sql
-│   │   └── 0004_accounting_documents_audit.sql
+│   ├── migrations/0001...0004
 │   ├── schema.sql
-│   ├── seed/
-│   │   └── reference_data.sql
-│   └── tests/
-│       └── invariants.sql
-│
-├── scripts/
-│   └── verify_schema.py
-│
+│   ├── seed/reference_data.sql
+│   └── tests/invariants.sql
+├── scripts/verify_schema.py
 ├── docs/
-│   ├── BOOTSTRAP-GATE-02-REPORT.md
 │   ├── PHASE-01-REPORT.md
+│   ├── BOOTSTRAP-GATE-02-REPORT.md
 │   ├── PHASE-02-REPORT.md
 │   ├── PHASE-03-REPORT.md
-│   ├── spec/
-│   │   └── POSMAN-Blueprint-v1.md
+│   ├── PHASE-04-REPORT.md
+│   ├── HOTFIX-04C-REPORT.md
 │   ├── architecture/
-│   │   ├── accounting-posting.md
-│   │   ├── data-dictionary.md
 │   │   ├── database-decisions.md
 │   │   ├── desktop-shell.md
-│   │   ├── erd.md
-│   │   ├── migration-policy.md
-│   │   ├── parallel-wave-02-contract.md
+│   │   ├── runtime-database.md
 │   │   ├── runtime-command-contracts.md
-│   │   └── runtime-database.md
+│   │   └── frontend-runtime-integration.md
 │   ├── design/
-│   │   ├── component-inventory.md
 │   │   ├── direction-study.md
+│   │   ├── component-inventory.md
 │   │   └── ui-foundation.md
-│   ├── continuity/                         # Draft PR #5
+│   ├── spec/POSMAN-Blueprint-v1.md
+│   ├── continuity/
 │   │   ├── PROJECT-MEMORY-INDEX.md
 │   │   ├── CURRENT-STATE.md
 │   │   ├── AI-OPERATING-CONTRACT.md
@@ -71,195 +45,105 @@ posman-desktop/
 │   │   ├── DECISION-REGISTER.md
 │   │   ├── PROJECT-TREE.md
 │   │   └── RECOVERY-PROMPT.md
-│   └── execution-packs/                    # Draft PR #5
-│       └── archive/
-│           ├── README.md
-│           ├── PHASE-01-DATA-FOUNDATION.md
-│           ├── BOOTSTRAP-GATE-02-03-DESKTOP-SHELL.md
-│           ├── PHASE-02-RUNTIME-FOUNDATION.md
-│           ├── PHASE-03-ORIGINAL-UI-FOUNDATION.md
-│           └── patches/
-│               ├── PATCH-01A-SQLITE-INTEGRITY.md
-│               ├── PATCH-01B-WINDOWS-RUST-TEST.md
-│               └── PATCH-01C-TAURI-WINDOWS-MANIFEST.md
-│
-├── public/
-│   └── fonts/
-│       └── OFL.txt
-│
+│   └── execution-packs/archive/
 ├── src/
-│   ├── main.tsx
-│   ├── vite-env.d.ts
-│   ├── app/
-│   │   └── AppRoot.tsx
-│   ├── bootstrap/
-│   │   └── bootstrap.css
+│   ├── app/AppRoot.tsx
 │   ├── components/
-│   │   ├── layout.tsx
-│   │   ├── operational.tsx
-│   │   └── primitives.tsx
 │   ├── features/
-│   │   └── ui-gallery/
-│   │       ├── screens.tsx
-│   │       └── fixtures/
-│   │           └── index.ts
+│   │   ├── ui-gallery/
+│   │   └── runtime/
+│   │       ├── RuntimeStatusIndicator.tsx
+│   │       ├── RuntimeStatusProvider.tsx
+│   │       ├── runtime-state.ts
+│   │       └── runtime-status.css
 │   ├── i18n/
-│   │   ├── I18nProvider.tsx
-│   │   ├── dictionaries.ts
-│   │   └── formatters.ts
+│   ├── platform/
+│   │   └── tauri/
+│   │       ├── runtime-environment.ts
+│   │       └── runtime-status.ts
 │   └── styles/
-│       ├── tokens.css
-│       └── ui-foundation.css
-│
 ├── tests/
-│   ├── e2e/
-│   │   └── run_ui_gallery.py
-│   └── ui/
-│       └── i18n-fixtures.test.ts
-│
+│   ├── e2e/run_ui_gallery.py
+│   ├── integration/runtime-status.test.ts
+│   └── ui/i18n-fixtures.test.ts
 └── src-tauri/
     ├── Cargo.toml
     ├── Cargo.lock
     ├── build.rs
     ├── tauri.conf.json
     ├── windows-app-manifest.xml
-    ├── capabilities/
-    │   └── default.json
-    ├── icons/
-    │   ├── 32x32.png
-    │   ├── 128x128.png
-    │   ├── 128x128@2x.png
-    │   └── icon.ico
     └── src/
-        ├── main.rs
         ├── lib.rs
+        ├── main.rs
         ├── error.rs
-        ├── application/
-        │   ├── mod.rs
-        │   └── runtime_status.rs
-        ├── commands/
-        │   ├── mod.rs
-        │   └── runtime.rs
+        ├── application/runtime_status.rs
+        ├── commands/runtime.rs
         └── infrastructure/
-            ├── mod.rs
             ├── paths.rs
             └── database/
-                ├── mod.rs
-                ├── connection.rs
-                ├── migrations.rs
-                └── tests.rs
 ```
 
 ## 2. Responsibility by area
 
-| Path | Responsibility | Current truth |
+| Path | Responsibility | Current accepted truth |
 | --- | --- | --- |
-| `database/**` | Authoritative accepted SQLite source and invariants | Four migrations; do not edit |
-| `scripts/verify_schema.py` | Cross-platform schema/invariant verifier | Must remain green |
-| `src-tauri/src/infrastructure/**` | Paths, connections, migrations, embedded database setup | Runtime foundation only |
-| `src-tauri/src/application/**` | Application-level DTO/service state | Only runtime status exists |
-| `src-tauri/src/commands/**` | Tauri IPC command boundary | Only `get_runtime_status` exists |
-| `src-tauri/src/lib.rs` | Tauri setup, managed state, command registration | Shared integration point |
-| `src/**` | React UI and original design foundation | Fixture-only; no backend call |
-| `src/app/AppRoot.tsx` | Current UI gallery composition and local view state | Shared PHASE 04 integration point |
-| `src/components/**` | Layout, operational, and primitive components | Accepted design primitives |
-| `src/features/ui-gallery/**` | Reference screens and fixtures | Demonstration, not business implementation |
-| `src/i18n/**` | Arabic/French dictionaries, context, formatters | Must keep key parity |
-| `src/styles/**` | Accepted tokens and UI foundation | Avoid override patch accumulation |
-| `tests/ui/**` | Dictionary/fixture tests | Browser-independent |
-| `tests/e2e/**` | Visual, accessibility, layout, overflow evidence | Uses fixture gallery |
-| `.github/workflows/**` | Schema, desktop, runtime, and UI gates | Do not weaken |
-| `docs/**` | Product, architecture, reports, design, continuity, history | Durable source of context |
+| `database/**` | Authoritative SQLite schema, seed, and invariants | Four accepted migrations; do not edit |
+| `scripts/verify_schema.py` | Cross-platform database verification | Must remain green |
+| `src-tauri/src/infrastructure/**` | Paths, connections, embedded migrations, database setup | Runtime foundation only |
+| `src-tauri/src/application/**` | Application-level state/services | Runtime status only |
+| `src-tauri/src/commands/**` | Tauri IPC boundary | Only `get_runtime_status` |
+| `src-tauri/src/lib.rs` | Tauri setup, managed state, command registration | Accepted shared integration point |
+| `src/platform/tauri/**` | Typed frontend gateway, environment detection, payload/error boundary | Accepted PHASE 04 integration layer |
+| `src/features/runtime/**` | Runtime provider, state machine, indicator, localized presentation | Read-only health UI |
+| `src/features/ui-gallery/**` | Demonstration screens and fixtures | Not business implementation |
+| `src/i18n/**` | Arabic/French dictionaries, context, and formatting | Key parity and RTL/LTR required |
+| `tests/integration/**` | Frontend runtime gateway/provider behavior | Includes retry, stale response, error, and StrictMode coverage |
+| `tests/e2e/**` | Browser accessibility, layout, language, and runtime-state evidence | Controlled preview/mock path |
+| `.github/workflows/integration-ci.yml` | Event-scoped PHASE 04 integration gate | Read-only permissions and write guard |
+| `docs/**` | Blueprint, accepted evidence, architecture, continuity, and historical packs | Durable project context |
 
 ## 3. Current runtime flow
 
 ```mermaid
 flowchart TD
-    Start["Tauri application setup"] --> Paths["Create POSMAN local directories"]
+    Start["Tauri setup"] --> Paths["Create POSMAN local directories"]
     Paths --> DB["Open bundled SQLite"]
     DB --> Migrate["Validate and apply migrations"]
     Migrate --> Seed["Apply idempotent seed"]
-    Seed --> Ready["Manage RuntimeService"]
-    Ready --> Status["get_runtime_status command"]
+    Seed --> Service["Manage RuntimeService"]
+    UI["RuntimeStatusProvider"] --> Gateway["Typed Tauri gateway"]
+    Gateway --> Command["get_runtime_status"]
+    Command --> Service
+    Service --> State["Validated ready/error state"]
+    State --> Indicator["Arabic RTL / French LTR indicator"]
 ```
 
-The React UI does not yet call `get_runtime_status`.
+Only runtime health crosses this boundary. No business write path exists.
 
-## 4. Intended business architecture
-
-```mermaid
-flowchart TD
-    UI["React feature UI"] --> Adapter["Typed Tauri adapter"]
-    Adapter --> Commands["Tauri command DTOs"]
-    Commands --> Services["Rust application services"]
-    Services --> Domain["Domain policies and calculations"]
-    Services --> Repos["Repository transactions"]
-    Repos --> SQLite["Bundled SQLite"]
-```
-
-Rules:
-
-- React owns interaction and presentation, not business truth.
-- Commands translate safe typed requests/responses.
-- Application services coordinate permissions, idempotency, transactions, and audit.
-- Domain modules calculate totals, stock, transformations, and posting.
-- Infrastructure owns SQL, paths, rendering, backup, and OS integration.
-
-## 5. Planned tree growth
-
-Future phases are expected to add bounded areas rather than place all logic in `lib.rs` or `AppRoot.tsx`:
+## 4. Hotfix 04C CI flow
 
 ```text
-src/
-├── platform/tauri/          # typed invoke adapter; PHASE 04 candidate
-├── features/setup/
-├── features/security/
-├── features/catalog/
-├── features/partners/
-├── features/inventory/
-├── features/purchasing/
-├── features/sales/
-├── features/accounting/
-├── features/documents/
-├── features/reports/
-└── features/backup/
+pull_request:
+  merge-base target branch ... triggering PR head
 
-src-tauri/src/
-├── domain/
-│   ├── money/
-│   ├── security/
-│   ├── catalog/
-│   ├── inventory/
-│   ├── purchasing/
-│   ├── sales/
-│   └── accounting/
-├── application/
-│   ├── setup/
-│   ├── catalog/
-│   ├── inventory/
-│   ├── purchasing/
-│   ├── sales/
-│   ├── accounting/
-│   ├── documents/
-│   └── backup/
-├── commands/
-├── infrastructure/
-│   ├── repositories/
-│   ├── printing/
-│   ├── backup/
-│   └── audit/
-└── error.rs
+push:
+  event before .. event sha
 ```
 
-This is a target boundary, not permission to create empty modules or implement later phases early. Every active phase must inspect the live tree and select the smallest necessary paths.
+The resolved range drives ownership enforcement, evidence metadata, and final whitespace/worktree comparison. `workflow_call` is absent. Permissions remain read-only.
+
+## 5. Planned bounded growth
+
+PHASE 05 may add first-run, security, catalogue, and partner areas only after authorization. Later planned growth includes inventory, purchasing, sales, accounting, documents, reports, backup, and distribution. Do not create empty modules or implement later phases early.
 
 ## 6. Files that must never be committed
 
-- `node_modules/`
-- `dist/`
-- Rust `target/`
-- `.env` or real secrets
-- Runtime `.sqlite`, `.sqlite3`, WAL, SHM, or journal files
-- Real company/customer data
-- Generated backups, PDFs, logs, or installer artifacts unless an approved release process explicitly publishes them as GitHub artifacts/releases
-- Temporary transfer, materializer, diagnostic, or commit-log helper files
+Because the repository is public, never commit:
+
+- `node_modules/`, `dist/`, or Rust `target/`;
+- `.env` files or any secret/credential/private key;
+- runtime `.sqlite`, `.sqlite3`, WAL, SHM, or journal files;
+- production, recovered, or customer databases;
+- real company, customer, supplier, employee, or authentication data;
+- generated backups, private PDFs/documents, logs, screenshots, or diagnostic bundles;
+- signing certificates or installer secrets.
