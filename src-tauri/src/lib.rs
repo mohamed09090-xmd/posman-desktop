@@ -134,9 +134,7 @@ mod tests {
         application.run_iteration(|_, _| {});
     }
 
-    fn build_test_application(
-        directory: &TestDirectory,
-    ) -> tauri::App<tauri::test::MockRuntime> {
+    fn build_test_application(directory: &TestDirectory) -> tauri::App<tauri::test::MockRuntime> {
         configure_application(
             tauri::test::mock_builder(),
             RuntimeRoot::Explicit(directory.path().to_path_buf()),
@@ -178,7 +176,9 @@ mod tests {
             .build()
             .expect("failed to build mock webview for IPC test");
         let ipc_url = if cfg!(any(windows, target_os = "android")) {
-            String::from("http") + "://tauri.localhost"
+            let mut url = String::from("http");
+            url.push_str("://tauri.localhost");
+            url
         } else {
             String::from("tauri://localhost")
         };
@@ -189,9 +189,7 @@ mod tests {
                 cmd: "get_runtime_status".into(),
                 callback: tauri::ipc::CallbackFn(0),
                 error: tauri::ipc::CallbackFn(1),
-                url: ipc_url
-                    .parse()
-                    .expect("local Tauri IPC URL should parse"),
+                url: ipc_url.parse().expect("local Tauri IPC URL should parse"),
                 body: tauri::ipc::InvokeBody::default(),
                 headers: Default::default(),
                 invoke_key: tauri::test::INVOKE_KEY.to_string(),
