@@ -9,6 +9,11 @@ import {
   type WorkspaceId,
 } from "../components/layout";
 import { InlineNotice } from "../components/primitives";
+import {
+  RuntimeStatusIndicator,
+  RuntimeStatusNotice,
+} from "../features/runtime/RuntimeStatusIndicator";
+import { RuntimeStatusProvider } from "../features/runtime/RuntimeStatusProvider";
 import { I18nProvider, useI18n } from "../i18n/I18nProvider";
 import {
   InvoiceScreen,
@@ -21,6 +26,7 @@ import {
 } from "../features/ui-gallery/screens";
 import "../styles/tokens.css";
 import "../styles/ui-foundation.css";
+import "../features/runtime/runtime-status.css";
 
 const workspaceCopy = {
   today: ["workspace.today.title", "workspace.today.subtitle"],
@@ -79,7 +85,11 @@ function AppGallery() {
   return (
     <div className="app-frame">
       <a className="skip-link" href="#main-content">{t("app.skipToContent")}</a>
-      <CommandBar workspace={workspace} onDemoAction={() => setFeedback(true)} />
+      <CommandBar
+        workspace={workspace}
+        onDemoAction={() => setFeedback(true)}
+        runtimeStatus={<RuntimeStatusIndicator />}
+      />
       <WorkspaceRail active={workspace} onSelect={selectWorkspace} />
       <Workspace>
         <WorkspaceHeader
@@ -93,6 +103,7 @@ function AppGallery() {
           }}
         />
         <div className="workspace__content">
+          <RuntimeStatusNotice />
           {feedback ? (
             <InlineNotice title={t("notice.successTitle")} tone="success" live>
               <p>{t("command.demoFeedback")}</p>
@@ -107,5 +118,11 @@ function AppGallery() {
 }
 
 export function AppRoot() {
-  return <I18nProvider><AppGallery /></I18nProvider>;
+  return (
+    <I18nProvider>
+      <RuntimeStatusProvider>
+        <AppGallery />
+      </RuntimeStatusProvider>
+    </I18nProvider>
+  );
 }

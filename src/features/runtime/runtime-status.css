@@ -1,0 +1,170 @@
+.runtime-status-host {
+  max-inline-size: 240px;
+  gap: 2px;
+}
+
+.runtime-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-tight);
+}
+
+.runtime-status__mark {
+  flex: 0 0 auto;
+  inline-size: 10px;
+  block-size: 10px;
+}
+
+.runtime-status__mark--neutral {
+  color: var(--color-text-secondary);
+}
+
+.runtime-status__mark--ready {
+  color: var(--color-confirmed);
+}
+
+.runtime-status__mark--warning {
+  color: var(--color-pending);
+}
+
+.runtime-status__mark--error {
+  color: var(--color-error);
+}
+
+.runtime-status__copy {
+  display: grid;
+  gap: 1px;
+  min-inline-size: 0;
+}
+
+.runtime-status__copy strong,
+.runtime-status__copy small,
+.runtime-status > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-status__copy strong {
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+}
+
+.runtime-status__copy small {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+}
+
+.runtime-status--error {
+  color: var(--color-error);
+}
+
+.runtime-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-document);
+  border: var(--border-thin);
+  border-inline-start: 3px solid var(--color-error);
+  border-radius: var(--radius-sm);
+}
+
+.runtime-notice--retrying {
+  border-inline-start-color: var(--color-pending);
+}
+
+.runtime-notice > div {
+  min-inline-size: 0;
+}
+
+.runtime-notice strong {
+  display: block;
+  margin-block-end: 2px;
+}
+
+.runtime-notice p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.runtime-notice button {
+  flex: 0 0 auto;
+  min-block-size: 36px;
+  padding-inline: var(--space-3);
+  color: var(--color-text);
+  background: var(--color-paper-deep);
+  border: var(--border-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.runtime-notice button:hover:not(:disabled) {
+  background: var(--color-selection);
+}
+
+.runtime-notice button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.runtime-notice button:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+
+@media (max-width: 1180px) {
+  .runtime-status-host {
+    max-inline-size: 165px;
+  }
+
+  .runtime-status__copy small {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .command-bar__company.runtime-status-host {
+    display: flex;
+    max-inline-size: 145px;
+  }
+
+  .runtime-status-host > .command-bar__company-name {
+    display: none;
+  }
+
+  .runtime-status {
+    inline-size: 100%;
+  }
+
+  .runtime-notice {
+    padding: var(--space-2) var(--space-3);
+  }
+}
+
+@media (max-width: 760px) {
+  .command-bar__company.runtime-status-host {
+    display: none;
+  }
+
+  .runtime-notice {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runtime-status,
+  .runtime-notice {
+    transition: none;
+  }
+}

@@ -35,9 +35,11 @@ const createLabels: Record<WorkspaceId, MessageKey> = {
 export function CommandBar({
   workspace,
   onDemoAction,
+  runtimeStatus,
 }: {
   workspace: WorkspaceId;
   onDemoAction: () => void;
+  runtimeStatus: ReactNode;
 }) {
   const { locale, setLocale, t } = useI18n();
   const workspaceItem = workspaceItems.find((item) => item.id === workspace) ?? workspaceItems[0];
@@ -84,9 +86,9 @@ export function CommandBar({
           <span aria-hidden="true">文</span>
           {locale === "ar-DZ" ? t("command.switchToFrench") : t("command.switchToArabic")}
         </button>
-        <div className="command-bar__company">
-          <span>{t("app.demoCompany")}</span>
-          <small><i aria-hidden="true" /> {t("app.localOnly")}</small>
+        <div className="command-bar__company runtime-status-host">
+          <span className="command-bar__company-name">{t("app.demoCompany")}</span>
+          {runtimeStatus}
         </div>
       </div>
     </header>
