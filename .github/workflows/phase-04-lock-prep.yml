@@ -1,0 +1,83 @@
+name: Phase 04 lock preparation
+
+on:
+  push:
+    branches:
+      - "phase/04-frontend-runtime-integration"
+    paths:
+      - ".github/workflows/phase-04-lock-prep.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phase-04-lock-preparation
+  cancel-in-progress: false
+
+jobs:
+  prepare-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: phase/04-frontend-runtime-integration
+          fetch-depth: 0
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Configure bounded commit identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Install exact Tauri API dependency and integration script
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --save-exact @tauri-apps/api@2.11.1
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const path = "package.json";
+          const packageJson = JSON.parse(readFileSync(path, "utf8"));
+          packageJson.scripts["test:integration"] =
+            "node --experimental-strip-types --test tests/integration/*.test.ts";
+          writeFileSync(path, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
+          NODE
+
+      - name: Enforce package-only diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          printf '%s\n' "${changed[@]}"
+          if (( ${#changed[@]} != 2 )); then
+            echo "Expected exactly package.json and package-lock.json." >&2
+            exit 1
+          fi
+          for path in "${changed[@]}"; do
+            case "$path" in
+              package.json|package-lock.json) ;;
+              *) echo "Unexpected lock-preparation change: $path" >&2; exit 1 ;;
+            esac
+          done
+
+      - name: Verify remote head and push one fast-forward commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="phase/04-frontend-runtime-integration"
+          expected="${GITHUB_SHA}"
+          git fetch origin "$branch"
+          remote="$(git rev-parse "origin/$branch")"
+          if [[ "$remote" != "$expected" ]]; then
+            echo "Branch moved unexpectedly: expected $expected, found $remote" >&2
+            exit 1
+          fi
+          git add package.json package-lock.json
+          git commit -m "chore(frontend): add locked Tauri API dependency"
+          git push origin "HEAD:$branch"
