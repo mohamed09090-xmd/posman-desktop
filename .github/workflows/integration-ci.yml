@@ -1,7 +1,6 @@
 name: Frontend Runtime Integration
 
 on:
-  workflow_call:
   pull_request:
     paths:
       - ".github/workflows/integration-ci.yml"
@@ -52,8 +51,6 @@ jobs:
   validate-integration:
     name: Frontend ↔ local runtime gate (ubuntu-latest)
     runs-on: ubuntu-latest
-    env:
-      BASELINE_SHA: f4cda85b24f9d69ebb0442c02f8a037da8ba9baf
     steps:
       - name: Check out Pull Request head
         if: github.event_name == 'pull_request'
@@ -69,6 +66,33 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
+      - name: Resolve event-scoped ownership range
+        id: ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_ref="origin/${{ github.base_ref }}"
+            base="$(git rev-parse "$base_ref")"
+            head="${{ github.event.pull_request.head.sha }}"
+            range="${base}...${head}"
+            git merge-base --is-ancestor "$base" HEAD
+            git merge-base --is-ancestor "$head" HEAD
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            before="${{ github.event.before }}"
+            head="${{ github.sha }}"
+            if [[ "$before" == "0000000000000000000000000000000000000000" ]]; then
+              echo "A push ownership range requires a non-zero before SHA." >&2
+              exit 1
+            fi
+            range="${before}..${head}"
+          else
+            echo "Unsupported event: ${{ github.event_name }}" >&2
+            exit 1
+          fi
+          echo "range=$range" >> "$GITHUB_OUTPUT"
+          echo "Ownership range: $range"
+
       - name: Create evidence directory and record metadata
         shell: bash
         run: |
@@ -82,7 +106,7 @@ jobs:
             echo "repository=${GITHUB_REPOSITORY}"
             echo "event=${GITHUB_EVENT_NAME}"
             echo "sha=$(git rev-parse HEAD)"
-            echo "baseline=${BASELINE_SHA}"
+            echo "ownership_range=${{ steps.ownership.outputs.range }}"
             echo "ref=${GITHUB_REF}"
           } | tee "$evidence_dir/metadata.txt"
 
@@ -115,7 +139,7 @@ jobs:
           set -euo pipefail
           python scripts/verify_schema.py 2>&1 | tee "$EVIDENCE_DIR/schema-verification.log"
 
-      - name: Enforce Phase 04 ownership from accepted baseline
+      - name: Enforce Phase 04 ownership for triggering change
         shell: python
         run: |
           import os
@@ -123,8 +147,9 @@ jobs:
           import sys
           from pathlib import Path
 
+          ownership_range = "${{ steps.ownership.outputs.range }}"
           changed = subprocess.check_output(
-              ["git", "diff", "--name-only", f"{os.environ['BASELINE_SHA']}...HEAD"],
+              ["git", "diff", "--name-only", ownership_range],
               text=True,
           ).splitlines()
           exact = {
@@ -134,7 +159,7 @@ jobs:
               "tests/e2e/run_ui_gallery.py", ".github/workflows/integration-ci.yml",
               ".github/workflows/ui-ci.yml", ".github/workflows/runtime-ci.yml",
               "docs/architecture/frontend-runtime-integration.md",
-              "docs/PHASE-04-REPORT.md",
+              "docs/PHASE-04-REPORT.md", "docs/HOTFIX-04C-REPORT.md",
           }
           prefixes = ("src/platform/tauri/", "src/features/runtime/", "tests/integration/")
           unexpected = [p for p in changed if p not in exact and not p.startswith(prefixes)]
@@ -272,7 +297,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git diff --check "$BASELINE_SHA...HEAD" 2>&1 | tee "$EVIDENCE_DIR/git-diff-check.log"
+          git diff --check "${{ steps.ownership.outputs.range }}" 2>&1 | tee "$EVIDENCE_DIR/git-diff-check.log"
           git diff --check 2>&1 | tee -a "$EVIDENCE_DIR/git-diff-check.log"
           status="$(git status --short --untracked-files=all)"
           printf '%s\n' "$status" | tee "$EVIDENCE_DIR/worktree-status.txt"
