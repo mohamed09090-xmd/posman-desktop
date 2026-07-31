@@ -27,35 +27,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "f195e531a946121f4b0da6365c12dba069e52a45"
-          test "$(git log -1 --pretty=%s)" = "chore(phase05): retry backend reconciliation transport"
+          test "$(git rev-parse HEAD^)" = "9b87a6ed316cd17c72742b825abcc34e1ec7f6c7"
+          test "$(git log -1 --pretty=%s)" = "chore(phase05): retry Rust 1.85 backend transport"
           test "$(git rev-parse origin/main)" = "77d297f08ec3c46920dd1b94710995834854dd9a"
           printf '%s  %s\n' '44815beb77e15690e4762be70eebe316a5b6f2393799b1014c52919f1db584b2' '.phase05-transport/05b-backend-core.b64' | sha256sum --check --strict
-          printf '%s  %s\n' 'fbd79622c6b4194275efefcd1248a2c2988335083c9dc5e089fd32942fa066ac' '.phase05-transport/05b-cargo-fix.b64' | sha256sum --check --strict
+          printf '%s  %s\n' 'f90ebc69c3cef5939881b72e18fc006cee01afa886b73b29dc84ce4eafcb263a' '.phase05-transport/05b-cargo-fix2.b64' | sha256sum --check --strict
           base64 --decode .phase05-transport/05b-backend-core.b64 > /tmp/phase05-backend.tar.gz
-          base64 --decode .phase05-transport/05b-cargo-fix.b64 > /tmp/phase05-cargo-fix.tar.gz
+          base64 --decode .phase05-transport/05b-cargo-fix2.b64 > /tmp/phase05-cargo-fix2.tar.gz
           printf '%s  %s\n' 'f3e10c893f80406ed6a9a4feb2377a011cce843ded33df49f00e193734fff83b' '/tmp/phase05-backend.tar.gz' | sha256sum --check --strict
-          printf '%s  %s\n' '78aee9d3a540b8388a51142a113e6ccd320795a46d4c6c99da2c0aecfd559f88' '/tmp/phase05-cargo-fix.tar.gz' | sha256sum --check --strict
+          printf '%s  %s\n' 'd90060c3e12c7514c893b293112167699ef470dae657747a67a1f7fad8145fb4' '/tmp/phase05-cargo-fix2.tar.gz' | sha256sum --check --strict
       - name: Apply backend reconciliation
         shell: bash
         run: |
           set -euo pipefail
           tar --extract --gzip --file /tmp/phase05-backend.tar.gz --directory .
-          tar --extract --gzip --file /tmp/phase05-cargo-fix.tar.gz --directory .
+          tar --extract --gzip --file /tmp/phase05-cargo-fix2.tar.gz --directory .
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: '1.85.0'
           components: rustfmt, clippy
-      - name: Generate lockfile and validate
+      - name: Generate minimal lockfile change and validate
         shell: bash
         run: |
           set -euo pipefail
           python scripts/verify_schema.py
           cargo fmt --manifest-path src-tauri/Cargo.toml --all
-          cargo update --manifest-path src-tauri/Cargo.toml
           cargo check --manifest-path src-tauri/Cargo.toml --all-targets
-          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-          cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked
           git diff --check
       - name: Commit logical backend reconciliation
         shell: bash
