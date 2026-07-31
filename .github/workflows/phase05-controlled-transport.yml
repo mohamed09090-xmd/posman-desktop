@@ -1,9 +1,9 @@
 name: PHASE 05 controlled transport
 
 on:
-  push:
+  pull_request:
     branches:
-      - phase/05-setup-security-reference-data
+      - main
     paths:
       - '.phase05-transport/**'
       - '.github/workflows/phase05-controlled-transport.yml'
@@ -17,12 +17,13 @@ concurrency:
 
 jobs:
   apply-05b1:
-    if: github.event.head_commit.message == 'chore(phase05): stage 05B-1 controlled transport'
+    if: github.event.pull_request.head.ref == 'phase/05-setup-security-reference-data'
     runs-on: ubuntu-latest
     steps:
       - name: Check out exact branch head
         uses: actions/checkout@v4
         with:
+          ref: phase/05-setup-security-reference-data
           fetch-depth: 0
 
       - name: Verify authorized parent and payload
@@ -30,7 +31,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git branch --show-current)" = "phase/05-setup-security-reference-data"
-          test "$(git rev-parse HEAD^)" = "7d171179e06fb16d14e8e786ceceef8cb10c9148"
+          test "$(git rev-parse HEAD^)" = "b68982c70a7b04ea306df46acbf792b29a0776a7"
+          test "$(git log -1 --pretty=%s)" = "chore(phase05): retry 05B-1 controlled transport"
           printf '%s  %s\n' \
             '8b4be8d49021908e4dc7c499751f96ff6c997b1e3c200c0c9ba788c79a696182' '.phase05-transport/05b1.payload.part.00' \
             'b644a860fb8d8ce633e2a30fd51efb6317c40401cfd8fa86532ba6f93def5dcf' '.phase05-transport/05b1.payload.part.01' \
