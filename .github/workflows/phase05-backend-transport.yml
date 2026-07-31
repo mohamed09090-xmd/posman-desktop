@@ -1,0 +1,64 @@
+name: PHASE 05 backend reconciliation transport
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.phase05-transport/05b-backend-core.b64'
+      - '.github/workflows/phase05-backend-transport.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phase05-backend-transport
+  cancel-in-progress: false
+
+jobs:
+  apply-and-compile:
+    if: github.event.pull_request.head.ref == 'phase/05-setup-security-reference-data'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase/05-setup-security-reference-data
+          fetch-depth: 0
+      - name: Verify coordinate and payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "169acbab471b9b49445104523b03f70f5b7a01e7"
+          test "$(git log -1 --pretty=%s)" = "chore(phase05): stage backend reconciliation transport"
+          test "$(git rev-parse origin/main)" = "77d297f08ec3c46920dd1b94710995834854dd9a"
+          printf '%s  %s\n' '44815beb77e15690e4762be70eebe316a5b6f2393799b1014c52919f1db584b2' '.phase05-transport/05b-backend-core.b64' | sha256sum --check --strict
+          base64 --decode .phase05-transport/05b-backend-core.b64 > /tmp/phase05-backend.tar.gz
+          printf '%s  %s\n' 'f3e10c893f80406ed6a9a4feb2377a011cce843ded33df49f00e193734fff83b' '/tmp/phase05-backend.tar.gz' | sha256sum --check --strict
+      - name: Apply backend reconciliation
+        shell: bash
+        run: tar --extract --gzip --file /tmp/phase05-backend.tar.gz --directory .
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.85.0'
+          components: rustfmt, clippy
+      - name: Generate lockfile and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/verify_schema.py
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all
+          cargo update --manifest-path src-tauri/Cargo.toml
+          cargo check --manifest-path src-tauri/Cargo.toml --all-targets
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+          git diff --check
+      - name: Commit logical backend reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/src
+          git rm -r .phase05-transport .github/workflows/phase05-backend-transport.yml
+          git diff --cached --check
+          git config user.name 'POSMAN implementation engineer'
+          git config user.email '144628717+mohamed09090-xmd@users.noreply.github.com'
+          git commit -m 'feat(phase05): wire typed backend services and IPC commands'
+          git push origin HEAD:phase/05-setup-security-reference-data
