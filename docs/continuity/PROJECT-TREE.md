@@ -1,8 +1,8 @@
 # POSMAN Project Tree and Ownership Map
 
-> Verified accepted product tree at `main` SHA `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307`, plus continuity files maintained in Draft PR #5. Generated dependencies, build output, and local runtime data are excluded from Git.
+> Accepted product-code baseline through Hotfix 04C: `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307`. The represented tree also includes continuity checkpoint content delivered through PR #5. Verify live `main` and PR #5 state on GitHub; generated dependencies, build output, and local runtime data are excluded from Git.
 
-## 1. Current repository tree
+## 1. Repository tree represented by this checkpoint
 
 ```text
 posman-desktop/
@@ -83,9 +83,19 @@ posman-desktop/
             └── database/
 ```
 
-## 2. Responsibility by area
+## 2. Baseline and continuity distinction
 
-| Path | Responsibility | Current accepted truth |
+- The accepted product-code baseline contains PHASE 01–04 and Hotfix 04C implementation.
+- PR #5 delivers continuity and archived documentation; verify its live state rather than assuming it is permanently unmerged or merged.
+- Before PR #5 is merged, its continuity paths may exist only on the delivery branch.
+- After PR #5 is merged, live `main` may be a docs-only successor of the product-code baseline.
+- A docs-only successor is accepted as this checkpoint only when the baseline-to-`main` comparison is limited to `AGENTS.md`, `docs/continuity/**`, and `docs/execution-packs/archive/**`.
+- Product or other out-of-scope differences are drift and require review.
+- The docs-only successor does not represent PHASE 05 or product-code work.
+
+## 3. Responsibility by area
+
+| Path | Responsibility | Accepted truth |
 | --- | --- | --- |
 | `database/**` | Authoritative SQLite schema, seed, and invariants | Four accepted migrations; do not edit |
 | `scripts/verify_schema.py` | Cross-platform database verification | Must remain green |
@@ -100,9 +110,11 @@ posman-desktop/
 | `tests/integration/**` | Frontend runtime gateway/provider behavior | Includes retry, stale response, error, and StrictMode coverage |
 | `tests/e2e/**` | Browser accessibility, layout, language, and runtime-state evidence | Controlled preview/mock path |
 | `.github/workflows/integration-ci.yml` | Event-scoped PHASE 04 integration gate | Read-only permissions and write guard |
+| `docs/continuity/**` | Stable recovery baseline and pre/post-delivery procedure | Continuity delivery through PR #5 |
+| `docs/execution-packs/archive/**` | Authoritative historical packs available in the repository | Historical evidence only |
 | `docs/**` | Blueprint, accepted evidence, architecture, continuity, and historical packs | Durable project context |
 
-## 3. Current runtime flow
+## 4. Accepted runtime flow
 
 ```mermaid
 flowchart TD
@@ -120,7 +132,7 @@ flowchart TD
 
 Only runtime health crosses this boundary. No business write path exists.
 
-## 4. Hotfix 04C CI flow
+## 5. Hotfix 04C CI flow
 
 ```text
 pull_request:
@@ -132,16 +144,16 @@ push:
 
 The resolved range drives ownership enforcement, evidence metadata, and final whitespace/worktree comparison. `workflow_call` is absent. Permissions remain read-only.
 
-## 5. Planned bounded growth
+## 6. Planned bounded growth
 
-PHASE 05 may add first-run, security, catalogue, and partner areas only after authorization. Later planned growth includes inventory, purchasing, sales, accounting, documents, reports, backup, and distribution. Do not create empty modules or implement later phases early.
+PHASE 05 may add first-run, security, catalogue, and partner areas only after authorization. Its execution must start from the live accepted `main` resolved at execution time, not blindly from the historical product-code baseline. Later planned growth includes inventory, purchasing, sales, accounting, documents, reports, backup, and distribution. Do not create empty modules or implement later phases early.
 
-## 6. Files that must never be committed
+## 7. Files that must never be committed
 
 Because the repository is public, never commit:
 
 - `node_modules/`, `dist/`, or Rust `target/`;
-- `.env` files or any secret/credential/private key;
+- `.env` files or any secret, credential, or private key;
 - runtime `.sqlite`, `.sqlite3`, WAL, SHM, or journal files;
 - production, recovered, or customer databases;
 - real company, customer, supplier, employee, or authentication data;

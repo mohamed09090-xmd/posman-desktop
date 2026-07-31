@@ -1,6 +1,6 @@
 # POSMAN Decision Register
 
-> Accepted decisions through `main` SHA `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307`. Planned phase details remain proposals until separately authorized and accepted.
+> Accepted product decisions and product-code implementation through Hotfix 04C baseline `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307`. Live `main` must be resolved from GitHub; planned phase details remain proposals until separately authorized and accepted.
 
 ## 1. Product boundary
 
@@ -18,7 +18,18 @@
 
 PHASE 01–04 and Hotfix 04C are accepted. PHASE 05–10 remain planned only.
 
-## 2. Technical foundation
+## 2. Continuity delivery decision
+
+- Continuity Checkpoint 04 is delivered through [PR #5](https://github.com/mohamed09090-xmd/posman-desktop/pull/5); its live state must be verified on GitHub.
+- The Hotfix 04C SHA remains the accepted product-code baseline, not a permanent live-`main` assertion.
+- Before PR #5 is merged, its continuity content remains unaccepted.
+- After PR #5 is merged, live `main` may be a docs-only squash commit ahead of the product-code baseline.
+- That newer `main` is an accepted continuity-checkpoint successor only if PR #5 is verified merged and the baseline comparison is limited to `AGENTS.md`, `docs/continuity/**`, and `docs/execution-packs/archive/**`.
+- A docs-only continuity successor is not PHASE 05 and is not product-code implementation.
+- Any product or out-of-scope drift must be reported and reviewed; it is never accepted automatically.
+- PHASE 05 must start from the live accepted `main` resolved when its execution is authorized, not blindly from the historical product-code baseline.
+
+## 3. Technical foundation
 
 | Area | Accepted decision | Reason |
 | --- | --- | --- |
@@ -35,7 +46,7 @@ PHASE 01–04 and Hotfix 04C are accepted. PHASE 05–10 remain planned only.
 | Migration control | Ordered embedded migrations with exact ledger hashes | Detect drift and protect data |
 | Automatic reset/downgrade | Rejected | Never destroy customer data silently |
 
-## 3. Accepted frontend/runtime integration decisions
+## 4. Accepted frontend/runtime integration decisions
 
 - All frontend Tauri access is centralized in a typed gateway under `src/platform/tauri/**`.
 - The accepted frontend invokes only `get_runtime_status`.
@@ -48,7 +59,7 @@ PHASE 01–04 and Hotfix 04C are accepted. PHASE 05–10 remain planned only.
 - No frontend SQL, raw path, SQL text, stack trace, or raw Rust error exposure.
 - No business CRUD or write command was authorized by PHASE 04.
 
-## 4. Accepted Integration CI decisions from Hotfix 04C
+## 5. Accepted Integration CI decisions from Hotfix 04C
 
 - Ownership guards use the triggering event's change range, not a fixed historical phase SHA.
 - Pull requests compare the target branch through the triggering PR head with ancestry validation.
@@ -59,7 +70,7 @@ PHASE 01–04 and Hotfix 04C are accepted. PHASE 05–10 remain planned only.
 - The guard against write-capable workflow permissions remains mandatory.
 - Evidence metadata and final whitespace checks use the same resolved ownership range.
 
-## 5. Numeric and data decisions
+## 6. Numeric and data decisions
 
 | Value | Storage |
 | --- | --- |
@@ -73,7 +84,7 @@ PHASE 01–04 and Hotfix 04C are accepted. PHASE 05–10 remain planned only.
 
 Never use binary floating point for business truth. Rust calculation and documented rounding outrank UI display values.
 
-## 6. Inventory decisions
+## 7. Inventory decisions
 
 - `stock_movements` is the append-only source of truth.
 - `stock_balances` is a rebuildable projection.
@@ -83,7 +94,7 @@ Never use binary floating point for business truth. Rust calculation and documen
 - Retry or double-click must not duplicate a stock event.
 - Physical, available, reserved, and projected quantities are distinct.
 
-## 7. Commercial document decisions
+## 8. Commercial document decisions
 
 - Shared header/line/totals/status/lineage structure.
 - Core path: order → delivery → invoice, with partial transformation.
@@ -95,7 +106,7 @@ Never use binary floating point for business truth. Rust calculation and documen
 - Aggregate transformed quantity enforcement belongs in one Rust transaction.
 - Human document numbers are separate from internal IDs.
 
-## 8. Pricing, tax, and accounting decisions
+## 9. Pricing, tax, and accounting decisions
 
 - Tax rates, account numbers, and posting mappings are configurable data, not permanent hardcoded constants.
 - Rust recalculates totals; submitted UI totals are not trusted as final truth.
@@ -105,7 +116,7 @@ Never use binary floating point for business truth. Rust calculation and documen
 - Posted entries are immutable; correction uses reversal or compensation.
 - Missing posting configuration produces an actionable error with no partial entry.
 
-## 9. Documents, backup, and privacy decisions
+## 10. Documents, backup, and privacy decisions
 
 - Templates use safe internal HTML/CSS; arbitrary template JavaScript is forbidden.
 - Template versions and historical rendered snapshots are immutable.
@@ -114,7 +125,7 @@ Never use binary floating point for business truth. Rust calculation and documen
 - All business data remains local by default.
 - No telemetry by default.
 
-## 10. Public repository safety decision
+## 11. Public repository safety decision
 
 The repository is public. Never commit:
 
@@ -126,7 +137,7 @@ The repository is public. Never commit:
 
 Synthetic fixtures are required.
 
-## 11. UX decisions
+## 12. UX decisions
 
 - Clear for non-technical merchants.
 - Progressive disclosure for advanced fields.
@@ -136,17 +147,17 @@ Synthetic fixtures are required.
 - No generic admin sidebar, KPI card wall, glassmorphism, decorative gradients, bento grid, oversized SaaS cards, or meaningless motion.
 - Accepted language includes the numbered Workspace Rail, Command Bar, Document Canvas, Process Strip, Status Stamp, Operational Data Grid, Detail Drawer, and Action Dock.
 
-## 12. Delivery decisions
+## 13. Delivery decisions
 
 - Product Owner accepts phases.
 - Architect/reviewer defines packs and independently reviews evidence.
 - Implementation engineer executes only the active pack.
-- Exact baseline, bounded branch, and Draft PR are mandatory.
+- Exact live baseline, bounded branch, and delivery PR are mandatory.
 - No force-push, rebase/history rewrite, auto-merge, direct `main` commit, or unapproved merge.
 - Tests cannot be weakened to obtain green CI.
 - A phase report is an evidence inventory, not self-acceptance.
 
-## 13. Open decisions before PHASE 05 and later
+## 14. Open decisions before PHASE 05 and later
 
 | Decision | Resolve before |
 | --- | --- |

@@ -1,21 +1,24 @@
 # POSMAN Continuity Checkpoint 04
 
-> Snapshot verified against accepted `main` SHA `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307` after PHASE 04 and POST-MERGE HOTFIX 04C. Live GitHub evidence remains authoritative.
+> Stable recovery checkpoint for the accepted product-code baseline through PHASE 04 and POST-MERGE HOTFIX 04C. Live `main` and PR #5 state must always be resolved from GitHub.
 
 Start with [PROJECT-MEMORY-INDEX.md](PROJECT-MEMORY-INDEX.md).
 
-## 1. Recovery coordinates
+## 1. Stable recovery coordinates
 
-| Item | Accepted value |
+| Item | Stable value |
 | --- | --- |
 | Repository | `https://github.com/mohamed09090-xmd/posman-desktop` |
 | Visibility | Public |
 | Default branch | `main` |
-| Current accepted `main` | `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307` |
+| Accepted product-code baseline through Hotfix 04C | `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307` |
 | Latest accepted product phase | PHASE 04 — Frontend Runtime Integration |
 | Latest accepted correction | POST-MERGE HOTFIX 04C |
-| Open continuity PR | Draft PR [#5](https://github.com/mohamed09090-xmd/posman-desktop/pull/5), branch `docs/continuity-checkpoint-03` |
+| Continuity Checkpoint 04 delivery PR | [PR #5](https://github.com/mohamed09090-xmd/posman-desktop/pull/5) — verify its live state on GitHub |
+| Live `main` | Resolve from GitHub during recovery |
 | Next candidate | PHASE 05 — planned, unstarted, unauthorized |
+
+The baseline SHA above is historically stable product-code evidence. It is not a permanent assertion about the live `main` ref. A squash merge of PR #5 may create a docs-only successor commit on `main`; that commit changes recovery documentation only and does not represent a new product phase or product-code implementation.
 
 ## 2. Accepted delivery ledger
 
@@ -26,7 +29,7 @@ Start with [PROJECT-MEMORY-INDEX.md](PROJECT-MEMORY-INDEX.md).
 | PHASE 02 — Local Runtime Foundation | [#3](https://github.com/mohamed09090-xmd/posman-desktop/pull/3) | `7112e7f029a6419c7e58f89947f66ccad8bb69e4` | Accepted |
 | PHASE 03 — Original UI Foundation | [#4](https://github.com/mohamed09090-xmd/posman-desktop/pull/4) | `f4cda85b24f9d69ebb0442c02f8a037da8ba9baf` | Accepted |
 | PHASE 04 — Frontend Runtime Integration | [#6](https://github.com/mohamed09090-xmd/posman-desktop/pull/6) | `a86635a8bc7dd8f3b7683f8f2f33d40c454441bb` | Accepted |
-| POST-MERGE HOTFIX 04C | [#7](https://github.com/mohamed09090-xmd/posman-desktop/pull/7) | `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307` | Accepted |
+| POST-MERGE HOTFIX 04C | [#7](https://github.com/mohamed09090-xmd/posman-desktop/pull/7) | `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307` | Accepted product-code baseline |
 
 Accepted reports and architecture:
 
@@ -44,7 +47,7 @@ PHASE 04 connected the accepted frontend shell to the existing read-only runtime
 
 - A typed Tauri gateway is centralized under `src/platform/tauri/**`; UI components do not scatter raw `invoke` calls.
 - The frontend consumes **only** `get_runtime_status`.
-- Runtime payloads are validated before use, and thrown/unknown failures are normalized into safe user-facing errors without exposing SQL, paths, stack traces, or raw Rust details.
+- Runtime payloads are validated before use, and thrown or unknown failures are normalized into safe user-facing errors without exposing SQL, paths, stack traces, or raw Rust details.
 - The UI models `initializing`, `ready`, `error`, and browser `preview` states.
 - Retry behavior is explicit and tested.
 - Stale responses, unmounts, and React StrictMode activate/deactivate/activate behavior are protected so obsolete results do not overwrite current state and duplicate invocation is avoided.
@@ -57,14 +60,14 @@ PHASE 04 connected the accepted frontend shell to the existing read-only runtime
 Hotfix 04C corrected the Integration CI ownership model without changing PHASE 04 product source.
 
 - Removed the fixed PHASE 03 ownership baseline from `.github/workflows/integration-ci.yml`.
-- Pull-request ownership is now event-scoped from the target branch to the triggering PR head using a three-dot range, with ancestry checks against the checked-out head.
+- Pull-request ownership is event-scoped from the target branch to the triggering PR head using a three-dot range, with ancestry checks against the checked-out head.
 - Push ownership is event-scoped from `github.event.before` to `github.sha` using a two-dot range; an all-zero `before` SHA is rejected.
 - Removed the unused `workflow_call` interface after verifying no repository caller depended on it.
 - Preserved `permissions: contents: read`.
 - Preserved the write-capability guard and the complete Integration validation gate.
 - Ownership evidence and the final whitespace/worktree comparison use the resolved event-scoped range.
 
-## 5. Current implemented architecture
+## 5. Accepted implemented architecture
 
 ### Desktop and data foundation
 
@@ -95,9 +98,9 @@ The frontend displays runtime health only. Rust remains the authority for valida
 - Typed dictionaries, logical CSS, keyboard-visible focus, reduced-motion support, and accessibility evidence.
 - Existing gallery and sample commercial screens remain fixtures, not working business modules.
 
-## 6. Current repository tree additions from PHASE 04/04C
+## 6. Accepted product-code tree additions from PHASE 04/04C
 
-The accepted tree now includes:
+The accepted product-code baseline includes:
 
 - `src/platform/tauri/**`
 - `src/features/runtime/**`
@@ -131,7 +134,13 @@ PHASE 05–10 remain planned only. This checkpoint does not authorize any of the
 
 ## 8. Next candidate: PHASE 05
 
-PHASE 05 is the next roadmap candidate for first-run setup, security, and reference data. It is **not started and not authorized** by this checkpoint. A future execution pack must define exact baseline, ownership, product decisions, migrations if any, tests, and stop conditions before implementation.
+PHASE 05 is the next roadmap candidate for first-run setup, security, and reference data. It is **not started and not authorized** by this checkpoint.
+
+Any PHASE 05 execution must start from the live accepted `main` resolved at execution time. It must not blindly use the accepted product-code baseline through Hotfix 04C:
+
+`73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307`
+
+Live `main` may include the accepted docs-only continuity successor or later explicitly accepted work. A future execution pack must freeze the exact live baseline, ownership, product decisions, migrations if any, tests, and stop conditions.
 
 ## 9. Public repository safety boundary
 
@@ -148,8 +157,23 @@ Use synthetic fixtures only.
 ## 10. Recovery procedure
 
 1. Read [AGENTS.md](../../AGENTS.md) and follow [PROJECT-MEMORY-INDEX.md](PROJECT-MEMORY-INDEX.md).
-2. Verify live `main` equals the documented accepted SHA or report drift.
-3. Inspect merged PRs #1, #2, #3, #4, #6, and #7 and open PR #5.
-4. Verify PR states, heads, bases, changed files, and completed CI before claiming health.
-5. Distinguish accepted implementation from fixture UI and planned roadmap work.
-6. Do not modify code, merge, mark a PR ready, enable auto-merge, or start PHASE 05 without explicit user authorization.
+2. Resolve live `main` from GitHub. Do not assume it equals the accepted product-code baseline.
+3. Verify merged PRs #1, #2, #3, #4, #6, and #7 and verify the live state of continuity delivery PR #5.
+4. Compare live `main` with the accepted product-code baseline.
+5. Apply the appropriate state:
+
+   **Before PR #5 is merged**
+   - Live `main` may equal the product-code baseline.
+   - Continuity files may exist only on PR #5.
+   - Treat PR #5 content as unaccepted until merge.
+
+   **After PR #5 is merged**
+   - Live `main` may be one docs-only squash commit ahead of the product-code baseline.
+   - Verify PR #5 is merged.
+   - Accept that newer `main` as the continuity-checkpoint successor only if the comparison is limited to `AGENTS.md`, `docs/continuity/**`, and `docs/execution-packs/archive/**`.
+   - Do not treat the docs-only merge as PHASE 05 or as product-code implementation.
+
+6. If the comparison contains product source or any other out-of-scope change, report drift and stop instead of accepting it automatically.
+7. Verify relevant PR heads, bases, changed files, and completed CI before claiming repository health.
+8. Distinguish accepted product implementation from continuity documentation, fixture UI, and planned roadmap work.
+9. Do not modify code, merge, mark a PR ready, enable auto-merge, or start PHASE 05 without explicit user authorization.
