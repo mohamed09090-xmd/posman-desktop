@@ -27,8 +27,8 @@ AXE_PATH = ROOT / "node_modules" / "axe-core" / "axe.min.js"
 
 READY_PAYLOAD = {
     "databaseReady": True,
-    "schemaVersion": "0004",
-    "migrationCount": 4,
+    "schemaVersion": "0005",
+    "migrationCount": 5,
     "foreignKeysEnabled": True,
     "journalMode": "wal",
 }
@@ -73,8 +73,8 @@ def runtime_script(mode: str) -> str:
           window.__POSMAN_RUNTIME_CALLS__.push({ command, args, argumentCount: arguments.length });
           return {
             databaseReady: true,
-            schemaVersion: "0004",
-            migrationCount: "4",
+            schemaVersion: "0005",
+            migrationCount: "5",
             foreignKeysEnabled: true,
             journalMode: "wal"
           };
@@ -430,7 +430,7 @@ def main() -> int:
                 assert ready.get_attribute("aria-live") == "polite"
                 assert page.locator("html").get_attribute("lang") == "ar-DZ"
                 assert page.locator("html").get_attribute("dir") == "rtl"
-                assert "0004" in ready.inner_text()
+                assert "0005" in ready.inner_text()
                 assert_runtime_call_contract(page, 1)
                 assert_command_bar_visible(page, "Arabic runtime ready 1280x800")
                 assert_runtime_status_visible(page, "Arabic runtime ready 1280x800")

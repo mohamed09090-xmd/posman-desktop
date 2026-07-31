@@ -152,8 +152,8 @@ mod tests {
 
         let status = application.state::<RuntimeService>().status();
         assert!(status.database_ready);
-        assert_eq!(status.schema_version, "0004");
-        assert_eq!(status.migration_count, 4);
+        assert_eq!(status.schema_version, "0005");
+        assert_eq!(status.migration_count, 5);
 
         let database_path = directory.path().join("data").join("posman.sqlite3");
         assert!(database_path.is_file());
@@ -162,7 +162,7 @@ mod tests {
         let migration_count: i64 = connection
             .query_row("SELECT COUNT(*) FROM app_migrations", [], |row| row.get(0))
             .expect("failed to count mock runtime migrations");
-        assert_eq!(migration_count, 4);
+        assert_eq!(migration_count, 5);
         assert!(contract.foreign_keys_enabled);
     }
 
@@ -202,8 +202,8 @@ mod tests {
             .expect("runtime status IPC response should be valid JSON");
 
         assert_eq!(payload["databaseReady"], true);
-        assert_eq!(payload["schemaVersion"], "0004");
-        assert_eq!(payload["migrationCount"], 4);
+        assert_eq!(payload["schemaVersion"], "0005");
+        assert_eq!(payload["migrationCount"], 5);
         assert_eq!(payload["foreignKeysEnabled"], true);
         assert!(payload["journalMode"]
             .as_str()

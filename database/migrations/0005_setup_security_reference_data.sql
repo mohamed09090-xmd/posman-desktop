@@ -1,4 +1,5 @@
 -- POSMAN PHASE 05 - setup, local security, and reference-data extensions.
+-- This migration is additive to the accepted 0001-0004 schema and remains unmerged.
 
 ALTER TABLE companies ADD COLUMN activity_description TEXT
     CHECK (activity_description IS NULL OR length(trim(activity_description)) > 0);
@@ -45,6 +46,8 @@ ALTER TABLE company_settings ADD COLUMN default_margin_rate_scaled INTEGER NOT N
     CHECK (default_margin_rate_scaled BETWEEN 0 AND 1000000);
 ALTER TABLE company_settings ADD COLUMN session_idle_timeout_minutes INTEGER NOT NULL DEFAULT 15
     CHECK (session_idle_timeout_minutes BETWEEN 5 AND 120);
+ALTER TABLE company_settings ADD COLUMN default_tax_rate_id TEXT
+    REFERENCES tax_rates(id) ON DELETE RESTRICT;
 
 CREATE TABLE setup_drafts (
     id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
@@ -52,10 +55,7 @@ CREATE TABLE setup_drafts (
     draft_schema_version INTEGER NOT NULL CHECK (draft_schema_version >= 1),
     validated_json TEXT NOT NULL CHECK (
         json_valid(validated_json)
-        AND instr(lower(validated_json), '"password"') = 0
-        AND instr(lower(validated_json), '"passwordconfirmation"') = 0
-        AND instr(lower(validated_json), '"recoverycode"') = 0
-        AND instr(lower(validated_json), '"sessiontoken"') = 0
+        AND json_type(validated_json) = 'object'
     ),
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     created_at TEXT NOT NULL,
@@ -69,8 +69,12 @@ CREATE UNIQUE INDEX uq_setup_drafts_singleton_active
 
 CREATE TABLE initial_setup_requests (
     id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
-    idempotency_key TEXT NOT NULL UNIQUE CHECK (length(trim(idempotency_key)) BETWEEN 8 AND 200),
-    request_hash_sha256 TEXT NOT NULL CHECK (length(request_hash_sha256) = 64),
+    idempotency_key TEXT NOT NULL UNIQUE
+        CHECK (length(trim(idempotency_key)) BETWEEN 8 AND 200),
+    request_hash_sha256 TEXT NOT NULL CHECK (
+        length(request_hash_sha256) = 64
+        AND request_hash_sha256 NOT GLOB '*[^0-9a-f]*'
+    ),
     status TEXT NOT NULL CHECK (status IN ('IN_PROGRESS', 'SUCCEEDED')),
     result_company_id TEXT REFERENCES companies(id) ON DELETE RESTRICT,
     created_at TEXT NOT NULL,
@@ -85,14 +89,19 @@ CREATE TABLE user_recovery_codes (
     id TEXT NOT NULL PRIMARY KEY CHECK (length(trim(id)) > 0),
     company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    code_hash TEXT NOT NULL CHECK (length(code_hash) = 64),
+    code_hash TEXT NOT NULL CHECK (
+        length(code_hash) = 64
+        AND code_hash NOT GLOB '*[^0-9a-f]*'
+    ),
     created_at TEXT NOT NULL,
     expires_at TEXT CHECK (expires_at IS NULL OR expires_at > created_at),
     used_at TEXT,
     revoked_at TEXT,
     created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
     CHECK (used_at IS NULL OR used_at >= created_at),
-    CHECK (revoked_at IS NULL OR revoked_at >= created_at)
+    CHECK (revoked_at IS NULL OR revoked_at >= created_at),
+    CHECK (used_at IS NULL OR revoked_at IS NULL),
+    UNIQUE (company_id, id)
 );
 
 CREATE UNIQUE INDEX uq_user_recovery_codes_active

@@ -1,5 +1,5 @@
--- POSMAN schema invariants through PHASE 05.
--- Executed by scripts/verify_schema.py after PHASE 05 constraint fixtures.
+-- This file is executed after deterministic positive fixtures are created.
+-- A failed CHECK aborts verification with the assertion name in the inserted row context.
 
 CREATE TEMP TABLE invariant_assertions (
     assertion_name TEXT NOT NULL,
@@ -10,10 +10,12 @@ INSERT INTO invariant_assertions
 SELECT 'foreign keys enabled', (SELECT foreign_keys FROM pragma_foreign_keys);
 
 INSERT INTO invariant_assertions
-SELECT 'five migrations recorded', COUNT(*) = 5 FROM app_migrations;
+SELECT 'five migrations recorded', COUNT(*) = 5
+FROM app_migrations;
 
 INSERT INTO invariant_assertions
-SELECT 'schema version 0005', MAX(version) = '0005' FROM app_migrations;
+SELECT 'schema version 0005', MAX(version) = '0005'
+FROM app_migrations;
 
 INSERT INTO invariant_assertions
 SELECT 'expected application table count', COUNT(*) = 52
@@ -45,6 +47,65 @@ SELECT 'foreign key check clean', COUNT(*) = 0
 FROM pragma_foreign_key_check;
 
 INSERT INTO invariant_assertions
+SELECT 'opening stock movement exists once', COUNT(*) = 1
+FROM stock_movements
+WHERE posting_event_key = 'opening-stock:opening-doc:opening-line';
+
+INSERT INTO invariant_assertions
+SELECT 'stock balance equation holds', COUNT(*) = 0
+FROM stock_balances
+WHERE available_scaled <> on_hand_scaled - reserved_scaled;
+
+INSERT INTO invariant_assertions
+SELECT 'order delivered quantity equals source quantity',
+       COALESCE(SUM(link.transformed_quantity_scaled), 0) = source_line.quantity_scaled
+FROM commercial_document_lines AS source_line
+LEFT JOIN document_line_links AS link
+       ON link.source_line_id = source_line.id
+      AND link.transformation_type = 'ORDER_TO_DELIVERY'
+WHERE source_line.id = 'line-sales-order-1';
+
+INSERT INTO invariant_assertions
+SELECT 'delivered quantity invoiced completely',
+       COALESCE(SUM(link.transformed_quantity_scaled), 0) = 20000000
+FROM document_line_links AS link
+WHERE link.transformation_type = 'DELIVERY_TO_INVOICE'
+  AND link.source_line_id IN ('line-delivery-1', 'line-delivery-2');
+
+INSERT INTO invariant_assertions
+SELECT 'posted invoice fixture line count unchanged', COUNT(*) = 2
+FROM commercial_document_lines
+WHERE document_id = 'sales-invoice-1';
+
+INSERT INTO invariant_assertions
+SELECT 'posted balanced entry fixture line count unchanged', COUNT(*) = 2
+FROM journal_entry_lines
+WHERE journal_entry_id = 'entry-balanced';
+
+INSERT INTO invariant_assertions
+SELECT 'posted journal entries are balanced', COUNT(*) = 0
+FROM journal_entries AS entry
+WHERE entry.status = 'POSTED'
+  AND (
+      (SELECT COALESCE(SUM(line.debit_minor), 0)
+       FROM journal_entry_lines AS line
+       WHERE line.journal_entry_id = entry.id)
+      <>
+      (SELECT COALESCE(SUM(line.credit_minor), 0)
+       FROM journal_entry_lines AS line
+       WHERE line.journal_entry_id = entry.id)
+  );
+
+INSERT INTO invariant_assertions
+SELECT 'safe roles seeded', COUNT(*) = 6
+FROM roles
+WHERE company_id IS NULL AND is_system = 1;
+
+INSERT INTO invariant_assertions
+SELECT 'safe permissions seeded', COUNT(*) = 22
+FROM permissions;
+
+INSERT INTO invariant_assertions
 SELECT 'setup singleton enforced', COUNT(*) <= 1
 FROM setup_drafts
 WHERE is_active = 1;
@@ -70,12 +131,12 @@ FROM sqlite_schema
 WHERE type = 'index' AND name = 'uq_document_sequences_company_year_type';
 
 INSERT INTO invariant_assertions
-SELECT 'session timeout default and range', COUNT(*) = 0
+SELECT 'session timeout range holds', COUNT(*) = 0
 FROM company_settings
 WHERE session_idle_timeout_minutes NOT BETWEEN 5 AND 120;
 
 INSERT INTO invariant_assertions
-SELECT 'margin default and range', COUNT(*) = 0
+SELECT 'default margin range holds', COUNT(*) = 0
 FROM company_settings
 WHERE default_margin_rate_scaled NOT BETWEEN 0 AND 1000000;
 

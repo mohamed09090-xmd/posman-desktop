@@ -19,7 +19,7 @@ const REFERENCE_SEED_SQL: &str = include_str!(concat!(
     "/../database/seed/reference_data.sql"
 ));
 
-const EXPECTED_TABLES: [&str; 49] = [
+const EXPECTED_TABLES: [&str; 52] = [
     "app_migrations",
     "companies",
     "company_settings",
@@ -69,6 +69,9 @@ const EXPECTED_TABLES: [&str; 49] = [
     "audit_logs",
     "idempotency_keys",
     "backup_history",
+    "setup_drafts",
+    "initial_setup_requests",
+    "user_recovery_codes",
 ];
 
 #[derive(Clone)]
