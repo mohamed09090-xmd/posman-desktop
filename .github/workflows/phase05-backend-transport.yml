@@ -23,25 +23,33 @@ jobs:
         with:
           ref: phase/05-setup-security-reference-data
           fetch-depth: 0
+
       - name: Verify coordinate and payloads
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "6f15e369233b31de5f2e053ab390cbe1f3b1b4fc"
-          test "$(git log -1 --pretty=%s)" = "chore(phase05): retry backend transport with Tauri prerequisites"
+          test "$(git rev-parse HEAD^)" = "fcd942dd0ae83cbba01bc903bee516481dfdb933"
+          test "$(git log -1 --pretty=%s)" = "chore(phase05): repair accidental file and fix compiler gate"
           test "$(git rev-parse origin/main)" = "77d297f08ec3c46920dd1b94710995834854dd9a"
+          test ! -e nonexistent
           printf '%s  %s\n' '44815beb77e15690e4762be70eebe316a5b6f2393799b1014c52919f1db584b2' '.phase05-transport/05b-backend-core.b64' | sha256sum --check --strict
           printf '%s  %s\n' 'f90ebc69c3cef5939881b72e18fc006cee01afa886b73b29dc84ce4eafcb263a' '.phase05-transport/05b-cargo-fix2.b64' | sha256sum --check --strict
+          printf '%s  %s\n' 'd554b9b83901d8d416cbd36f558736b26cbdc79644b4b797f5a90d11346f69a4' '.phase05-transport/05b-compile-fix.b64' | sha256sum --check --strict
           base64 --decode .phase05-transport/05b-backend-core.b64 > /tmp/phase05-backend.tar.gz
           base64 --decode .phase05-transport/05b-cargo-fix2.b64 > /tmp/phase05-cargo-fix2.tar.gz
+          base64 --decode .phase05-transport/05b-compile-fix.b64 > /tmp/phase05-compile-fix.tar.gz
           printf '%s  %s\n' 'f3e10c893f80406ed6a9a4feb2377a011cce843ded33df49f00e193734fff83b' '/tmp/phase05-backend.tar.gz' | sha256sum --check --strict
           printf '%s  %s\n' 'd90060c3e12c7514c893b293112167699ef470dae657747a67a1f7fad8145fb4' '/tmp/phase05-cargo-fix2.tar.gz' | sha256sum --check --strict
+          printf '%s  %s\n' '11c6c2ec586562d0b43389c373910a8ce47004391aa5d328f606a09a6478639b' '/tmp/phase05-compile-fix.tar.gz' | sha256sum --check --strict
+
       - name: Apply backend reconciliation
         shell: bash
         run: |
           set -euo pipefail
           tar --extract --gzip --file /tmp/phase05-backend.tar.gz --directory .
           tar --extract --gzip --file /tmp/phase05-cargo-fix2.tar.gz --directory .
+          tar --extract --gzip --file /tmp/phase05-compile-fix.tar.gz --directory .
+
       - name: Install official Tauri Linux prerequisites
         run: |
           sudo apt-get update
@@ -55,10 +63,12 @@ jobs:
             libssl-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: '1.85.0'
           components: rustfmt, clippy
+
       - name: Generate minimal lockfile change and validate
         shell: bash
         run: |
@@ -69,12 +79,14 @@ jobs:
           cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
           cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked
           git diff --check
+
       - name: Commit logical backend reconciliation
         shell: bash
         run: |
           set -euo pipefail
           git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/src
           git rm -r .phase05-transport .github/workflows/phase05-backend-transport.yml
+          test ! -e nonexistent
           git diff --cached --check
           git config user.name 'POSMAN implementation engineer'
           git config user.email '144628717+mohamed09090-xmd@users.noreply.github.com'
