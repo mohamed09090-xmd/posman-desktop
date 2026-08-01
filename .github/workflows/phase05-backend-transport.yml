@@ -28,8 +28,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "111be620a5cba9a976f018121d4ebea3abba89a4"
-          test "$(git log -1 --pretty=%s)" = "fix(phase05): complete partner active mappings"
+          test "$(git rev-parse HEAD^)" = "ec8e8a3102318b49c8a7e010361d4c57e34116d4"
+          test "$(git log -1 --pretty=%s)" = "fix(phase05): remove unused partner update DTOs"
           test "$(git rev-parse origin/main)" = "77d297f08ec3c46920dd1b94710995834854dd9a"
           printf '%s  %s\n' '44815beb77e15690e4762be70eebe316a5b6f2393799b1014c52919f1db584b2' '.phase05-transport/05b-backend-core.b64' | sha256sum --check --strict
           printf '%s  %s\n' 'f90ebc69c3cef5939881b72e18fc006cee01afa886b73b29dc84ce4eafcb263a' '.phase05-transport/05b-cargo-fix2.b64' | sha256sum --check --strict
@@ -54,14 +54,53 @@ jobs:
           tar --extract --gzip --file /tmp/phase05-deadcode-fix.tar.gz --directory .
           python - <<'PY'
           from pathlib import Path
-          path = Path('src-tauri/src/phase05/partners.rs')
-          text = path.read_text(encoding='utf-8')
-          text = text.replace('postal_code,is_default,row_version FROM partner_addresses', 'postal_code,is_default,is_active,row_version FROM partner_addresses')
-          text = text.replace('postal_code: row.get(8)?, is_default: row.get::<_, i64>(9)? == 1, row_version: row.get(10)?,', 'postal_code: row.get(8)?, is_default: row.get::<_, i64>(9)? == 1, is_active: row.get::<_, i64>(10)? == 1, row_version: row.get(11)?,')
-          text = text.replace('postal_code:row.get(8)?,is_default:row.get::<_,i64>(9)?==1,row_version:row.get(10)?', 'postal_code:row.get(8)?,is_default:row.get::<_,i64>(9)?==1,is_active:row.get::<_,i64>(10)?==1,row_version:row.get(11)?')
-          text = text.replace('email,is_primary,row_version FROM partner_contacts', 'email,is_primary,is_active,row_version FROM partner_contacts')
-          text = text.replace('is_primary:row.get::<_,i64>(6)?==1,row_version:row.get(7)?', 'is_primary:row.get::<_,i64>(6)?==1,is_active:row.get::<_,i64>(7)?==1,row_version:row.get(8)?')
-          path.write_text(text, encoding='utf-8')
+
+          partners_path = Path('src-tauri/src/phase05/partners.rs')
+          partners = partners_path.read_text(encoding='utf-8')
+          partners = partners.replace('postal_code,is_default,row_version FROM partner_addresses', 'postal_code,is_default,is_active,row_version FROM partner_addresses')
+          partners = partners.replace('postal_code: row.get(8)?, is_default: row.get::<_, i64>(9)? == 1, row_version: row.get(10)?,', 'postal_code: row.get(8)?, is_default: row.get::<_, i64>(9)? == 1, is_active: row.get::<_, i64>(10)? == 1, row_version: row.get(11)?,')
+          partners = partners.replace('postal_code:row.get(8)?,is_default:row.get::<_,i64>(9)?==1,row_version:row.get(10)?', 'postal_code:row.get(8)?,is_default:row.get::<_,i64>(9)?==1,is_active:row.get::<_,i64>(10)?==1,row_version:row.get(11)?')
+          partners = partners.replace('email,is_primary,row_version FROM partner_contacts', 'email,is_primary,is_active,row_version FROM partner_contacts')
+          partners = partners.replace('is_primary:row.get::<_,i64>(6)?==1,row_version:row.get(7)?', 'is_primary:row.get::<_,i64>(6)?==1,is_active:row.get::<_,i64>(7)?==1,row_version:row.get(8)?')
+          partners_path.write_text(partners, encoding='utf-8')
+
+          dto_path = Path('src-tauri/src/phase05/dto.rs')
+          dto = dto_path.read_text(encoding='utf-8')
+          address_request = '''#[derive(Clone, Deserialize)]
+          #[serde(rename_all = "camelCase")]
+          pub struct UpdatePartnerAddressRequest {
+              pub id: String,
+              pub partner_id: String,
+              pub address_kind: String,
+              pub label: Option<String>,
+              pub address_line_1: String,
+              pub address_line_2: Option<String>,
+              pub city: Option<String>,
+              pub province: Option<String>,
+              pub postal_code: Option<String>,
+              pub is_default: bool,
+              pub row_version: i64,
+          }
+
+          '''
+          contact_request = '''#[derive(Clone, Deserialize)]
+          #[serde(rename_all = "camelCase")]
+          pub struct UpdatePartnerContactRequest {
+              pub id: String,
+              pub partner_id: String,
+              pub full_name: String,
+              pub job_title: Option<String>,
+              pub phone: Option<String>,
+              pub email: Option<String>,
+              pub is_primary: bool,
+              pub row_version: i64,
+          }
+
+          '''
+          if address_request not in dto or contact_request not in dto:
+              raise SystemExit('expected unused partner update DTO blocks were not found')
+          dto = dto.replace(address_request, '').replace(contact_request, '')
+          dto_path.write_text(dto, encoding='utf-8')
           PY
 
       - name: Install official Tauri Linux prerequisites
