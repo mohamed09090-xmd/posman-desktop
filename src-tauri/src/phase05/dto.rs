@@ -137,6 +137,7 @@ pub struct PageRequest {
     pub search: Option<String>,
     pub page: Option<u32>,
     pub page_size: Option<u32>,
+    pub include_inactive: Option<bool>,
 }
 
 #[derive(Clone, Serialize)]
@@ -259,7 +260,6 @@ pub struct ReferenceInput {
     pub name_ar: String,
     pub name_fr: Option<String>,
     pub numeric_value: Option<i64>,
-    pub secondary_numeric_value: Option<i64>,
     pub kind: Option<String>,
     pub parent_id: Option<String>,
     pub related_id: Option<String>,
@@ -275,7 +275,6 @@ pub struct ReferenceUpdate {
     pub name_ar: String,
     pub name_fr: Option<String>,
     pub numeric_value: Option<i64>,
-    pub secondary_numeric_value: Option<i64>,
     pub kind: Option<String>,
     pub parent_id: Option<String>,
     pub related_id: Option<String>,
@@ -441,6 +440,37 @@ pub struct PartnerContactInput {
     pub phone: Option<String>,
     pub email: Option<String>,
     pub is_primary: bool,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartnerAddressView {
+    pub id: String,
+    pub partner_id: String,
+    pub address_kind: String,
+    pub label: Option<String>,
+    pub address_line_1: String,
+    pub address_line_2: Option<String>,
+    pub city: Option<String>,
+    pub province: Option<String>,
+    pub postal_code: Option<String>,
+    pub is_default: bool,
+    pub is_active: bool,
+    pub row_version: i64,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartnerContactView {
+    pub id: String,
+    pub partner_id: String,
+    pub full_name: String,
+    pub job_title: Option<String>,
+    pub phone: Option<String>,
+    pub email: Option<String>,
+    pub is_primary: bool,
+    pub is_active: bool,
+    pub row_version: i64,
 }
 
 #[derive(Clone, Deserialize)]

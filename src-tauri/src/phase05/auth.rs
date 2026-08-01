@@ -17,8 +17,8 @@ use super::{
         recovery_code_hash,
     },
     state::{
-        audit, new_id, normalize_username, now_iso, parse_timestamp, session_view,
-        ActiveSession, Phase05Service,
+        audit, new_id, normalize_username, now_iso, parse_timestamp, session_view, ActiveSession,
+        Phase05Service,
     },
 };
 
@@ -72,10 +72,12 @@ impl Phase05Service {
             )
             .optional()?;
 
-        let candidate_hash = user
-            .as_ref()
-            .map_or(self.dummy_hash.as_str(), |found| found.password_hash.as_str());
-        let matches = self.password_engine.verify(&request.password, candidate_hash);
+        let candidate_hash = user.as_ref().map_or(self.dummy_hash.as_str(), |found| {
+            found.password_hash.as_str()
+        });
+        let matches = self
+            .password_engine
+            .verify(&request.password, candidate_hash);
         let now = OffsetDateTime::now_utc();
         let locked = user
             .as_ref()
@@ -132,8 +134,7 @@ impl Phase05Service {
         )?;
         transaction.commit()?;
 
-        let idle_minutes = u64::try_from(user.idle_timeout_minutes.clamp(5, 120))
-            .unwrap_or(15);
+        let idle_minutes = u64::try_from(user.idle_timeout_minutes.clamp(5, 120)).unwrap_or(15);
         let session = ActiveSession {
             company_id: user.company_id.clone(),
             user_id: user.id.clone(),
@@ -184,9 +185,8 @@ impl Phase05Service {
     }
 
     pub fn unlock_session(&self, request: UnlockSessionRequest) -> Phase05Result<SessionView> {
-        let (company_id, user_id) = self.with_session(|session| {
-            Ok((session.company_id.clone(), session.user_id.clone()))
-        })?;
+        let (company_id, user_id) =
+            self.with_session(|session| Ok((session.company_id.clone(), session.user_id.clone())))?;
         let hash: String = self.open()?.query_row(
             "SELECT password_hash FROM users WHERE id=?1 AND company_id=?2 AND is_active=1",
             params![user_id, company_id],

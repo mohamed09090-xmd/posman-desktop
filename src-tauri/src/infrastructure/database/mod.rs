@@ -96,6 +96,10 @@ impl RuntimeDatabase {
     pub fn status(&self) -> RuntimeStatus {
         self.status.clone()
     }
+
+    pub fn path(&self) -> &Path {
+        &self._database_path
+    }
 }
 
 fn apply_seed(connection: &mut Connection, seed_sql: &str) -> Result<(), RuntimeError> {

@@ -49,18 +49,9 @@ impl PasswordEngine {
     }
 
     fn argon2(&self) -> Phase05Result<Argon2<'static>> {
-        let params = Params::new(
-            self.memory_kib,
-            self.iterations,
-            self.parallelism,
-            Some(32),
-        )
-        .map_err(|_| Phase05Error::internal())?;
-        Ok(Argon2::new(
-            Algorithm::Argon2id,
-            Version::V0x13,
-            params,
-        ))
+        let params = Params::new(self.memory_kib, self.iterations, self.parallelism, Some(32))
+            .map_err(|_| Phase05Error::internal())?;
+        Ok(Argon2::new(Algorithm::Argon2id, Version::V0x13, params))
     }
 
     pub fn validate(password: &str) -> Phase05Result<()> {
@@ -126,7 +117,9 @@ mod tests {
     fn password_length_uses_unicode_characters() {
         assert!(PasswordEngine::validate("كلمةمرور12").is_ok());
         assert_eq!(
-            PasswordEngine::validate("قصيرة").expect_err("too short").code,
+            PasswordEngine::validate("قصيرة")
+                .expect_err("too short")
+                .code,
             "PASSWORD_POLICY_VIOLATION"
         );
     }

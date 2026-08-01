@@ -59,20 +59,18 @@ impl Phase05Service {
             .map_err(Phase05Error::from)
     }
 
-    pub fn save_setup_draft(
-        &self,
-        request: SaveSetupDraftRequest,
-    ) -> Phase05Result<SetupDraft> {
+    pub fn save_setup_draft(&self, request: SaveSetupDraftRequest) -> Phase05Result<SetupDraft> {
         if request.draft_schema_version != SETUP_DRAFT_SCHEMA_VERSION {
-            return Err(invalid_draft("The setup draft schema version is unsupported."));
+            return Err(invalid_draft(
+                "The setup draft schema version is unsupported.",
+            ));
         }
         reject_sensitive_json(&request.data)?;
         let serialized = serde_json::to_string(&request.data)
             .map_err(|_| invalid_draft("The setup draft is not valid JSON."))?;
         let timestamp = now_iso()?;
         let mut connection = self.open()?;
-        let transaction =
-            connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let existing = transaction
             .query_row(
                 "SELECT id, row_version FROM setup_drafts WHERE is_active=1 LIMIT 1",
@@ -132,8 +130,7 @@ impl Phase05Service {
 
     pub fn discard_setup_draft(&self) -> Phase05Result<()> {
         let mut connection = self.open()?;
-        let transaction =
-            connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         transaction.execute(
             r#"
             UPDATE setup_drafts

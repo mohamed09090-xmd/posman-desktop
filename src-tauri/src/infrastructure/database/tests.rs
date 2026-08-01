@@ -257,7 +257,7 @@ fn ledger_gap_is_rejected_before_seed_or_migration_work() {
         open_configured_connection(&paths.database).expect("gap fixture should remain inspectable");
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
-        3
+        4
     );
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM role_permissions"),

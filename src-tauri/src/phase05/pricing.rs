@@ -151,13 +151,11 @@ fn add_months(date: Date, months: i32) -> Phase05Result<Date> {
         .checked_add(months)
         .ok_or_else(|| Phase05Error::invalid("fiscalYear"))?;
     let year = target.div_euclid(12);
-    let month_number = u8::try_from(target.rem_euclid(12) + 1)
-        .map_err(|_| Phase05Error::invalid("fiscalYear"))?;
-    let month = Month::try_from(month_number)
-        .map_err(|_| Phase05Error::invalid("fiscalYear"))?;
+    let month_number =
+        u8::try_from(target.rem_euclid(12) + 1).map_err(|_| Phase05Error::invalid("fiscalYear"))?;
+    let month = Month::try_from(month_number).map_err(|_| Phase05Error::invalid("fiscalYear"))?;
     let day = date.day().min(days_in_month(year, month));
-    Date::from_calendar_date(year, month, day)
-        .map_err(|_| Phase05Error::invalid("fiscalYear"))
+    Date::from_calendar_date(year, month, day).map_err(|_| Phase05Error::invalid("fiscalYear"))
 }
 
 fn days_in_month(year: i32, month: Month) -> u8 {

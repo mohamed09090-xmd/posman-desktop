@@ -1,5 +1,6 @@
 use rand_core::{OsRng, RngCore};
 use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
 use crate::phase05::error::{Phase05Error, Phase05Result};
@@ -19,16 +20,16 @@ pub fn generate_session_secret() -> SessionSecret {
 pub fn generate_recovery_code() -> String {
     let mut bytes = [0_u8; 16];
     OsRng.fill_bytes(&mut bytes);
-    let compact = bytes
-        .iter()
-        .map(|byte| format!("{byte:02X}"))
-        .collect::<String>();
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut compact = String::with_capacity(39);
+    for (index, byte) in bytes.iter().enumerate() {
+        if index > 0 && index % 2 == 0 {
+            compact.push('-');
+        }
+        compact.push(char::from(HEX[usize::from(byte >> 4)]));
+        compact.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
     compact
-        .as_bytes()
-        .chunks(4)
-        .map(|chunk| std::str::from_utf8(chunk).expect("hex is valid UTF-8"))
-        .collect::<Vec<_>>()
-        .join("-")
 }
 
 pub fn recovery_code_hash(code: &str) -> Phase05Result<String> {
@@ -51,14 +52,7 @@ pub fn recovery_code_hash(code: &str) -> Phase05Result<String> {
 }
 
 pub fn constant_time_hex_equal(left: &str, right: &str) -> bool {
-    if left.len() != right.len() {
-        return false;
-    }
-    left.as_bytes()
-        .iter()
-        .zip(right.as_bytes())
-        .fold(0_u8, |difference, (left, right)| difference | (left ^ right))
-        == 0
+    left.len() == right.len() && left.as_bytes().ct_eq(right.as_bytes()).into()
 }
 
 pub fn sha256_hex(bytes: &[u8]) -> String {
