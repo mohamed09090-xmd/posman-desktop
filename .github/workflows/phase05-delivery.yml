@@ -6,6 +6,11 @@ on:
     paths:
       - '.phase05-delivery/**'
       - '.github/workflows/phase05-delivery.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.phase05-delivery/**'
+      - '.github/workflows/phase05-delivery.yml'
 
 permissions:
   contents: write
@@ -27,10 +32,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "17a22f506647408535b5f567025f7b5ad368cdce"
-          test "$(git rev-parse HEAD^^)" = "700fda2bdda8bfa9a123cfcaab5d0c41355d10a5"
-          test "$(git log -1 --pretty=%s HEAD^)" = "chore(phase05): stage connector delivery payload"
-          test "$(git log -1 --pretty=%s)" = "chore(phase05): stage connector delivery"
+          test "$(git rev-parse HEAD^)" = "110d35ef9ef404733ca4b4a6526d9092306d539c"
+          test "$(git rev-parse HEAD^^)" = "17a22f506647408535b5f567025f7b5ad368cdce"
+          test "$(git rev-parse HEAD^^^)" = "700fda2bdda8bfa9a123cfcaab5d0c41355d10a5"
+          test "$(git log -1 --pretty=%s HEAD^)" = "chore(phase05): stage connector delivery"
+          test "$(git log -1 --pretty=%s HEAD^^)" = "chore(phase05): stage connector delivery payload"
+          test "$(git log -1 --pretty=%s)" = "chore(phase05): expose delivery validation"
           test "$(git rev-parse origin/main)" = "77d297f08ec3c46920dd1b94710995834854dd9a"
           cat > /tmp/chunks.sha256 <<'EOF'
           7ceb152b78166f7633589d400a375e63d2cb5ae2077e27c36183f0a542a542f3  .phase05-delivery/chunk-00
