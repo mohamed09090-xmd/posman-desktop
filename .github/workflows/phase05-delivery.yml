@@ -1,0 +1,119 @@
+name: PHASE 05 connector delivery
+
+on:
+  push:
+    branches: [phase/05-setup-security-reference-data]
+    paths:
+      - '.phase05-delivery/**'
+      - '.github/workflows/phase05-delivery.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phase05-connector-delivery
+  cancel-in-progress: false
+
+jobs:
+  validate-and-materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase/05-setup-security-reference-data
+          fetch-depth: 0
+
+      - name: Verify lease and delivery archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "17a22f506647408535b5f567025f7b5ad368cdce"
+          test "$(git rev-parse HEAD^^)" = "700fda2bdda8bfa9a123cfcaab5d0c41355d10a5"
+          test "$(git log -1 --pretty=%s HEAD^)" = "chore(phase05): stage connector delivery payload"
+          test "$(git log -1 --pretty=%s)" = "chore(phase05): stage connector delivery"
+          test "$(git rev-parse origin/main)" = "77d297f08ec3c46920dd1b94710995834854dd9a"
+          cat > /tmp/chunks.sha256 <<'EOF'
+          7ceb152b78166f7633589d400a375e63d2cb5ae2077e27c36183f0a542a542f3  .phase05-delivery/chunk-00
+          014d7012f342c45b76ffbb7d09a279a6c0d47adb263bf1ee862f55d16fa7529e  .phase05-delivery/chunk-01
+          d8d9e7043fe3fecf03d08c5334829078639e6c82740a8f76b56ae6f71189ca20  .phase05-delivery/chunk-02
+          826a62822a5f093a2a287e8de51e13d1d083357040a1f09dbca52e0e002bf9d9  .phase05-delivery/chunk-03
+          cfe7c140404bdb1b766f9c0c6e932287def7d7e2c8c2cc392510266ffbdfb31c  .phase05-delivery/chunk-04
+          7fd6e8a1699558d650090adc6a12528ad124388a5b6d0ede65cdcf44e4b0719d  .phase05-delivery/chunk-05
+          bcbb6ee51897bb949f889bebac6f4edd1c265125deca4bf5484cb3453d8ac43e  .phase05-delivery/chunk-06
+          4198779901987e880a77304aa8c024d5e892060604f8590e05e787c15f364f5f  .phase05-delivery/chunk-07
+          3b674592122c40bd3c546c36b77af81cfa94329e25e30852d96dbd360769bc06  .phase05-delivery/chunk-08
+          e6c7f5cb732e2bc3389878c436aa0e2a88ba44c6742dacf46d2a2617a1869881  .phase05-delivery/chunk-09
+          EOF
+          sed -i 's/^          //' /tmp/chunks.sha256
+          sha256sum --check --strict /tmp/chunks.sha256
+          cat .phase05-delivery/chunk-* > /tmp/phase05-05c-xz.b64
+          printf '%s  %s\n' '73b5ee1f99364e35b9f35fa1ac0ea7553a8f51c75246c65baebd6392dc767ac0' /tmp/phase05-05c-xz.b64 | sha256sum --check --strict
+          base64 --decode /tmp/phase05-05c-xz.b64 > /tmp/phase05-05c.tar.xz
+          printf '%s  %s\n' '0e21a446e2b162a6f4647fd7e3bb80cda99b5153e134f476c1d55f0b0d0fc375' /tmp/phase05-05c.tar.xz | sha256sum --check --strict
+          tar --list --xz --file /tmp/phase05-05c.tar.xz
+          tar --extract --xz --file /tmp/phase05-05c.tar.xz --directory .
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.85.0'
+          components: rustfmt, clippy
+
+      - name: Install native and browser prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+
+      - name: Validate database, frontend, accessibility, Rust and Tauri
+        env:
+          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/phase05-evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/verify_schema.py
+          python -m py_compile tests/e2e/run_ui_gallery.py
+          npm ci
+          npm install --no-save --package-lock=false axe-core@4.10.3
+          npm run typecheck
+          npm run build
+          npm run test:ui
+          npm run test:integration
+          npm run test:e2e
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+          cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture
+          npm run desktop:check
+          git diff --check
+
+      - name: Upload delivery evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-05-delivery-evidence
+          path: ${{ runner.temp }}/phase05-evidence
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit reviewed PHASE 05 source and remove delivery helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -r .phase05-delivery .github/workflows/phase05-delivery.yml
+          git add .github/workflows database scripts src src-tauri tests
+          git diff --cached --check
+          ! grep -R -n -E '^\s*contents:\s*write\s*$' .github/workflows
+          test ! -e .phase05-transport
+          test ! -e .github/workflows/phase05-backend-transport.yml
+          test ! -e .github/workflows/phase05-source-snapshot.yml
+          git config user.name 'POSMAN implementation engineer'
+          git config user.email '144628717+mohamed09090-xmd@users.noreply.github.com'
+          git commit -m 'feat(phase05): complete settings pricing and operational UI'
+          test "$(git rev-parse origin/phase/05-setup-security-reference-data)" = "$(git rev-parse HEAD^)"
+          git push origin HEAD:phase/05-setup-security-reference-data
