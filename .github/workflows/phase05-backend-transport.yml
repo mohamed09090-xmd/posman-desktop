@@ -28,8 +28,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "ec8e8a3102318b49c8a7e010361d4c57e34116d4"
-          test "$(git log -1 --pretty=%s)" = "fix(phase05): remove unused partner update DTOs"
+          test "$(git rev-parse HEAD^)" = "70b747f4a676d5c4d623e5cb21b6b7623fbe1184"
+          test "$(git log -1 --pretty=%s)" = "fix(phase05): update migration gap regression"
           test "$(git rev-parse origin/main)" = "77d297f08ec3c46920dd1b94710995834854dd9a"
           printf '%s  %s\n' '44815beb77e15690e4762be70eebe316a5b6f2393799b1014c52919f1db584b2' '.phase05-transport/05b-backend-core.b64' | sha256sum --check --strict
           printf '%s  %s\n' 'f90ebc69c3cef5939881b72e18fc006cee01afa886b73b29dc84ce4eafcb263a' '.phase05-transport/05b-cargo-fix2.b64' | sha256sum --check --strict
@@ -101,6 +101,22 @@ jobs:
               raise SystemExit('expected unused partner update DTO blocks were not found')
           dto = dto.replace(address_request, '').replace(contact_request, '')
           dto_path.write_text(dto, encoding='utf-8')
+
+          tests_path = Path('src-tauri/src/infrastructure/database/tests.rs')
+          tests = tests_path.read_text(encoding='utf-8')
+          gap_expectation = '''"gap fixture should remain inspectable");
+              assert_eq!(
+                  scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
+                  3
+              );'''
+          corrected_expectation = '''"gap fixture should remain inspectable");
+              assert_eq!(
+                  scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
+                  4
+              );'''
+          if gap_expectation not in tests:
+              raise SystemExit('expected migration gap assertion was not found')
+          tests_path.write_text(tests.replace(gap_expectation, corrected_expectation, 1), encoding='utf-8')
           PY
 
       - name: Install official Tauri Linux prerequisites
