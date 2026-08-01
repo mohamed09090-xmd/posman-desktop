@@ -28,8 +28,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "529263293a8c775b99e43b924e9f899bb2b0260a"
-          test "$(git log -1 --pretty=%s)" = "fix(phase05): complete Rust 1.85 ICU constraints"
+          test "$(git rev-parse HEAD^)" = "19e6a21c1f15233cfd63d41d04d38ae99c7a4ac6"
+          test "$(git log -1 --pretty=%s)" = "fix(phase05): order Rust 1.85 ICU constraints"
           test "$(git rev-parse origin/main)" = "77d297f08ec3c46920dd1b94710995834854dd9a"
           printf '%s  %s\n' '44815beb77e15690e4762be70eebe316a5b6f2393799b1014c52919f1db584b2' '.phase05-transport/05b-backend-core.b64' | sha256sum --check --strict
           printf '%s  %s\n' 'f90ebc69c3cef5939881b72e18fc006cee01afa886b73b29dc84ce4eafcb263a' '.phase05-transport/05b-cargo-fix2.b64' | sha256sum --check --strict
@@ -84,8 +84,8 @@ jobs:
           cargo update --manifest-path src-tauri/Cargo.toml -p idna_adapter --precise 1.2.1
           cargo update --manifest-path src-tauri/Cargo.toml -p icu_normalizer --precise 2.1.1
           cargo update --manifest-path src-tauri/Cargo.toml -p icu_properties --precise 2.1.1
-          cargo update --manifest-path src-tauri/Cargo.toml -p icu_locale_core --precise 2.1.1
           cargo update --manifest-path src-tauri/Cargo.toml -p icu_provider --precise 2.1.1
+          cargo update --manifest-path src-tauri/Cargo.toml -p icu_locale_core --precise 2.1.1
           cargo fmt --manifest-path src-tauri/Cargo.toml --all
           cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
           cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
