@@ -1,5 +1,16 @@
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 
+const UPDATE_COMPANY_SETTINGS_SQL: &str = r#"
+UPDATE company_settings
+SET default_margin_rate_scaled=?1,
+    below_cost_policy=?2,
+    session_idle_timeout_minutes=?3,
+    updated_at=?4,
+    updated_by=?5,
+    row_version=row_version+1
+WHERE company_id=?6
+"#;
+
 use super::{
     dto::{
         CompanyProfile, DocumentSequenceView, FiscalPeriodView, FiscalSetup,
@@ -115,11 +126,7 @@ impl Phase05Service {
             return Err(Phase05Error::concurrency());
         }
         transaction.execute(
-            r#"
-            UPDATE company_settings SET default_margin_rate_scaled=?1,
-                session_idle_timeout_minutes=?2, updated_at=?3, updated_by=?4,
-                row_version=row_version+1 WHERE company_id=?5
-            "#,
+            UPDATE_COMPANY_SETTINGS_SQL,
             params![
                 request.default_margin_rate_scaled,
                 request.below_cost_policy,
@@ -419,5 +426,60 @@ mod tests {
     #[test]
     fn numbering_format_has_year_and_six_digit_default_padding() {
         assert_eq!(sequence_number("FAC", "2026", 1, 6), "FAC-2026-000001");
+    }
+
+    #[test]
+    fn company_settings_update_persists_policy_and_timeout() {
+        let connection = rusqlite::Connection::open_in_memory().expect("SQLite");
+        connection
+            .execute_batch(
+                r#"
+                CREATE TABLE company_settings (
+                    company_id TEXT PRIMARY KEY,
+                    default_margin_rate_scaled INTEGER NOT NULL,
+                    below_cost_policy TEXT NOT NULL,
+                    session_idle_timeout_minutes INTEGER NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    updated_by TEXT NOT NULL,
+                    row_version INTEGER NOT NULL
+                );
+                INSERT INTO company_settings VALUES (
+                    'company-1', 100000, 'WARNING_ONLY', 15,
+                    '2026-01-01T00:00:00Z', 'user-1', 1
+                );
+                "#,
+            )
+            .expect("settings fixture");
+
+        let changed = connection
+            .execute(
+                UPDATE_COMPANY_SETTINGS_SQL,
+                rusqlite::params![
+                    250000_i64,
+                    "ADMIN_OVERRIDE",
+                    45_i64,
+                    "2026-08-02T12:00:00Z",
+                    "user-2",
+                    "company-1"
+                ],
+            )
+            .expect("settings update");
+        assert_eq!(changed, 1);
+
+        let actual = connection
+            .query_row(
+                "SELECT default_margin_rate_scaled, below_cost_policy, session_idle_timeout_minutes, row_version FROM company_settings WHERE company_id='company-1'",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                    ))
+                },
+            )
+            .expect("updated settings");
+        assert_eq!(actual, (250000, "ADMIN_OVERRIDE".to_owned(), 45, 2));
     }
 }

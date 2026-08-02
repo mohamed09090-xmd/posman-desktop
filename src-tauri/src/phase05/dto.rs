@@ -467,22 +467,6 @@ pub struct PartnerAddressView {
     pub row_version: i64,
 }
 
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdatePartnerAddressRequest {
-    pub id: String,
-    pub partner_id: String,
-    pub address_kind: String,
-    pub label: Option<String>,
-    pub address_line_1: String,
-    pub address_line_2: Option<String>,
-    pub city: Option<String>,
-    pub province: Option<String>,
-    pub postal_code: Option<String>,
-    pub is_default: bool,
-    pub row_version: i64,
-}
-
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PartnerContactView {
@@ -494,19 +478,6 @@ pub struct PartnerContactView {
     pub email: Option<String>,
     pub is_primary: bool,
     pub is_active: bool,
-    pub row_version: i64,
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdatePartnerContactRequest {
-    pub id: String,
-    pub partner_id: String,
-    pub full_name: String,
-    pub job_title: Option<String>,
-    pub phone: Option<String>,
-    pub email: Option<String>,
-    pub is_primary: bool,
     pub row_version: i64,
 }
 

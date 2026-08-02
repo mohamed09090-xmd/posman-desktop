@@ -572,12 +572,10 @@ fn validate_product(
 }
 
 fn pricing_warning(purchase_price: i64, sale_price: i64) -> Option<&'static str> {
-    if sale_price < purchase_price {
-        Some("BELOW_COST")
-    } else if sale_price == purchase_price {
-        Some("ZERO_MARGIN")
-    } else {
-        None
+    match sale_price.cmp(&purchase_price) {
+        std::cmp::Ordering::Less => Some("BELOW_COST"),
+        std::cmp::Ordering::Equal => Some("ZERO_MARGIN"),
+        std::cmp::Ordering::Greater => None,
     }
 }
 
