@@ -62,6 +62,7 @@ pub struct InitialSetupRequest {
     pub fiscal_starts_on: String,
     pub fiscal_ends_on: String,
     pub default_margin_rate_scaled: i64,
+    pub below_cost_policy: Option<String>,
     pub session_idle_timeout_minutes: i64,
     pub taxes: Vec<TaxSetup>,
     pub default_tax_code: Option<String>,
@@ -172,6 +173,7 @@ pub struct CompanyProfile {
     pub phone: Option<String>,
     pub email: Option<String>,
     pub default_margin_rate_scaled: i64,
+    pub below_cost_policy: String,
     pub session_idle_timeout_minutes: i64,
     pub row_version: i64,
 }
@@ -197,6 +199,7 @@ pub struct UpdateCompanyProfileRequest {
     pub phone: String,
     pub email: Option<String>,
     pub default_margin_rate_scaled: i64,
+    pub below_cost_policy: String,
     pub session_idle_timeout_minutes: i64,
     pub row_version: i64,
 }
@@ -315,6 +318,7 @@ pub struct CreateProductRequest {
     pub default_tax_rate_id: Option<String>,
     pub default_purchase_price_scaled: i64,
     pub manual_sale_price_scaled: Option<i64>,
+    pub below_cost_override_reason: Option<String>,
     pub margin_rate_scaled: Option<i64>,
     pub minimum_stock_scaled: i64,
     pub product_kind: String,
@@ -333,6 +337,7 @@ pub struct UpdateProductRequest {
     pub default_tax_rate_id: Option<String>,
     pub default_purchase_price_scaled: i64,
     pub manual_sale_price_scaled: Option<i64>,
+    pub below_cost_override_reason: Option<String>,
     pub margin_rate_scaled: Option<i64>,
     pub minimum_stock_scaled: i64,
     pub product_kind: String,
@@ -352,6 +357,8 @@ pub struct ProductView {
     pub purchase_price_scaled: i64,
     pub sale_price_scaled: i64,
     pub suggested_sale_price_scaled: i64,
+    pub pricing_warning: Option<String>,
+    pub below_cost_policy: String,
     pub is_active: bool,
     pub row_version: i64,
 }
@@ -363,6 +370,7 @@ pub struct ProductPriceInput {
     pub price_list_id: String,
     pub unit_price_scaled: i64,
     pub valid_from: String,
+    pub below_cost_override_reason: Option<String>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -442,6 +450,7 @@ pub struct PartnerContactInput {
     pub is_primary: bool,
 }
 
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PartnerAddressView {
@@ -459,6 +468,22 @@ pub struct PartnerAddressView {
     pub row_version: i64,
 }
 
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatePartnerAddressRequest {
+    pub id: String,
+    pub partner_id: String,
+    pub address_kind: String,
+    pub label: Option<String>,
+    pub address_line_1: String,
+    pub address_line_2: Option<String>,
+    pub city: Option<String>,
+    pub province: Option<String>,
+    pub postal_code: Option<String>,
+    pub is_default: bool,
+    pub row_version: i64,
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PartnerContactView {
@@ -470,6 +495,19 @@ pub struct PartnerContactView {
     pub email: Option<String>,
     pub is_primary: bool,
     pub is_active: bool,
+    pub row_version: i64,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatePartnerContactRequest {
+    pub id: String,
+    pub partner_id: String,
+    pub full_name: String,
+    pub job_title: Option<String>,
+    pub phone: Option<String>,
+    pub email: Option<String>,
+    pub is_primary: bool,
     pub row_version: i64,
 }
 

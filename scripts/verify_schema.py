@@ -1580,12 +1580,12 @@ def run_phase05_constraint_tests(connection: sqlite3.Connection, evidence: Evide
     )
     defaults = connection.execute(
         """
-        SELECT default_margin_rate_scaled, session_idle_timeout_minutes, default_tax_rate_id
+        SELECT default_margin_rate_scaled, below_cost_policy, session_idle_timeout_minutes, default_tax_rate_id
         FROM company_settings WHERE id='settings-phase05'
         """
     ).fetchone()
     evidence.require(
-        defaults == (200000, 15, None),
+        defaults == (200000, "ADMIN_OVERRIDE", 15, None),
         "PHASE 05 company setting defaults and fixed-point fields are correct",
     )
 
@@ -1623,6 +1623,12 @@ def run_phase05_constraint_tests(connection: sqlite3.Connection, evidence: Evide
         (
             "session timeout rejects value above 120 minutes",
             "UPDATE company_settings SET session_idle_timeout_minutes=121 WHERE id=?",
+            ("settings-phase05",),
+            "CHECK constraint failed",
+        ),
+        (
+            "below-cost policy rejects unknown values",
+            "UPDATE company_settings SET below_cost_policy='SILENT_ALLOW' WHERE id=?",
             ("settings-phase05",),
             "CHECK constraint failed",
         ),
@@ -1896,10 +1902,10 @@ def verify_upgrade(files: list[Path], evidence: Evidence) -> None:
     )
     evidence.require(
         connection.execute(
-            "SELECT default_margin_rate_scaled, session_idle_timeout_minutes "
+            "SELECT default_margin_rate_scaled, below_cost_policy, session_idle_timeout_minutes "
             "FROM company_settings WHERE id='upgrade-settings'"
         ).fetchone()
-        == (0, 15),
+        == (0, "ADMIN_OVERRIDE", 15),
         "0004 company settings received safe PHASE 05 defaults",
     )
     violations = connection.execute("PRAGMA foreign_key_check").fetchall()
@@ -1924,6 +1930,7 @@ def verify_phase05_contract_sensitivity(files: list[Path], evidence: Evidence) -
         "document sequence scope uniqueness": "uq_document_sequences_company_year_type",
         "session timeout bounds": "session_idle_timeout_minutes BETWEEN 5 AND 120",
         "margin bounds": "default_margin_rate_scaled BETWEEN 0 AND 1000000",
+        "below-cost policy enum": "below_cost_policy IN ('BLOCK', 'ADMIN_OVERRIDE', 'WARNING_ONLY')",
         "no simultaneous recovery use and revoke": "CHECK (used_at IS NULL OR revoked_at IS NULL)",
     }
 

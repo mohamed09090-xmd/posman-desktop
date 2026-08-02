@@ -102,7 +102,7 @@ FROM roles
 WHERE company_id IS NULL AND is_system = 1;
 
 INSERT INTO invariant_assertions
-SELECT 'safe permissions seeded', COUNT(*) = 22
+SELECT 'safe permissions seeded', COUNT(*) = 23
 FROM permissions;
 
 INSERT INTO invariant_assertions
@@ -139,5 +139,10 @@ INSERT INTO invariant_assertions
 SELECT 'default margin range holds', COUNT(*) = 0
 FROM company_settings
 WHERE default_margin_rate_scaled NOT BETWEEN 0 AND 1000000;
+
+INSERT INTO invariant_assertions
+SELECT 'below cost policy values hold', COUNT(*) = 0
+FROM company_settings
+WHERE below_cost_policy NOT IN ('BLOCK', 'ADMIN_OVERRIDE', 'WARNING_ONLY');
 
 DROP TABLE invariant_assertions;

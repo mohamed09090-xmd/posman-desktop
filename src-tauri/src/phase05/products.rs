@@ -1,14 +1,23 @@
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, OptionalExtension, Transaction};
+use serde_json::json;
 
 use super::{
     dto::{
-        CreateProductRequest, Page, PageRequest, ProductPriceInput, ProductView, SetActiveRequest,
-        UpdateProductRequest,
+        CreateProductRequest, Page, PageRequest, ProductPriceInput, ProductView,
+        SetActiveRequest, UpdateProductRequest,
     },
     error::{Phase05Error, Phase05Result},
     pricing::calculate_pricing,
-    state::{audit, new_id, now_iso, trim_optional, trim_required, Phase05Service},
+    state::{
+        audit, new_id, now_iso, trim_optional, trim_required, Phase05Service,
+        SessionContext,
+    },
 };
+
+const BELOW_COST_BLOCK: &str = "BLOCK";
+const BELOW_COST_ADMIN_OVERRIDE: &str = "ADMIN_OVERRIDE";
+const BELOW_COST_WARNING_ONLY: &str = "WARNING_ONLY";
+const BELOW_COST_PERMISSION: &str = "pricing.override_below_cost";
 
 impl Phase05Service {
     pub fn list_products(&self, request: PageRequest) -> Phase05Result<Page<ProductView>> {
@@ -22,6 +31,7 @@ impl Phase05Service {
         }
         let pattern = format!("%{search}%");
         let connection = self.open()?;
+        let policy = company_below_cost_policy(&connection, &context.company_id)?;
         let total: i64 = connection.query_row(
             r#"
             SELECT COUNT(*) FROM products WHERE company_id=?1 AND (
@@ -47,6 +57,7 @@ impl Phase05Service {
         let rows = statement.query_map(
             params![context.company_id, search, pattern, page_size, offset],
             |row| {
+                let purchase: i64 = row.get(7)?;
                 let sale: i64 = row.get(8)?;
                 Ok(ProductView {
                     id: row.get(0)?,
@@ -56,9 +67,11 @@ impl Phase05Service {
                     unit_id: row.get(4)?,
                     product_family_id: row.get(5)?,
                     tax_rate_id: row.get(6)?,
-                    purchase_price_scaled: row.get(7)?,
+                    purchase_price_scaled: purchase,
                     sale_price_scaled: sale,
                     suggested_sale_price_scaled: sale,
+                    pricing_warning: pricing_warning(purchase, sale).map(str::to_owned),
+                    below_cost_policy: policy.clone(),
                     is_active: row.get::<_, i64>(9)? == 1,
                     row_version: row.get(10)?,
                 })
@@ -101,6 +114,13 @@ impl Phase05Service {
         )?
         .sale_ht_scaled;
         let sale_price = request.manual_sale_price_scaled.unwrap_or(suggested);
+        let guard = self.guard_sale_price(
+            &connection,
+            &context.company_id,
+            request.default_purchase_price_scaled,
+            sale_price,
+            request.below_cost_override_reason.as_deref(),
+        )?;
         let stock_tracked = request.product_kind == "STOCK_ITEM";
         let product_id = new_id();
         let timestamp = now_iso()?;
@@ -133,7 +153,11 @@ impl Phase05Service {
                 context.user_id
             ],
         )?;
-        let price_list_id: String = transaction.query_row("SELECT id FROM price_lists WHERE company_id=?1 AND is_default=1 AND is_active=1 LIMIT 1", [context.company_id.as_str()], |row| row.get(0))?;
+        let price_list_id: String = transaction.query_row(
+            "SELECT id FROM price_lists WHERE company_id=?1 AND is_default=1 AND is_active=1 LIMIT 1",
+            [context.company_id.as_str()],
+            |row| row.get(0),
+        )?;
         transaction.execute(
             r#"
             INSERT INTO product_prices (id,company_id,price_list_id,product_id,
@@ -151,13 +175,15 @@ impl Phase05Service {
                 context.user_id
             ],
         )?;
-        audit(
+        audit_product_price(
             &transaction,
             &context,
             "catalog.product.create",
-            "products",
             &product_id,
-            Some(&format!("{{\"suggestedSalePriceScaled\":{suggested}}}")),
+            request.default_purchase_price_scaled,
+            sale_price,
+            suggested,
+            &guard,
         )?;
         transaction.commit()?;
         self.get_product(&product_id, suggested)
@@ -191,6 +217,13 @@ impl Phase05Service {
         )?
         .sale_ht_scaled;
         let sale_price = request.manual_sale_price_scaled.unwrap_or(suggested);
+        let guard = self.guard_sale_price(
+            &connection,
+            &context.company_id,
+            request.default_purchase_price_scaled,
+            sale_price,
+            request.below_cost_override_reason.as_deref(),
+        )?;
         let stock_tracked = request.product_kind == "STOCK_ITEM";
         let transaction = connection.transaction()?;
         let changed = transaction.execute(
@@ -225,20 +258,38 @@ impl Phase05Service {
         if changed != 1 {
             return Err(Phase05Error::concurrency());
         }
-        let price_list_id: String = transaction.query_row("SELECT id FROM price_lists WHERE company_id=?1 AND is_default=1 AND is_active=1 LIMIT 1", [context.company_id.as_str()], |row| row.get(0))?;
-        let current_price_id: Option<String> = transaction.query_row("SELECT id FROM product_prices WHERE company_id=?1 AND product_id=?2 AND price_list_id=?3 AND valid_to IS NULL ORDER BY valid_from DESC LIMIT 1", params![context.company_id, request.id, price_list_id], |row| row.get(0)).optional()?;
+        let price_list_id: String = transaction.query_row(
+            "SELECT id FROM price_lists WHERE company_id=?1 AND is_default=1 AND is_active=1 LIMIT 1",
+            [context.company_id.as_str()],
+            |row| row.get(0),
+        )?;
+        let current_price_id: Option<String> = transaction
+            .query_row(
+                "SELECT id FROM product_prices WHERE company_id=?1 AND product_id=?2 AND price_list_id=?3 AND valid_to IS NULL ORDER BY valid_from DESC LIMIT 1",
+                params![context.company_id, request.id, price_list_id],
+                |row| row.get(0),
+            )
+            .optional()?;
         if let Some(price_id) = current_price_id {
-            transaction.execute("UPDATE product_prices SET unit_price_scaled=?1,updated_at=?2,updated_by=?3,row_version=row_version+1 WHERE id=?4 AND company_id=?5", params![sale_price, now_iso()?, context.user_id, price_id, context.company_id])?;
+            transaction.execute(
+                "UPDATE product_prices SET unit_price_scaled=?1,updated_at=?2,updated_by=?3,row_version=row_version+1 WHERE id=?4 AND company_id=?5",
+                params![sale_price, now_iso()?, context.user_id, price_id, context.company_id],
+            )?;
         } else {
-            transaction.execute("INSERT INTO product_prices (id,company_id,price_list_id,product_id,unit_price_scaled,valid_from,created_at,created_by,updated_at,updated_by) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?7,?8)", params![new_id(), context.company_id, price_list_id, request.id, sale_price, current_date_text(), now_iso()?, context.user_id])?;
+            transaction.execute(
+                "INSERT INTO product_prices (id,company_id,price_list_id,product_id,unit_price_scaled,valid_from,created_at,created_by,updated_at,updated_by) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?7,?8)",
+                params![new_id(), context.company_id, price_list_id, request.id, sale_price, current_date_text(), now_iso()?, context.user_id],
+            )?;
         }
-        audit(
+        audit_product_price(
             &transaction,
             &context,
             "catalog.product.update",
-            "products",
             &request.id,
-            Some(&format!("{{\"suggestedSalePriceScaled\":{suggested}}}")),
+            request.default_purchase_price_scaled,
+            sale_price,
+            suggested,
+            &guard,
         )?;
         transaction.commit()?;
         self.get_product(&request.id, suggested)
@@ -248,7 +299,10 @@ impl Phase05Service {
         let context = self.require_session(Some("catalog.manage"))?;
         let mut connection = self.open()?;
         let transaction = connection.transaction()?;
-        let changed = transaction.execute("UPDATE products SET is_active=?1,updated_at=?2,updated_by=?3,row_version=row_version+1 WHERE id=?4 AND company_id=?5 AND row_version=?6", params![if request.is_active {1_i64} else {0_i64}, now_iso()?, context.user_id, request.id, context.company_id, request.row_version])?;
+        let changed = transaction.execute(
+            "UPDATE products SET is_active=?1,updated_at=?2,updated_by=?3,row_version=row_version+1 WHERE id=?4 AND company_id=?5 AND row_version=?6",
+            params![if request.is_active { 1_i64 } else { 0_i64 }, now_iso()?, context.user_id, request.id, context.company_id, request.row_version],
+        )?;
         if changed != 1 {
             return Err(Phase05Error::concurrency());
         }
@@ -270,20 +324,25 @@ impl Phase05Service {
         }
         let context = self.require_session(Some("catalog.manage"))?;
         let mut connection = self.open()?;
-        ensure_company_reference(
-            &connection,
-            "products",
-            &request.product_id,
-            &context.company_id,
+        ensure_company_reference(&connection, "products", &request.product_id, &context.company_id)?;
+        ensure_company_reference(&connection, "price_lists", &request.price_list_id, &context.company_id)?;
+        let purchase_price: i64 = connection.query_row(
+            "SELECT COALESCE(default_purchase_price_scaled,0) FROM products WHERE id=?1 AND company_id=?2",
+            params![request.product_id, context.company_id],
+            |row| row.get(0),
         )?;
-        ensure_company_reference(
+        let guard = self.guard_sale_price(
             &connection,
-            "price_lists",
-            &request.price_list_id,
             &context.company_id,
+            purchase_price,
+            request.unit_price_scaled,
+            request.below_cost_override_reason.as_deref(),
         )?;
         let transaction = connection.transaction()?;
-        transaction.execute("UPDATE product_prices SET valid_to=?1,updated_at=?2,updated_by=?3,row_version=row_version+1 WHERE company_id=?4 AND product_id=?5 AND price_list_id=?6 AND valid_to IS NULL AND valid_from<?7", params![request.valid_from, now_iso()?, context.user_id, context.company_id, request.product_id, request.price_list_id, request.valid_from])?;
+        transaction.execute(
+            "UPDATE product_prices SET valid_to=?1,updated_at=?2,updated_by=?3,row_version=row_version+1 WHERE company_id=?4 AND product_id=?5 AND price_list_id=?6 AND valid_to IS NULL AND valid_from<?7",
+            params![request.valid_from, now_iso()?, context.user_id, context.company_id, request.product_id, request.price_list_id, request.valid_from],
+        )?;
         transaction.execute(
             r#"
             INSERT INTO product_prices (id,company_id,price_list_id,product_id,
@@ -305,31 +364,113 @@ impl Phase05Service {
                 context.user_id
             ],
         )?;
-        transaction.execute("UPDATE products SET default_sale_price_scaled=?1,updated_at=?2,updated_by=?3,row_version=row_version+1 WHERE id=?4 AND company_id=?5", params![request.unit_price_scaled, now_iso()?, context.user_id, request.product_id, context.company_id])?;
-        audit(
+        transaction.execute(
+            "UPDATE products SET default_sale_price_scaled=?1,updated_at=?2,updated_by=?3,row_version=row_version+1 WHERE id=?4 AND company_id=?5",
+            params![request.unit_price_scaled, now_iso()?, context.user_id, request.product_id, context.company_id],
+        )?;
+        audit_product_price(
             &transaction,
             &context,
             "catalog.product_price.set",
-            "product_prices",
             &request.product_id,
-            None,
+            purchase_price,
+            request.unit_price_scaled,
+            request.unit_price_scaled,
+            &guard,
         )?;
         transaction.commit()?;
         Ok(())
     }
 
+    fn guard_sale_price(
+        &self,
+        connection: &rusqlite::Connection,
+        company_id: &str,
+        purchase_price: i64,
+        sale_price: i64,
+        override_reason: Option<&str>,
+    ) -> Phase05Result<PricingGuard> {
+        let policy = company_below_cost_policy(connection, company_id)?;
+        if sale_price >= purchase_price {
+            return Ok(PricingGuard {
+                policy,
+                warning: pricing_warning(purchase_price, sale_price).map(str::to_owned),
+                override_reason: None,
+            });
+        }
+        match policy.as_str() {
+            BELOW_COST_BLOCK => Err(Phase05Error::below_cost_blocked()),
+            BELOW_COST_ADMIN_OVERRIDE => {
+                if !self.has_permission(BELOW_COST_PERMISSION)? {
+                    return Err(Phase05Error::below_cost_override_required());
+                }
+                let reason = trim_required(override_reason.unwrap_or_default(), "belowCostOverrideReason")?;
+                if reason.chars().count() < 3 || reason.chars().count() > 500 {
+                    return Err(Phase05Error::invalid("belowCostOverrideReason"));
+                }
+                Ok(PricingGuard {
+                    policy,
+                    warning: Some("BELOW_COST".to_owned()),
+                    override_reason: Some(reason),
+                })
+            }
+            BELOW_COST_WARNING_ONLY => Ok(PricingGuard {
+                policy,
+                warning: Some("BELOW_COST".to_owned()),
+                override_reason: None,
+            }),
+            _ => Err(Phase05Error::internal()),
+        }
+    }
+
     fn get_product(&self, id: &str, suggested: i64) -> Phase05Result<ProductView> {
         let context = self.require_session(Some("catalog.view"))?;
-        self.open()?.query_row(
-            "SELECT id,code,name_ar,name_fr,unit_id,product_family_id,default_tax_rate_id,COALESCE(default_purchase_price_scaled,0),COALESCE(default_sale_price_scaled,0),is_active,row_version FROM products WHERE id=?1 AND company_id=?2",
-            params![id, context.company_id], |row| Ok(ProductView { id: row.get(0)?, code: row.get(1)?, name_ar: row.get(2)?, name_fr: row.get(3)?, unit_id: row.get(4)?, product_family_id: row.get(5)?, tax_rate_id: row.get(6)?, purchase_price_scaled: row.get(7)?, sale_price_scaled: row.get(8)?, suggested_sale_price_scaled: suggested, is_active: row.get::<_, i64>(9)? == 1, row_version: row.get(10)? }))
-            .optional()?.ok_or_else(|| Phase05Error::new("NOT_FOUND", "The product was not found."))
+        self.open()?
+            .query_row(
+                r#"
+                SELECT p.id,p.code,p.name_ar,p.name_fr,p.unit_id,p.product_family_id,
+                       p.default_tax_rate_id,COALESCE(p.default_purchase_price_scaled,0),
+                       COALESCE(p.default_sale_price_scaled,0),p.is_active,p.row_version,
+                       s.below_cost_policy
+                FROM products p JOIN company_settings s ON s.company_id=p.company_id
+                WHERE p.id=?1 AND p.company_id=?2
+                "#,
+                params![id, context.company_id],
+                |row| {
+                    let purchase: i64 = row.get(7)?;
+                    let sale: i64 = row.get(8)?;
+                    Ok(ProductView {
+                        id: row.get(0)?,
+                        code: row.get(1)?,
+                        name_ar: row.get(2)?,
+                        name_fr: row.get(3)?,
+                        unit_id: row.get(4)?,
+                        product_family_id: row.get(5)?,
+                        tax_rate_id: row.get(6)?,
+                        purchase_price_scaled: purchase,
+                        sale_price_scaled: sale,
+                        suggested_sale_price_scaled: suggested,
+                        pricing_warning: pricing_warning(purchase, sale).map(str::to_owned),
+                        below_cost_policy: row.get(11)?,
+                        is_active: row.get::<_, i64>(9)? == 1,
+                        row_version: row.get(10)?,
+                    })
+                },
+            )
+            .optional()?
+            .ok_or_else(|| Phase05Error::new("NOT_FOUND", "The product was not found."))
     }
 }
 
 struct ProductDefaults {
     tax_rate_id: Option<String>,
     margin_rate_scaled: i64,
+}
+
+struct PricingGuard {
+    policy: String,
+    warning: Option<String>,
+    override_reason: Option<String>,
 }
 
 fn resolve_product_defaults(
@@ -340,11 +481,22 @@ fn resolve_product_defaults(
     product_margin: Option<i64>,
 ) -> Phase05Result<ProductDefaults> {
     let family = if let Some(id) = family_id {
-        connection.query_row("SELECT default_tax_rate_id,default_margin_rate_scaled FROM product_families WHERE id=?1 AND company_id=?2 AND is_active=1", params![id, company_id], |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<i64>>(1)?))).optional()?.ok_or_else(|| Phase05Error::invalid("productFamilyId"))?
+        connection
+            .query_row(
+                "SELECT default_tax_rate_id,default_margin_rate_scaled FROM product_families WHERE id=?1 AND company_id=?2 AND is_active=1",
+                params![id, company_id],
+                |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<i64>>(1)?)),
+            )
+            .optional()?
+            .ok_or_else(|| Phase05Error::invalid("productFamilyId"))?
     } else {
         (None, None)
     };
-    let company: (Option<String>, i64) = connection.query_row("SELECT default_tax_rate_id,default_margin_rate_scaled FROM company_settings WHERE company_id=?1", [company_id], |row| Ok((row.get(0)?, row.get(1)?)))?;
+    let company: (Option<String>, i64) = connection.query_row(
+        "SELECT default_tax_rate_id,default_margin_rate_scaled FROM company_settings WHERE company_id=?1",
+        [company_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
     if let Some(tax_id) = product_tax_id {
         ensure_company_reference(connection, "tax_rates", tax_id, company_id)?;
     }
@@ -353,9 +505,25 @@ fn resolve_product_defaults(
         return Err(Phase05Error::invalid("marginRate"));
     }
     Ok(ProductDefaults {
-        tax_rate_id: product_tax_id.map(str::to_owned).or(family.0).or(company.0),
+        tax_rate_id: product_tax_id
+            .map(str::to_owned)
+            .or(family.0)
+            .or(company.0),
         margin_rate_scaled: margin,
     })
+}
+
+fn company_below_cost_policy(
+    connection: &rusqlite::Connection,
+    company_id: &str,
+) -> Phase05Result<String> {
+    connection
+        .query_row(
+            "SELECT below_cost_policy FROM company_settings WHERE company_id=?1",
+            [company_id],
+            |row| row.get(0),
+        )
+        .map_err(Phase05Error::from)
 }
 
 fn ensure_company_reference(
@@ -396,6 +564,69 @@ fn validate_product(
     Ok(())
 }
 
+fn pricing_warning(purchase_price: i64, sale_price: i64) -> Option<&'static str> {
+    if sale_price < purchase_price {
+        Some("BELOW_COST")
+    } else if sale_price == purchase_price {
+        Some("ZERO_MARGIN")
+    } else {
+        None
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn audit_product_price(
+    transaction: &Transaction<'_>,
+    context: &SessionContext,
+    action: &str,
+    product_id: &str,
+    purchase_price: i64,
+    sale_price: i64,
+    suggested_sale_price: i64,
+    guard: &PricingGuard,
+) -> Phase05Result<()> {
+    let details = json!({
+        "purchasePriceScaled": purchase_price,
+        "salePriceScaled": sale_price,
+        "suggestedSalePriceScaled": suggested_sale_price,
+        "belowCostPolicy": guard.policy,
+        "pricingWarning": guard.warning,
+        "overrideReason": guard.override_reason,
+    })
+    .to_string();
+    audit(
+        transaction,
+        context,
+        action,
+        "products",
+        product_id,
+        Some(&details),
+    )?;
+    if guard.override_reason.is_some() {
+        audit(
+            transaction,
+            context,
+            "pricing.below_cost.override",
+            "products",
+            product_id,
+            Some(&details),
+        )?;
+    }
+    Ok(())
+}
+
 fn current_date_text() -> String {
     super::pricing::format_date(super::pricing::current_device_date())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pricing_warning;
+
+    #[test]
+    fn pricing_warning_distinguishes_below_cost_and_zero_margin() {
+        assert_eq!(pricing_warning(100_000, 90_000), Some("BELOW_COST"));
+        assert_eq!(pricing_warning(100_000, 100_000), Some("ZERO_MARGIN"));
+        assert_eq!(pricing_warning(100_000, 120_000), None);
+    }
 }

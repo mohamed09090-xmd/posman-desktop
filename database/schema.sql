@@ -1245,6 +1245,8 @@ ALTER TABLE partners ADD COLUMN tax_article_number TEXT
 
 ALTER TABLE company_settings ADD COLUMN default_margin_rate_scaled INTEGER NOT NULL DEFAULT 0
     CHECK (default_margin_rate_scaled BETWEEN 0 AND 1000000);
+ALTER TABLE company_settings ADD COLUMN below_cost_policy TEXT NOT NULL DEFAULT 'ADMIN_OVERRIDE'
+    CHECK (below_cost_policy IN ('BLOCK', 'ADMIN_OVERRIDE', 'WARNING_ONLY'));
 ALTER TABLE company_settings ADD COLUMN session_idle_timeout_minutes INTEGER NOT NULL DEFAULT 15
     CHECK (session_idle_timeout_minutes BETWEEN 5 AND 120);
 ALTER TABLE company_settings ADD COLUMN default_tax_rate_id TEXT
