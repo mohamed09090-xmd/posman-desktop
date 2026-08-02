@@ -6,10 +6,7 @@ use std::{
 };
 
 use rusqlite::{params, Connection, Transaction};
-use time::{
-    format_description::well_known::Rfc3339,
-    OffsetDateTime,
-};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
@@ -73,10 +70,7 @@ impl Phase05Service {
     }
 
     pub(super) fn replace_session(&self, session: ActiveSession) -> Phase05Result<()> {
-        *self
-            .session
-            .lock()
-            .map_err(|_| Phase05Error::internal())? = Some(session);
+        *self.session.lock().map_err(|_| Phase05Error::internal())? = Some(session);
         Ok(())
     }
 
@@ -92,13 +86,8 @@ impl Phase05Service {
         &self,
         operation: impl FnOnce(&mut ActiveSession) -> Phase05Result<T>,
     ) -> Phase05Result<T> {
-        let mut guard = self
-            .session
-            .lock()
-            .map_err(|_| Phase05Error::internal())?;
-        let session = guard
-            .as_mut()
-            .ok_or_else(Phase05Error::unauthenticated)?;
+        let mut guard = self.session.lock().map_err(|_| Phase05Error::internal())?;
+        let session = guard.as_mut().ok_or_else(Phase05Error::unauthenticated)?;
         operation(session)
     }
 
@@ -115,8 +104,7 @@ impl Phase05Service {
                 return Err(Phase05Error::denied());
             }
             session.last_activity = Instant::now();
-            let update_last_seen =
-                session.last_seen_write.elapsed() >= LAST_SEEN_WRITE_INTERVAL;
+            let update_last_seen = session.last_seen_write.elapsed() >= LAST_SEEN_WRITE_INTERVAL;
             if update_last_seen {
                 session.last_seen_write = Instant::now();
             }

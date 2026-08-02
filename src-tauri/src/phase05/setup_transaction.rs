@@ -8,9 +8,7 @@ use super::{
     error::{Phase05Error, Phase05Result},
     pricing::fiscal_periods,
     security::{generate_recovery_code, recovery_code_hash},
-    state::{
-        new_id, normalize_username, now_iso, trim_optional, trim_required, Phase05Service,
-    },
+    state::{new_id, normalize_username, now_iso, trim_optional, trim_required, Phase05Service},
 };
 
 const DOCUMENT_SEQUENCES: [(&str, &str); 15] = [
@@ -32,17 +30,83 @@ const DOCUMENT_SEQUENCES: [(&str, &str); 15] = [
 ];
 
 const REQUIRED_PERMISSIONS: [(&str, &str, &str, &str, bool); 11] = [
-    ("company.view", "company", "عرض بيانات الشركة", "Consulter la société", false),
-    ("company.manage", "company", "إدارة بيانات الشركة", "Gérer la société", true),
-    ("settings.manage", "settings", "إدارة الإعدادات", "Gérer les paramètres", true),
-    ("security.users.view", "security", "عرض المستخدمين", "Consulter les utilisateurs", true),
-    ("security.users.manage", "security", "إدارة المستخدمين", "Gérer les utilisateurs", true),
-    ("security.roles.manage", "security", "إدارة الأدوار", "Gérer les rôles", true),
-    ("catalog.view", "catalog", "عرض دليل المواد", "Consulter le catalogue", false),
-    ("catalog.manage", "catalog", "إدارة دليل المواد", "Gérer le catalogue", false),
-    ("pricing.override_below_cost", "catalog", "تجاوز البيع تحت التكلفة", "Autoriser la vente sous le coût", true),
-    ("partners.view", "partners", "عرض الشركاء", "Consulter les partenaires", false),
-    ("partners.manage", "partners", "إدارة الشركاء", "Gérer les partenaires", false),
+    (
+        "company.view",
+        "company",
+        "عرض بيانات الشركة",
+        "Consulter la société",
+        false,
+    ),
+    (
+        "company.manage",
+        "company",
+        "إدارة بيانات الشركة",
+        "Gérer la société",
+        true,
+    ),
+    (
+        "settings.manage",
+        "settings",
+        "إدارة الإعدادات",
+        "Gérer les paramètres",
+        true,
+    ),
+    (
+        "security.users.view",
+        "security",
+        "عرض المستخدمين",
+        "Consulter les utilisateurs",
+        true,
+    ),
+    (
+        "security.users.manage",
+        "security",
+        "إدارة المستخدمين",
+        "Gérer les utilisateurs",
+        true,
+    ),
+    (
+        "security.roles.manage",
+        "security",
+        "إدارة الأدوار",
+        "Gérer les rôles",
+        true,
+    ),
+    (
+        "catalog.view",
+        "catalog",
+        "عرض دليل المواد",
+        "Consulter le catalogue",
+        false,
+    ),
+    (
+        "catalog.manage",
+        "catalog",
+        "إدارة دليل المواد",
+        "Gérer le catalogue",
+        false,
+    ),
+    (
+        "pricing.override_below_cost",
+        "catalog",
+        "تجاوز البيع تحت التكلفة",
+        "Autoriser la vente sous le coût",
+        true,
+    ),
+    (
+        "partners.view",
+        "partners",
+        "عرض الشركاء",
+        "Consulter les partenaires",
+        false,
+    ),
+    (
+        "partners.manage",
+        "partners",
+        "إدارة الشركاء",
+        "Gérer les partenaires",
+        false,
+    ),
 ];
 
 impl Phase05Service {
@@ -133,8 +197,7 @@ fn execute_setup_transaction(
     idempotency_key: &str,
     request_hash: &str,
 ) -> Phase05Result<(String, String)> {
-    let transaction =
-        connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let company_count: i64 =
         transaction.query_row("SELECT COUNT(*) FROM companies", [], |row| row.get(0))?;
     if company_count != 0 {
@@ -181,7 +244,10 @@ fn execute_setup_transaction(
             company_id,
             request.language,
             request.default_margin_rate_scaled,
-            request.below_cost_policy.as_deref().unwrap_or("ADMIN_OVERRIDE"),
+            request
+                .below_cost_policy
+                .as_deref()
+                .unwrap_or("ADMIN_OVERRIDE"),
             request.session_idle_timeout_minutes,
             timestamp,
             administrator_user_id
@@ -444,7 +510,13 @@ fn insert_payment_defaults(
         ("CASH", "نقدي", "Espèces", "CASH", 0_i64),
         ("CARD", "بطاقة", "Carte", "CARD", 1_i64),
         ("CHEQUE", "شيك", "Chèque", "CHEQUE", 1_i64),
-        ("BANK", "تحويل بنكي", "Virement bancaire", "BANK_TRANSFER", 1_i64),
+        (
+            "BANK",
+            "تحويل بنكي",
+            "Virement bancaire",
+            "BANK_TRANSFER",
+            1_i64,
+        ),
     ] {
         transaction.execute(
             r#"
@@ -620,7 +692,14 @@ fn insert_administrator_security(
                 id, company_id, role_id, permission_id, granted_at, granted_by
             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             "#,
-            params![new_id(), company_id, role_id, permission_id, timestamp, user_id],
+            params![
+                new_id(),
+                company_id,
+                role_id,
+                permission_id,
+                timestamp,
+                user_id
+            ],
         )?;
     }
     transaction.execute(
@@ -703,7 +782,10 @@ fn validate_request(request: &InitialSetupRequest) -> Phase05Result<()> {
         (&request.warehouse_code, "warehouseCode"),
         (&request.warehouse_name_ar, "warehouseNameAr"),
         (&request.administrator_username, "administratorUsername"),
-        (&request.administrator_display_name, "administratorDisplayName"),
+        (
+            &request.administrator_display_name,
+            "administratorDisplayName",
+        ),
     ] {
         trim_required(value, field)?;
     }

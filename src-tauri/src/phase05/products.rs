@@ -3,15 +3,12 @@ use serde_json::json;
 
 use super::{
     dto::{
-        CreateProductRequest, Page, PageRequest, ProductPriceInput, ProductView,
-        SetActiveRequest, UpdateProductRequest,
+        CreateProductRequest, Page, PageRequest, ProductPriceInput, ProductView, SetActiveRequest,
+        UpdateProductRequest,
     },
     error::{Phase05Error, Phase05Result},
     pricing::calculate_pricing,
-    state::{
-        audit, new_id, now_iso, trim_optional, trim_required, Phase05Service,
-        SessionContext,
-    },
+    state::{audit, new_id, now_iso, trim_optional, trim_required, Phase05Service, SessionContext},
 };
 
 const BELOW_COST_BLOCK: &str = "BLOCK";
@@ -324,8 +321,18 @@ impl Phase05Service {
         }
         let context = self.require_session(Some("catalog.manage"))?;
         let mut connection = self.open()?;
-        ensure_company_reference(&connection, "products", &request.product_id, &context.company_id)?;
-        ensure_company_reference(&connection, "price_lists", &request.price_list_id, &context.company_id)?;
+        ensure_company_reference(
+            &connection,
+            "products",
+            &request.product_id,
+            &context.company_id,
+        )?;
+        ensure_company_reference(
+            &connection,
+            "price_lists",
+            &request.price_list_id,
+            &context.company_id,
+        )?;
         let purchase_price: i64 = connection.query_row(
             "SELECT COALESCE(default_purchase_price_scaled,0) FROM products WHERE id=?1 AND company_id=?2",
             params![request.product_id, context.company_id],
@@ -404,7 +411,10 @@ impl Phase05Service {
                 if !self.has_permission(BELOW_COST_PERMISSION)? {
                     return Err(Phase05Error::below_cost_override_required());
                 }
-                let reason = trim_required(override_reason.unwrap_or_default(), "belowCostOverrideReason")?;
+                let reason = trim_required(
+                    override_reason.unwrap_or_default(),
+                    "belowCostOverrideReason",
+                )?;
                 if reason.chars().count() < 3 || reason.chars().count() > 500 {
                     return Err(Phase05Error::invalid("belowCostOverrideReason"));
                 }
@@ -505,10 +515,7 @@ fn resolve_product_defaults(
         return Err(Phase05Error::invalid("marginRate"));
     }
     Ok(ProductDefaults {
-        tax_rate_id: product_tax_id
-            .map(str::to_owned)
-            .or(family.0)
-            .or(company.0),
+        tax_rate_id: product_tax_id.map(str::to_owned).or(family.0).or(company.0),
         margin_rate_scaled: margin,
     })
 }

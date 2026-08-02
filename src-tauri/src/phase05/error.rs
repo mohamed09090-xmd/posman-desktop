@@ -11,7 +11,10 @@ pub struct Phase05Error {
 
 impl Phase05Error {
     pub fn new(code: &str, message: &str) -> Self {
-        Self { code: code.to_owned(), message: message.to_owned() }
+        Self {
+            code: code.to_owned(),
+            message: message.to_owned(),
+        }
     }
 
     pub fn invalid(field: &str) -> Self {
@@ -19,7 +22,10 @@ impl Phase05Error {
     }
 
     pub fn internal() -> Self {
-        Self::new("OPERATION_FAILED", "The local operation could not be completed.")
+        Self::new(
+            "OPERATION_FAILED",
+            "The local operation could not be completed.",
+        )
     }
 
     pub fn unauthenticated() -> Self {
@@ -27,7 +33,10 @@ impl Phase05Error {
     }
 
     pub fn denied() -> Self {
-        Self::new("PERMISSION_DENIED", "You do not have permission for this action.")
+        Self::new(
+            "PERMISSION_DENIED",
+            "You do not have permission for this action.",
+        )
     }
 
     pub fn locked() -> Self {
@@ -35,15 +44,24 @@ impl Phase05Error {
     }
 
     pub fn concurrency() -> Self {
-        Self::new("CONCURRENCY_CONFLICT", "This record changed. Reload it and try again.")
+        Self::new(
+            "CONCURRENCY_CONFLICT",
+            "This record changed. Reload it and try again.",
+        )
     }
 
     pub fn below_cost_blocked() -> Self {
-        Self::new("BELOW_COST_BLOCKED", "The sale price cannot be below the purchase cost.")
+        Self::new(
+            "BELOW_COST_BLOCKED",
+            "The sale price cannot be below the purchase cost.",
+        )
     }
 
     pub fn below_cost_override_required() -> Self {
-        Self::new("BELOW_COST_OVERRIDE_REQUIRED", "An authorized administrator and a reason are required to save a below-cost price.")
+        Self::new(
+            "BELOW_COST_OVERRIDE_REQUIRED",
+            "An authorized administrator and a reason are required to save a below-cost price.",
+        )
     }
 }
 

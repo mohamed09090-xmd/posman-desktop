@@ -74,7 +74,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .p5-table { width: 100%; border-collapse: collapse; background: var(--p5-panel); table-layout: fixed; }
 .p5-table caption { text-align: start; font-weight: 700; padding: .5rem; }
 .p5-table th, .p5-table td { border-block-end: 1px solid var(--p5-line); padding: .65rem .7rem; text-align: start; overflow-wrap: anywhere; vertical-align: top; }
-.p5-table th { background: #e7e3d7; font-size: .78rem; color: var(--p5-muted); }
+.p5-table th { background: #e7e3d7; font-size: .78rem; color: #56605c; }
 .p5-table tbody tr:hover { background: #f6f3eb; }
 .p5-table tr.has-warning { background: #fff1ef; }
 .p5-red { color: var(--p5-danger); }

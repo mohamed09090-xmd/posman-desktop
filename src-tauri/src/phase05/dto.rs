@@ -450,7 +450,6 @@ pub struct PartnerContactInput {
     pub is_primary: bool,
 }
 
-
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PartnerAddressView {
