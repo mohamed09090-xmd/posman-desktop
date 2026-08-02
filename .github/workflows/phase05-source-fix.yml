@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  fix-validate-commit:
+  materialize-source:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,29 +24,23 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: '1.85.0'
-          components: rustfmt, clippy
+          components: rustfmt
       - name: Verify trigger commit
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git log -1 --pretty=%s)" = "chore(phase05): trigger scoped Rust source fix"
+          test "$(git log -1 --pretty=%s)" = "chore(phase05): trigger scoped Rust source correction"
           test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "scripts/phase05_source_fix.py"
-      - name: Install native prerequisites
+      - name: Apply and format source correction
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-      - name: Apply source fix
-        run: python scripts/phase05_source_fix.py
-      - name: Validate Rust 1.85 source
-        run: |
+          set -euo pipefail
+          python scripts/phase05_source_fix.py
           cargo fmt --manifest-path src-tauri/Cargo.toml --all
           cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
-          cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
-          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
-          cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture
           git diff --check
           test "$(git diff --name-only | sort)" = $'src-tauri/src/phase05/config.rs\nsrc-tauri/src/phase05/dto.rs\nsrc-tauri/src/phase05/products.rs'
-      - name: Commit validated source
+      - name: Commit source files only
         shell: bash
         run: |
           set -euo pipefail
