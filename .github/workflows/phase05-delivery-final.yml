@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: phase05-source-materialization
+  group: phase05-source-materialization-v2
   cancel-in-progress: false
 
 jobs:
@@ -26,8 +26,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "7c51c59aabec52b534bb76187a8e19130da3d081"
-          test "$(git log -1 --pretty=%s)" = "chore(phase05): materialize source without validation gate"
+          test "$(git rev-parse HEAD^)" = "8a1759cd1b03917b0a3af213c16fbd3f7656037c"
+          test "$(git log -1 --pretty=%s)" = "chore(phase05): export and materialize source safely"
           test "$(git rev-parse origin/main)" = "77d297f08ec3c46920dd1b94710995834854dd9a"
           cat > /tmp/chunks.sha256 <<'EOF'
           0601fc171a0edfb0d188b38e998187d5f69083aac528a68dd4cb7f4d50c9fcde  .phase05-delivery/chunk-00a
@@ -53,18 +53,24 @@ jobs:
           tar --list --xz --file /tmp/phase05.tar.xz
           tar --extract --xz --file /tmp/phase05.tar.xz --directory .
 
-      - name: Commit materialized source and remove helpers
+      - name: Upload verified source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-05-materialized-source
+          path: /tmp/phase05.tar.xz
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit materialized non-workflow source
         shell: bash
         run: |
           set -euo pipefail
+          git restore --source=HEAD --staged --worktree .github/workflows
           git rm -r .phase05-delivery
-          git rm .github/workflows/phase05-delivery.yml .github/workflows/phase05-delivery-final.yml
-          git add -A
+          git add database scripts src src-tauri tests
           git diff --cached --check
           test ! -e .phase05-delivery
-          test ! -e .github/workflows/phase05-delivery.yml
-          test ! -e .github/workflows/phase05-delivery-final.yml
-          ! grep -R -n -E '^\s*contents:\s*write\s*$' .github/workflows
+          test -z "$(git diff --cached --name-only -- .github/workflows)"
           git config user.name 'POSMAN implementation engineer'
           git config user.email '144628717+mohamed09090-xmd@users.noreply.github.com'
           git commit -m 'feat(phase05): materialize setup security reference UI'
