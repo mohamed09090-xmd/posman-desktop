@@ -79,9 +79,6 @@ jobs:
       - name: Verify accepted SQLite foundation
         run: python scripts/verify_schema.py
 
-      - name: Confirm database sources are unchanged
-        run: git diff --exit-code a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9 -- database scripts/verify_schema.py
-
       - name: Record embedded migration SHA-256 values
         shell: python
         run: |

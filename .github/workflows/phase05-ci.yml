@@ -10,201 +10,180 @@ permissions:
   contents: read
 
 concurrency:
-  group: phase05-read-only-rust-patch-${{ github.ref }}
+  group: phase05-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  validate-rust-patch:
+  database:
+    name: SQLite 0001→0005 and 0004→0005 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Verify schema, frozen migrations, fresh install, upgrade, seed, FK and invariants
+        run: python scripts/verify_schema.py
+      - name: Reject secrets and runtime database artifacts
+        shell: python
+        run: |
+          import re
+          from pathlib import Path
+          forbidden_suffixes = {'.sqlite', '.sqlite3', '.db', '.bak', '.log'}
+          forbidden_names = {'.env', '.env.local', 'id_rsa', 'id_ed25519'}
+          secret = re.compile(r'(sk-[A-Za-z0-9_-]{20,}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|password\s*=\s*["\'][^"\']+["\'])', re.I)
+          failures=[]
+          for path in Path('.').rglob('*'):
+            if not path.is_file() or '.git' in path.parts or 'node_modules' in path.parts or 'target' in path.parts: continue
+            if path.name in forbidden_names or path.suffix.lower() in forbidden_suffixes: failures.append(str(path)); continue
+            if path.suffix.lower() in {'.png','.ico','.zip','.woff2'}: continue
+            try: text=path.read_text(encoding='utf-8')
+            except UnicodeDecodeError: continue
+            if secret.search(text): failures.append(str(path))
+          print('\n'.join(failures))
+          raise SystemExit(1 if failures else 0)
+      - run: git diff --check
+      - name: Confirm clean worktree
+        shell: bash
+        run: test -z "$(git status --short --untracked-files=all)"
+
+  frontend:
+    name: Arabic/French typed desktop UI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
         with:
-          ref: phase/05-setup-security-reference-data
-          fetch-depth: 0
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: npm ci
+      - name: Install browser evidence tooling outside product dependencies
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+          npm install --no-save --package-lock=false axe-core@4.10.3
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:ui
+      - run: npm run test:integration
+      - name: Arabic/French E2E, Axe, overflow, clipping and console evidence
+        env:
+          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/phase05-evidence
+        run: npm run test:e2e
+      - name: Reject React SQL and network access
+        shell: python
+        run: |
+          from pathlib import Path
+          failures=[]
+          for path in Path('src').rglob('*'):
+            if not path.is_file(): continue
+            text=path.read_text(encoding='utf-8')
+            for needle in ('SELECT ', 'INSERT INTO ', 'UPDATE ', 'DELETE FROM ', 'fetch(', 'XMLHttpRequest', 'WebSocket('):
+              if needle in text: failures.append(f'{path}: {needle}')
+          print('\n'.join(failures)); raise SystemExit(1 if failures else 0)
+      - run: git diff --check
+      - name: Confirm clean worktree
+        shell: bash
+        run: test -z "$(git status --short --untracked-files=all)"
+      - name: Upload PHASE 05 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-05-ui-evidence
+          path: ${{ runner.temp }}/phase05-evidence
+          if-no-files-found: error
+          retention-days: 30
+
+  rust:
+    name: Rust 1.85 backend and native Tauri (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: '1.85.0'
           components: rustfmt, clippy
-      - name: Install native prerequisites
+      - name: Install Tauri Linux prerequisites
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-      - name: Apply scoped corrections
+      - run: python scripts/verify_schema.py
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+      - name: Run setup/auth/security/reference/pricing backend tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture
+      - name: Compile native Tauri shell
+        run: npm run desktop:check
+      - name: Validate embedded Windows manifest
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe=(Resolve-Path 'src-tauri\target\debug\posman-desktop.exe').Path
+          $mt=Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') -File | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $mt) { throw 'mt.exe not found' }
+          $manifest=Join-Path $env:RUNNER_TEMP 'posman.manifest.xml'
+          & $mt "-inputresource:$exe;#1" "-out:$manifest"
+          if ($LASTEXITCODE -ne 0) { throw 'manifest extraction failed' }
+          $text=Get-Content $manifest -Raw
+          if ($text -notmatch 'Microsoft\.Windows\.Common-Controls' -or $text -notmatch '6\.0\.0\.0') { throw 'Common Controls v6 missing' }
+          Get-FileHash $manifest -Algorithm SHA256
+      - run: git diff --check
+      - name: Confirm clean worktree
         shell: bash
+        run: test -z "$(git status --short --untracked-files=all)"
+
+  policy:
+    name: Read-only workflow and ownership policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Confirm no write-capable workflow, helper or payload remains
+        shell: python
         run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
           import re
-
-          dto = Path('src-tauri/src/phase05/dto.rs')
-          text = dto.read_text(encoding='utf-8')
-          for name in ('UpdatePartnerAddressRequest', 'UpdatePartnerContactRequest'):
-              pattern = rf'\n#\[derive\(Clone, Deserialize\)\]\n#\[serde\(rename_all = "camelCase"\)\]\npub struct {name} \{{.*?\n\}}\n'
-              text, count = re.subn(pattern, '\n', text, count=1, flags=re.S)
-              if count != 1:
-                  raise SystemExit(f'expected {name} exactly once')
-          dto.write_text(text, encoding='utf-8')
-
-          products = Path('src-tauri/src/phase05/products.rs')
-          text = products.read_text(encoding='utf-8')
-          old = '''fn pricing_warning(purchase_price: i64, sale_price: i64) -> Option<&'static str> {
-    if sale_price < purchase_price {
-        Some("BELOW_COST")
-    } else if sale_price == purchase_price {
-        Some("ZERO_MARGIN")
-    } else {
-        None
-    }
-}'''
-          new = '''fn pricing_warning(purchase_price: i64, sale_price: i64) -> Option<&'static str> {
-    match sale_price.cmp(&purchase_price) {
-        std::cmp::Ordering::Less => Some("BELOW_COST"),
-        std::cmp::Ordering::Equal => Some("ZERO_MARGIN"),
-        std::cmp::Ordering::Greater => None,
-    }
-}'''
-          if text.count(old) != 1:
-              raise SystemExit('expected pricing warning chain exactly once')
-          products.write_text(text.replace(old, new), encoding='utf-8')
-
-          config = Path('src-tauri/src/phase05/config.rs')
-          text = config.read_text(encoding='utf-8')
-          marker = 'use super::{\n'
-          constant = '''const UPDATE_COMPANY_SETTINGS_SQL: &str = r#"
-UPDATE company_settings
-SET default_margin_rate_scaled=?1,
-    below_cost_policy=?2,
-    session_idle_timeout_minutes=?3,
-    updated_at=?4,
-    updated_by=?5,
-    row_version=row_version+1
-WHERE company_id=?6
-"#;
-
-'''
-          if constant not in text:
-              if text.count(marker) != 1:
-                  raise SystemExit('expected config import marker exactly once')
-              text = text.replace(marker, constant + marker, 1)
-
-          old_sql = '''        transaction.execute(
-            r#"
-            UPDATE company_settings SET default_margin_rate_scaled=?1,
-                session_idle_timeout_minutes=?2, updated_at=?3, updated_by=?4,
-                row_version=row_version+1 WHERE company_id=?5
-            "#,
-            params![
-                request.default_margin_rate_scaled,
-                request.below_cost_policy,
-                request.session_idle_timeout_minutes,
-                now_iso()?,
-                context.user_id,
-                context.company_id
-            ],
-        )?;'''
-          new_sql = '''        transaction.execute(
-            UPDATE_COMPANY_SETTINGS_SQL,
-            params![
-                request.default_margin_rate_scaled,
-                request.below_cost_policy,
-                request.session_idle_timeout_minutes,
-                now_iso()?,
-                context.user_id,
-                context.company_id
-            ],
-        )?;'''
-          if text.count(old_sql) != 1:
-              raise SystemExit('expected broken company settings update exactly once')
-          text = text.replace(old_sql, new_sql, 1)
-
-          tail = '''    #[test]
-    fn numbering_format_has_year_and_six_digit_default_padding() {
-        assert_eq!(sequence_number("FAC", "2026", 1, 6), "FAC-2026-000001");
-    }
-}'''
-          replacement = '''    #[test]
-    fn numbering_format_has_year_and_six_digit_default_padding() {
-        assert_eq!(sequence_number("FAC", "2026", 1, 6), "FAC-2026-000001");
-    }
-
-    #[test]
-    fn company_settings_update_persists_policy_and_timeout() {
-        let connection = rusqlite::Connection::open_in_memory().expect("SQLite");
-        connection
-            .execute_batch(
-                r#"
-                CREATE TABLE company_settings (
-                    company_id TEXT PRIMARY KEY,
-                    default_margin_rate_scaled INTEGER NOT NULL,
-                    below_cost_policy TEXT NOT NULL,
-                    session_idle_timeout_minutes INTEGER NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    updated_by TEXT NOT NULL,
-                    row_version INTEGER NOT NULL
-                );
-                INSERT INTO company_settings VALUES (
-                    'company-1', 100000, 'WARNING_ONLY', 15,
-                    '2026-01-01T00:00:00Z', 'user-1', 1
-                );
-                "#,
-            )
-            .expect("settings fixture");
-
-        let changed = connection
-            .execute(
-                UPDATE_COMPANY_SETTINGS_SQL,
-                rusqlite::params![
-                    250000_i64,
-                    "ADMIN_OVERRIDE",
-                    45_i64,
-                    "2026-08-02T12:00:00Z",
-                    "user-2",
-                    "company-1"
-                ],
-            )
-            .expect("settings update");
-        assert_eq!(changed, 1);
-
-        let actual = connection
-            .query_row(
-                "SELECT default_margin_rate_scaled, below_cost_policy, session_idle_timeout_minutes, row_version FROM company_settings WHERE company_id='company-1'",
-                [],
-                |row| {
-                    Ok((
-                        row.get::<_, i64>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, i64>(2)?,
-                        row.get::<_, i64>(3)?,
-                    ))
-                },
-            )
-            .expect("updated settings");
-        assert_eq!(actual, (250000, "ADMIN_OVERRIDE".to_owned(), 45, 2));
-    }
-}'''
-          if text.count(tail) != 1:
-              raise SystemExit('expected config test module tail exactly once')
-          config.write_text(text.replace(tail, replacement, 1), encoding='utf-8')
-          PY
-      - name: Validate Rust 1.85 source
-        run: |
-          cargo fmt --manifest-path src-tauri/Cargo.toml --all
-          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
-          cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
-          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
-          cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture
-          git diff --check
-          test "$(git diff --name-only | sort)" = $'src-tauri/src/phase05/config.rs\nsrc-tauri/src/phase05/dto.rs\nsrc-tauri/src/phase05/products.rs'
-      - name: Package verified source
-        run: |
-          mkdir -p "${RUNNER_TEMP}/phase05-rust-patch/src-tauri/src/phase05"
-          cp src-tauri/src/phase05/{config,dto,products}.rs "${RUNNER_TEMP}/phase05-rust-patch/src-tauri/src/phase05/"
-          (cd "${RUNNER_TEMP}/phase05-rust-patch" && sha256sum src-tauri/src/phase05/*.rs > SHA256SUMS)
-      - name: Upload verified source
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase-05-verified-rust-source
-          path: ${{ runner.temp }}/phase05-rust-patch
-          if-no-files-found: error
-          retention-days: 30
+          from pathlib import Path
+          write=re.compile(r'^\s*contents\s*:\s*write\s*(?:#.*)?$', re.I)
+          failures=[]
+          for path in [*Path('.github/workflows').glob('*.yml'), *Path('.github/workflows').glob('*.yaml')]:
+            if any(write.fullmatch(line) for line in path.read_text(encoding='utf-8').splitlines()): failures.append(str(path))
+          for path in (
+              Path('.phase05-delivery'), Path('.phase05-transport'),
+              Path('.github/workflows/phase05-delivery.yml'),
+              Path('.github/workflows/phase05-delivery-final.yml'),
+              Path('.github/workflows/phase05-format-fix.yml'),
+              Path('.github/workflows/phase05-rust-fix.yml'),
+              Path('.github/workflows/phase05-rust-fix-final.yml'),
+              Path('.github/workflows/phase05-rust-patch-builder.yml'),
+              Path('.github/workflows/phase05-rust-patch-final.yml'),
+              Path('.github/workflows/phase05-rust-patch-visible.yml'),
+              Path('.github/workflows/phase05-backend-transport.yml'),
+              Path('.github/workflows/phase05-source-snapshot.yml'),
+          ):
+            if path.exists(): failures.append(str(path))
+          print('\n'.join(failures)); raise SystemExit(1 if failures else 0)
+      - run: git diff --check

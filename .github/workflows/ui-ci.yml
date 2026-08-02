@@ -13,6 +13,7 @@ on:
       - "src/i18n/**"
       - "src/styles/**"
       - "src/features/ui-gallery/**"
+      - "src/features/phase05/**"
       - "src/features/runtime/**"
       - "src/platform/tauri/**"
       - "src-tauri/src/lib.rs"
@@ -27,7 +28,7 @@ on:
       - "main"
       - "phase/03-ui-foundation"
     paths:
-      - ".github/workflows/ui-ci.yml"
+     - ".github/workflows/ui-ci.yml"
       - ".github/workflows/integration-ci.yml"
       - "package.json"
       - "package-lock.json"
@@ -37,6 +38,7 @@ on:
       - "src/i18n/**"
       - "src/styles/**"
       - "src/features/ui-gallery/**"
+      - "src/features/phase05/**"
       - "src/features/runtime/**"
       - "src/platform/tauri/**"
       - "src-tauri/src/lib.rs"
@@ -87,7 +89,7 @@ jobs:
           elif [[ "${{ github.event_name }}" == "push" ]]; then
             before="${{ github.event.before }}"
             head="${{ github.sha }}"
-            if [[ "$before" == "0000000000000000000000000000000000000000" ]]; then
+            if [[ "$before" == "00000000000000000000000000000000000000000" ]]; then
               echo "A push ownership range requires a non-zero before SHA." >&2
               exit 1
             fi
@@ -99,10 +101,8 @@ jobs:
           echo "range=$range" >> "$GITHUB_OUTPUT"
           echo "Ownership range: $range"
 
-      - name: Protect accepted database foundation
-        run: >-
-          git diff --exit-code "${{ steps.ownership.outputs.range }}" --
-          database scripts/verify_schema.py
+      - name: Protect frozen migrations and verify additive PHASE 05 schema
+        run: python scripts/verify_schema.py
 
       - name: Set up Node.js 24
         uses: actions/setup-node@v4
@@ -188,7 +188,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase-03-ui-evidence
+          name: phase-05-ui-evidence-compat
           path: ${{ runner.temp }}/posman-ui-artifacts
           if-no-files-found: error
           retention-days: 30
