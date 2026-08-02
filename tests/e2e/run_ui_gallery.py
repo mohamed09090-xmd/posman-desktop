@@ -55,16 +55,46 @@ def visible_labels(page: Page, label: str) -> None:
     failures = page.locator("button, h1, .p5-topbar strong").evaluate_all("""els => els.filter(el => { const r=el.getBoundingClientRect(); return r.width<=0 || r.height<=0 || el.scrollWidth>el.clientWidth+2 || el.scrollHeight>el.clientHeight+2; }).map(el => el.textContent?.trim())""")
     if failures: raise AssertionError(f"{label}: clipped labels {failures}")
 
+def _axe_issue(rule: dict) -> dict:
+    return {
+        "id": rule.get("id"),
+        "impact": rule.get("impact"),
+        "help": rule.get("help"),
+        "helpUrl": rule.get("helpUrl"),
+        "nodes": [
+            {
+                "target": node.get("target"),
+                "html": (node.get("html") or "")[:500],
+                "failureSummary": node.get("failureSummary"),
+            }
+            for node in rule.get("nodes", [])
+        ],
+    }
+
 def axe(page: Page, name: str) -> dict:
     page.add_script_tag(path=str(AXE_PATH))
     result = page.evaluate("async () => await axe.run(document, {runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}})")
     unresolved = [item for item in result["incomplete"] if item.get("impact") in {"critical", "serious"}]
     summary = {"violations": len(result["violations"]), "incomplete": len(result["incomplete"]), "unresolvedCriticalSeriousIncomplete": len(unresolved), "passes": len(result["passes"])}
-    (ARTIFACT_DIR / f"axe-{name}.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-    if summary["violations"] or unresolved: raise AssertionError(f"{name}: axe {summary}")
+    report_path = ARTIFACT_DIR / f"axe-{name}.json"
+    report_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    if summary["violations"] or unresolved:
+        diagnostics = {
+            "viewport": name,
+            "summary": summary,
+            "violations": [_axe_issue(item) for item in result["violations"]],
+            "criticalSeriousIncomplete": [_axe_issue(item) for item in unresolved],
+        }
+        diagnostic_path = ARTIFACT_DIR / f"axe-{name}-diagnostics.json"
+        diagnostic_path.write_text(json.dumps(diagnostics, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(json.dumps(diagnostics, ensure_ascii=False, indent=2), flush=True)
+        raise AssertionError(f"{name}: axe {summary}; details={diagnostic_path}")
     return summary
 
 def run_view(page: Page, width: int, height: int, locale_name: str) -> dict:
+    console_errors: list[str] = []
+    page.on("console", lambda message: console_errors.append(message.text) if message.type == "error" else None)
+    page.on("pageerror", lambda error: console_errors.append(str(error)))
     page.set_viewport_size({"width": width, "height": height})
     page.goto(BASE_URL, wait_until="networkidle")
     page.locator(".p5-auth__card").wait_for()
@@ -79,6 +109,7 @@ def run_view(page: Page, width: int, height: int, locale_name: str) -> dict:
     visible_labels(page, f"ar-{width}x{height}")
     page.screenshot(path=str(ARTIFACT_DIR / f"phase05-ar-{width}x{height}.png"), full_page=True)
     ar_axe = axe(page, f"ar-{width}x{height}")
+    if console_errors: raise AssertionError(f"ar-{width}x{height}: console errors {console_errors}")
     page.get_by_role("button", name="Français", exact=True).click()
     assert page.locator("html").get_attribute("dir") == "ltr"
     page.get_by_role("button", name="Articles", exact=True).click()
@@ -87,6 +118,7 @@ def run_view(page: Page, width: int, height: int, locale_name: str) -> dict:
     visible_labels(page, f"fr-{width}x{height}")
     page.screenshot(path=str(ARTIFACT_DIR / f"phase05-fr-{width}x{height}.png"), full_page=True)
     fr_axe = axe(page, f"fr-{width}x{height}")
+    if console_errors: raise AssertionError(f"fr-{width}x{height}: console errors {console_errors}")
     return {"viewport": f"{width}x{height}", "ar": ar_axe, "fr": fr_axe, "calls": page.evaluate("() => window.__POSMAN_PHASE05_CALLS__")}
 
 def main() -> int:
