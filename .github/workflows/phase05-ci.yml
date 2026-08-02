@@ -1,6 +1,10 @@
 name: PHASE 05 validation
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/phase05-ci.yml'
   push:
     branches: [phase/05-setup-security-reference-data]
 
@@ -29,8 +33,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "760ce2aa45b6541e4cfe0428135d233f6a260df2"
-          test "$(git log -1 --pretty=%s)" = "chore(phase05): run verified Rust patch builder"
+          test "$(git rev-parse HEAD^)" = "a7ce6131e06b75e05b0521c5465b9eebcb7c2468"
+          test "$(git log -1 --pretty=%s)" = "chore(phase05): expose verified Rust patch run"
           python - <<'PY'
           from pathlib import Path
           import re
