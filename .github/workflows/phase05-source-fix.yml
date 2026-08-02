@@ -1,0 +1,60 @@
+name: PHASE 05 scoped Rust source fixer
+
+on:
+  push:
+    branches: [phase/05-setup-security-reference-data]
+    paths:
+      - 'scripts/phase05_source_fix.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phase05-scoped-rust-source-fixer
+  cancel-in-progress: false
+
+jobs:
+  fix-validate-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase/05-setup-security-reference-data
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.85.0'
+          components: rustfmt, clippy
+      - name: Verify trigger commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git log -1 --pretty=%s)" = "chore(phase05): trigger scoped Rust source fix"
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "scripts/phase05_source_fix.py"
+      - name: Install native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - name: Apply source fix
+        run: python scripts/phase05_source_fix.py
+      - name: Validate Rust 1.85 source
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+          cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture
+          git diff --check
+          test "$(git diff --name-only | sort)" = $'src-tauri/src/phase05/config.rs\nsrc-tauri/src/phase05/dto.rs\nsrc-tauri/src/phase05/products.rs'
+      - name: Commit validated source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src-tauri/src/phase05/config.rs src-tauri/src/phase05/dto.rs src-tauri/src/phase05/products.rs
+          git diff --cached --check
+          git config user.name 'POSMAN implementation engineer'
+          git config user.email '144628717+mohamed09090-xmd@users.noreply.github.com'
+          git commit -m 'fix(phase05): persist pricing policy and satisfy Rust gates'
+          git fetch origin phase/05-setup-security-reference-data
+          test "$(git rev-parse origin/phase/05-setup-security-reference-data)" = "$(git rev-parse HEAD^)"
+          git push origin HEAD:phase/05-setup-security-reference-data
