@@ -73,10 +73,10 @@ jobs:
           set -euo pipefail
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             base_ref="origin/${{ github.base_ref }}"
-            base="$(git rev-parse "$base_ref")"
             head="${{ github.event.pull_request.head.sha }}"
-            range="${base}...${head}"
-            git merge-base --is-ancestor "$base" HEAD
+            merge_base="$(git merge-base "$base_ref" "$head")"
+            range="${merge_base}...${head}"
+            git merge-base --is-ancestor "$merge_base" "$head"
             git merge-base --is-ancestor "$head" HEAD
           elif [[ "${{ github.event_name }}" == "push" ]]; then
             before="${{ github.event.before }}"
@@ -155,7 +155,7 @@ jobs:
               "tests/", "docs/architecture/phase-05", "docs/PHASE-05-REPORT.md",
           )
           unexpected = [path for path in changed if path not in exact and not path.startswith(prefixes)]
-          Path(os.environ["EVIDENCE_DIR"], "ownership-diff.txt").write_text("\n".join(changed) + "\n", encoding="utf-8")
+          Path(os.environ["EVIDEENCE_DIR", "ownership-diff.txt").write_text("\n".join(changed) + "\n", encoding="utf-8")
           print("\n".join(changed))
           if unexpected:
               print("Unexpected PHASE 05 paths:\n" + "\n".join(unexpected), file=sys.stderr)
