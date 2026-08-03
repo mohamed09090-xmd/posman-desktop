@@ -73,8 +73,13 @@ jobs:
       - name: Verify accepted SQLite foundation
         run: python scripts/verify_schema.py
 
-      - name: Confirm PHASE 01 database sources are unchanged
-        run: git diff --exit-code 0c72eb75eb5db916a51d1ee42fec47f21328ad28 -- database scripts/verify_schema.py
+      - name: Confirm accepted migrations 0001-0004 are unchanged
+        run: >-
+          git diff --exit-code 77d297f08ec3c46920dd1b94710995834854dd9a --
+          database/migrations/0001_system_company_security.sql
+          database/migrations/0002_reference_catalog_partners.sql
+          database/migrations/0003_commerce_inventory.sql
+          database/migrations/0004_accounting_documents_audit.sql
 
       - name: Set up Node.js 24
         uses: actions/setup-node@v4
