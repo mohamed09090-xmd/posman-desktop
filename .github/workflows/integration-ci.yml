@@ -73,10 +73,10 @@ jobs:
           set -euo pipefail
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             base_ref="origin/${{ github.base_ref }}"
-            base="$(git rev-parse "$base_ref")"
             head="${{ github.event.pull_request.head.sha }}"
-            range="${base}...${head}"
-            git merge-base --is-ancestor "$base" HEAD
+            merge_base="$(git merge-base "$base_ref" "$head")"
+            range="${merge_base}...${head}"
+            git merge-base --is-ancestor "$merge_base" "$head"
             git merge-base --is-ancestor "$head" HEAD
           elif [[ "${{ github.event_name }}" == "push" ]]; then
             before="${{ github.event.before }}"
@@ -97,8 +97,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          evidence_dir="${RUNNER_TEMP}/phase-04-integration-evidence"
-          ui_artifact_dir="${RUNNER_TEMP}/posman-ui-artifacts"
+          evidence_dir="${RUNNER_TEMP}/phase-05-integration-evidence"
+          ui_artifact_dir="${RUNNER_TEMP}/posman-phase05-ui-artifacts"
           echo "EVIDENCE_DIR=${evidence_dir}" >> "$GITHUB_ENV"
           echo "UI_ARTIFACT_DIR=${ui_artifact_dir}" >> "$GITHUB_ENV"
           mkdir -p "$evidence_dir"
@@ -139,36 +139,29 @@ jobs:
           set -euo pipefail
           python scripts/verify_schema.py 2>&1 | tee "$EVIDENCE_DIR/schema-verification.log"
 
-      - name: Enforce Phase 04 ownership for triggering change
+      - name: Enforce PHASE 05 ownership for triggering change
         shell: python
         run: |
           import os
           import subprocess
           import sys
           from pathlib import Path
-
           ownership_range = "${{ steps.ownership.outputs.range }}"
-          changed = subprocess.check_output(
-              ["git", "diff", "--name-only", ownership_range],
-              text=True,
-          ).splitlines()
-          exact = {
-              "package.json", "package-lock.json", "src/app/AppRoot.tsx",
-              "src/components/layout.tsx", "src/i18n/dictionaries.ts",
-              "src-tauri/src/lib.rs", "tests/ui/i18n-fixtures.test.ts",
-              "tests/e2e/run_ui_gallery.py", ".github/workflows/integration-ci.yml",
-              ".github/workflows/ui-ci.yml", ".github/workflows/runtime-ci.yml",
-              "docs/architecture/frontend-runtime-integration.md",
-              "docs/PHASE-04-REPORT.md", "docs/HOTFIX-04C-REPORT.md",
-          }
-          prefixes = ("src/platform/tauri/", "src/features/runtime/", "tests/integration/")
-          unexpected = [p for p in changed if p not in exact and not p.startswith(prefixes)]
+          changed = subprocess.check_output(["git", "diff", "--name-only", ownership_range], text=True).splitlines()
+          exact = {"package.json", "package-lock.json", "src/app/AppRoot.tsx", "scripts/verify_schema.py"}
+          prefixes = (
+              ".github/workflows/", "database/", "src-tauri/", "src/platform/tauri/",
+              "src/features/phase05/", "src/features/runtime/", "src/i18n/", "src/styles/",
+              "tests/", "docs/architecture/phase-05", "docs/PHASE-05-REPORT.md",
+          )
+          unexpected = [path for path in changed if path not in exact and not path.startswith(prefixes)]
           Path(os.environ["EVIDENCE_DIR"], "ownership-diff.txt").write_text(
-              "\n".join(changed) + "\n", encoding="utf-8"
+              "\n".join(changed) + "\n",
+              encoding="utf-8",
           )
           print("\n".join(changed))
           if unexpected:
-              print("Unexpected Phase 04 paths:\n" + "\n".join(unexpected), file=sys.stderr)
+              print("Unexpected PHASE 05 paths:\n" + "\n".join(unexpected), file=sys.stderr)
               raise SystemExit(1)
 
       - name: Confirm no write-capable workflow remains
@@ -249,7 +242,7 @@ jobs:
           dist = Path("dist")
           if not dist.is_dir():
               raise SystemExit("Production dist directory is missing")
-          needle = "__POSMAN_DEV_RUNTIME_INVOKER__"
+          needles = ("__POSMAN_DEV_RUNTIME_INVOKER__", "__POSMAN_DEV_PHASE05_INVOKER__")
           matches = []
           for path in dist.rglob("*"):
               if not path.is_file():
@@ -258,11 +251,11 @@ jobs:
                   text = path.read_text(encoding="utf-8")
               except UnicodeDecodeError:
                   continue
-              if needle in text:
+              if any(needle in text for needle in needles):
                   matches.append(str(path))
           evidence = Path(os.environ["EVIDENCE_DIR"], "production-hook-scan.txt")
           evidence.write_text(
-              "DEV runtime hook absent from production bundle.\n"
+              "DEV runtime hooks absent from production bundle.\n"
               if not matches else "\n".join(matches) + "\n",
               encoding="utf-8",
           )
@@ -278,7 +271,7 @@ jobs:
 
       - name: Run Playwright browser, accessibility, and screenshot evidence
         env:
-          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/posman-ui-artifacts
+          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/posman-phase05-ui-artifacts
         shell: bash
         run: |
           set -euo pipefail
@@ -307,9 +300,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase-04-integration-evidence
+          name: phase-05-integration-evidence
           path: |
-            ${{ runner.temp }}/phase-04-integration-evidence
-            ${{ runner.temp }}/posman-ui-artifacts
+            ${{ runner.temp }}/phase-05-integration-evidence
+            ${{ runner.temp }}/posman-phase05-ui-artifacts
           if-no-files-found: error
           retention-days: 30

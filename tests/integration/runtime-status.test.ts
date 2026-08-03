@@ -16,8 +16,8 @@ import {
 
 const readyStatus: RuntimeStatus = {
   databaseReady: true,
-  schemaVersion: "0004",
-  migrationCount: 4,
+  schemaVersion: "0005",
+  migrationCount: 5,
   foreignKeysEnabled: true,
   journalMode: "wal",
 };

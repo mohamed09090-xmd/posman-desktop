@@ -1,0 +1,227 @@
+name: PHASE 05 validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [phase/05-setup-security-reference-data]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase05-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  database:
+    name: SQLite 0001→0005 and 0004→0005 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Verify schema, frozen migrations, fresh install, upgrade, seed, FK and invariants
+        run: python scripts/verify_schema.py
+      - name: Reject secrets and runtime database artifacts
+        shell: python
+        run: |
+          import re
+          from pathlib import Path
+          forbidden_suffixes = {'.sqlite', '.sqlite3', '.db', '.bak', '.log'}
+          forbidden_names = {'.env', '.env.local', 'id_rsa', 'id_ed25519'}
+          secret = re.compile(r'(sk-[A-Za-z0-9_-]{20,}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|password\s*=\s*["\'][^"\']+["\'])', re.I)
+          failures=[]
+          for path in Path('.').rglob('*'):
+            if not path.is_file() or '.git' in path.parts or 'node_modules' in path.parts or 'target' in path.parts: continue
+            if path.name in forbidden_names or path.suffix.lower() in forbidden_suffixes: failures.append(str(path)); continue
+            if path.suffix.lower() in {'.png','.ico','.zip','.woff2'}: continue
+            try: text=path.read_text(encoding='utf-8')
+            except UnicodeDecodeError: continue
+            if secret.search(text): failures.append(str(path))
+          print('\n'.join(failures))
+          raise SystemExit(1 if failures else 0)
+      - run: git diff --check
+      - name: Confirm clean worktree
+        shell: bash
+        run: test -z "$(git status --short --untracked-files=all)"
+
+  frontend:
+    name: Arabic/French typed desktop UI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: npm ci
+      - name: Install browser evidence tooling outside product dependencies
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+          npm install --no-save --package-lock=false axe-core@4.10.3
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:ui
+      - run: npm run test:integration
+      - name: Arabic/French E2E, Axe, overflow, clipping and console evidence
+        env:
+          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/phase05-evidence
+        run: npm run test:e2e
+      - name: Reject React SQL and network access
+        shell: python
+        run: |
+          from pathlib import Path
+          failures=[]
+          for path in Path('src').rglob('*'):
+            if not path.is_file(): continue
+            text=path.read_text(encoding='utf-8')
+            for needle in ('SELECT ', 'INSERT INTO ', 'UPDATE ', 'DELETE FROM ', 'fetch(', 'XMLHttpRequest', 'WebSocket('):
+              if needle in text: failures.append(f'{path}: {needle}')
+          print('\n'.join(failures)); raise SystemExit(1 if failures else 0)
+      - run: git diff --check
+      - name: Confirm clean worktree
+        shell: bash
+        run: test -z "$(git status --short --untracked-files=all)"
+      - name: Upload PHASE 05 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-05-ui-evidence
+          path: ${{ runner.temp }}/phase05-evidence
+          if-no-files-found: error
+          retention-days: 30
+
+  rust:
+    name: Rust 1.85 backend and native Tauri (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.85.0'
+          components: rustfmt, clippy
+      - name: Install Tauri Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - run: python scripts/verify_schema.py
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+      - name: Run setup/auth/security/reference/pricing backend tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture
+      - name: Compile native Tauri shell
+        run: npm run desktop:check
+      - name: Validate embedded Windows manifest
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe=(Resolve-Path 'src-tauri\target\debug\posman-desktop.exe').Path
+          $mt=Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') -File | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $mt) { throw 'mt.exe not found' }
+          $manifest=Join-Path $env:RUNNER_TEMP 'posman.manifest.xml'
+          & $mt "-inputresource:$exe;#1" "-out:$manifest"
+          if ($LASTEXITCODE -ne 0) { throw 'manifest extraction failed' }
+          $text=Get-Content $manifest -Raw
+          if ($text -notmatch 'Microsoft\.Windows\.Common-Controls' -or $text -notmatch '6\.0\.0\.0') { throw 'Common Controls v6 missing' }
+          Get-FileHash $manifest -Algorithm SHA256
+      - run: git diff --check
+      - name: Confirm clean worktree
+        shell: python
+        run: |
+          import subprocess
+          unstaged = subprocess.check_output(
+              ["git", "diff", "--no-ext-diff"],
+              text=True,
+          )
+          staged = subprocess.check_output(
+              ["git", "diff", "--cached", "--no-ext-diff"],
+              text=True,
+          )
+          untracked = subprocess.check_output(
+              ["git", "ls-files", "--others", "--exclude-standard"],
+              text=True,
+          )
+          before = subprocess.check_output(
+              ["git", "status", "--short", "--untracked-files=all"],
+              text=True,
+          )
+          actual_dirty = bool(unstaged or staged or untracked)
+          if not actual_dirty:
+              subprocess.run(
+                  ["git", "restore", "--worktree", "--source=HEAD", "--", "."],
+                  check=True,
+              )
+          after = subprocess.check_output(
+              ["git", "status", "--short", "--untracked-files=all"],
+              text=True,
+          )
+          print("STATUS BEFORE NORMALIZATION")
+          print(before, end="")
+          print("UNSTAGED DIFF")
+          print(unstaged, end="")
+          print("STAGED DIFF")
+          print(staged, end="")
+          print("UNTRACKED")
+          print(untracked, end="")
+          print("STATUS AFTER NORMALIZATION")
+          print(after, end="")
+          raise SystemExit(1 if actual_dirty or after else 0)
+
+  policy:
+    name: Read-only workflow and ownership policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Confirm no write-capable workflow, helper or payload remains
+        shell: python
+        run: |
+          import re
+          from pathlib import Path
+          write=re.compile(r'^\s*contents\s*:\s*write\s*(?:#.*)?$', re.I)
+          failures=[]
+          for path in [*Path('.github/workflows').glob('*.yml'), *Path('.github/workflows').glob('*.yaml')]:
+            if any(write.fullmatch(line) for line in path.read_text(encoding='utf-8').splitlines()): failures.append(str(path))
+          for path in (
+              Path('.phase05-delivery'), Path('.phase05-transport'),
+              Path('.github/workflows/phase05-delivery.yml'),
+              Path('.github/workflows/phase05-delivery-final.yml'),
+              Path('.github/workflows/phase05-format-fix.yml'),
+              Path('.github/workflows/phase05-rust-fix.yml'),
+              Path('.github/workflows/phase05-rust-fix-final.yml'),
+              Path('.github/workflows/phase05-rust-patch-builder.yml'),
+              Path('.github/workflows/phase05-rust-patch-final.yml'),
+              Path('.github/workflows/phase05-rust-patch-visible.yml'),
+              Path('.github/workflows/phase05-backend-transport.yml'),
+              Path('.github/workflows/phase05-source-snapshot.yml'),
+          ):
+            if path.exists(): failures.append(str(path))
+          print('\n'.join(failures)); raise SystemExit(1 if failures else 0)
+      - run: git diff --check

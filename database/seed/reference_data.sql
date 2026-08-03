@@ -16,6 +16,7 @@ INSERT OR IGNORE INTO permissions (
 ) VALUES
     ('perm-product-create', 'product.create', 'catalog', 'إنشاء مادة', 'Créer un article', 0, '2026-07-28T00:00:00Z'),
     ('perm-product-update', 'product.update', 'catalog', 'تعديل مادة', 'Modifier un article', 0, '2026-07-28T00:00:00Z'),
+    ('perm-pricing-override-below-cost', 'pricing.override_below_cost', 'catalog', 'تجاوز البيع تحت التكلفة', 'Autoriser la vente sous le coût', 1, '2026-07-28T00:00:00Z'),
     ('perm-partner-manage', 'partner.manage', 'partners', 'إدارة العملاء والموردين', 'Gérer les partenaires', 0, '2026-07-28T00:00:00Z'),
     ('perm-stock-read', 'stock.read', 'inventory', 'قراءة المخزون', 'Consulter le stock', 0, '2026-07-28T00:00:00Z'),
     ('perm-stock-opening-post', 'stock.opening.post', 'inventory', 'ترحيل المخزون الافتتاحي', 'Valider le stock initial', 1, '2026-07-28T00:00:00Z'),

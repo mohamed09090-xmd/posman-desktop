@@ -10,11 +10,15 @@ INSERT INTO invariant_assertions
 SELECT 'foreign keys enabled', (SELECT foreign_keys FROM pragma_foreign_keys);
 
 INSERT INTO invariant_assertions
-SELECT 'four migrations recorded', COUNT(*) = 4
+SELECT 'five migrations recorded', COUNT(*) = 5
 FROM app_migrations;
 
 INSERT INTO invariant_assertions
-SELECT 'expected application table count', COUNT(*) = 49
+SELECT 'schema version 0005', MAX(version) = '0005'
+FROM app_migrations;
+
+INSERT INTO invariant_assertions
+SELECT 'expected application table count', COUNT(*) = 52
 FROM sqlite_schema
 WHERE type = 'table' AND name NOT LIKE 'sqlite_%';
 
@@ -28,8 +32,8 @@ WHERE schema_object.type = 'table'
 
 INSERT INTO invariant_assertions
 SELECT 'all text business primary keys explicitly not null',
-       COUNT(*) = 48
-       AND SUM(CASE WHEN column_info."notnull" = 1 THEN 1 ELSE 0 END) = 48
+       COUNT(*) = 51
+       AND SUM(CASE WHEN column_info."notnull" = 1 THEN 1 ELSE 0 END) = 51
 FROM sqlite_schema AS schema_object,
      pragma_table_info(schema_object.name) AS column_info
 WHERE schema_object.type = 'table'
@@ -98,7 +102,47 @@ FROM roles
 WHERE company_id IS NULL AND is_system = 1;
 
 INSERT INTO invariant_assertions
-SELECT 'safe permissions seeded', COUNT(*) = 22
+SELECT 'safe permissions seeded', COUNT(*) = 23
 FROM permissions;
+
+INSERT INTO invariant_assertions
+SELECT 'setup singleton enforced', COUNT(*) <= 1
+FROM setup_drafts
+WHERE is_active = 1;
+
+INSERT INTO invariant_assertions
+SELECT 'one active recovery code per user', COUNT(*) = 0
+FROM (
+    SELECT company_id, user_id, COUNT(*) AS active_count
+    FROM user_recovery_codes
+    WHERE used_at IS NULL AND revoked_at IS NULL
+    GROUP BY company_id, user_id
+    HAVING active_count > 1
+);
+
+INSERT INTO invariant_assertions
+SELECT 'normalized username unique index exists', COUNT(*) = 1
+FROM sqlite_schema
+WHERE type = 'index' AND name = 'uq_users_company_username_normalized';
+
+INSERT INTO invariant_assertions
+SELECT 'document sequence type scope index exists', COUNT(*) = 1
+FROM sqlite_schema
+WHERE type = 'index' AND name = 'uq_document_sequences_company_year_type';
+
+INSERT INTO invariant_assertions
+SELECT 'session timeout range holds', COUNT(*) = 0
+FROM company_settings
+WHERE session_idle_timeout_minutes NOT BETWEEN 5 AND 120;
+
+INSERT INTO invariant_assertions
+SELECT 'default margin range holds', COUNT(*) = 0
+FROM company_settings
+WHERE default_margin_rate_scaled NOT BETWEEN 0 AND 1000000;
+
+INSERT INTO invariant_assertions
+SELECT 'below cost policy values hold', COUNT(*) = 0
+FROM company_settings
+WHERE below_cost_policy NOT IN ('BLOCK', 'ADMIN_OVERRIDE', 'WARNING_ONLY');
 
 DROP TABLE invariant_assertions;

@@ -2,12 +2,14 @@ mod application;
 mod commands;
 mod error;
 mod infrastructure;
+mod phase05;
 
 use std::{error::Error, path::PathBuf};
 
 pub use application::RuntimeStatus;
 use error::RuntimeError;
 use infrastructure::{database::RuntimeDatabase, paths::RuntimePaths};
+use phase05::Phase05Service;
 use tauri::{Manager, Runtime};
 
 #[derive(Clone)]
@@ -60,13 +62,87 @@ fn configure_application<R: Runtime>(
                 .resolve(app.handle())
                 .map_err(boxed_runtime_error)?;
             let runtime = RuntimeService::initialize(root).map_err(boxed_runtime_error)?;
+            let phase05 = Phase05Service::new(runtime.database.path())
+                .map_err(|_| "POSMAN PHASE 05 service could not initialize")?;
             if !app.manage(runtime) {
                 return Err("POSMAN runtime state was already managed".into());
+            }
+            if !app.manage(phase05) {
+                return Err("POSMAN PHASE 05 state was already managed".into());
             }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::runtime::get_runtime_status
+            commands::runtime::get_runtime_status,
+            commands::phase05::get_setup_status,
+            commands::phase05::load_setup_draft,
+            commands::phase05::discard_setup_draft,
+            commands::phase05::get_current_session,
+            commands::phase05::logout,
+            commands::phase05::lock_session,
+            commands::phase05::rotate_recovery_code,
+            commands::phase05::get_company_profile,
+            commands::phase05::get_fiscal_setup,
+            commands::phase05::list_document_sequences,
+            commands::phase05::list_roles,
+            commands::phase05::save_setup_draft,
+            commands::phase05::complete_initial_setup,
+            commands::phase05::login,
+            commands::phase05::recover_admin_password,
+            commands::phase05::unlock_session,
+            commands::phase05::change_own_password,
+            commands::phase05::update_company_profile,
+            commands::phase05::update_fiscal_setup,
+            commands::phase05::update_document_sequence,
+            commands::phase05::list_users,
+            commands::phase05::create_user,
+            commands::phase05::update_user,
+            commands::phase05::set_user_roles,
+            commands::phase05::reset_user_password,
+            commands::phase05::create_role,
+            commands::phase05::update_role,
+            commands::phase05::set_role_permissions,
+            commands::phase05::list_products,
+            commands::phase05::create_product,
+            commands::phase05::update_product,
+            commands::phase05::set_product_active,
+            commands::phase05::set_product_price,
+            commands::phase05::list_partners,
+            commands::phase05::create_partner,
+            commands::phase05::update_partner,
+            commands::phase05::set_partner_active,
+            commands::phase05::create_partner_address,
+            commands::phase05::create_partner_contact,
+            commands::phase05::list_units,
+            commands::phase05::create_unit,
+            commands::phase05::update_unit,
+            commands::phase05::set_unit_active,
+            commands::phase05::list_tax_rates,
+            commands::phase05::create_tax_rate,
+            commands::phase05::update_tax_rate,
+            commands::phase05::set_tax_rate_active,
+            commands::phase05::list_payment_terms,
+            commands::phase05::create_payment_term,
+            commands::phase05::update_payment_term,
+            commands::phase05::set_payment_term_active,
+            commands::phase05::list_payment_methods,
+            commands::phase05::create_payment_method,
+            commands::phase05::update_payment_method,
+            commands::phase05::set_payment_method_active,
+            commands::phase05::list_warehouses,
+            commands::phase05::create_warehouse,
+            commands::phase05::update_warehouse,
+            commands::phase05::set_warehouse_active,
+            commands::phase05::list_warehouse_locations,
+            commands::phase05::create_warehouse_location,
+            commands::phase05::update_warehouse_location,
+            commands::phase05::set_warehouse_location_active,
+            commands::phase05::list_product_families,
+            commands::phase05::create_product_family,
+            commands::phase05::update_product_family,
+            commands::phase05::set_product_family_active,
+            commands::phase05::list_partner_addresses,
+            commands::phase05::list_partner_contacts
         ])
 }
 
@@ -152,8 +228,8 @@ mod tests {
 
         let status = application.state::<RuntimeService>().status();
         assert!(status.database_ready);
-        assert_eq!(status.schema_version, "0004");
-        assert_eq!(status.migration_count, 4);
+        assert_eq!(status.schema_version, "0005");
+        assert_eq!(status.migration_count, 5);
 
         let database_path = directory.path().join("data").join("posman.sqlite3");
         assert!(database_path.is_file());
@@ -162,7 +238,7 @@ mod tests {
         let migration_count: i64 = connection
             .query_row("SELECT COUNT(*) FROM app_migrations", [], |row| row.get(0))
             .expect("failed to count mock runtime migrations");
-        assert_eq!(migration_count, 4);
+        assert_eq!(migration_count, 5);
         assert!(contract.foreign_keys_enabled);
     }
 
@@ -202,8 +278,8 @@ mod tests {
             .expect("runtime status IPC response should be valid JSON");
 
         assert_eq!(payload["databaseReady"], true);
-        assert_eq!(payload["schemaVersion"], "0004");
-        assert_eq!(payload["migrationCount"], 4);
+        assert_eq!(payload["schemaVersion"], "0005");
+        assert_eq!(payload["migrationCount"], 5);
         assert_eq!(payload["foreignKeysEnabled"], true);
         assert!(payload["journalMode"]
             .as_str()
