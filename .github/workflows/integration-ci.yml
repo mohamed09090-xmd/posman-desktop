@@ -155,7 +155,10 @@ jobs:
               "tests/", "docs/architecture/phase-05", "docs/PHASE-05-REPORT.md",
           )
           unexpected = [path for path in changed if path not in exact and not path.startswith(prefixes)]
-          Path(os.environ["EVIDEENCE_DIR", "ownership-diff.txt").write_text("\n".join(changed) + "\n", encoding="utf-8")
+          Path(os.environ["EVIDENCE_DIR"], "ownership-diff.txt").write_text(
+              "\n".join(changed) + "\n",
+              encoding="utf-8",
+          )
           print("\n".join(changed))
           if unexpected:
               print("Unexpected PHASE 05 paths:\n" + "\n".join(unexpected), file=sys.stderr)
