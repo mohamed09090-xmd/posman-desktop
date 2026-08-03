@@ -107,7 +107,7 @@ fn fresh_database_creates_directories_schema_seed_and_connection_contract() {
     );
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM permissions"),
-        22
+        23
     );
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
@@ -387,7 +387,7 @@ fn seed_is_idempotent_and_failure_rolls_back_all_seed_writes() {
     );
     assert_eq!(first_counts, second_counts);
     assert_eq!(first_counts.0, 6);
-    assert_eq!(first_counts.1, 22);
+    assert_eq!(first_counts.1, 23);
 }
 
 #[test]
