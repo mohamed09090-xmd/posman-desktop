@@ -153,8 +153,46 @@ jobs:
           Get-FileHash $manifest -Algorithm SHA256
       - run: git diff --check
       - name: Confirm clean worktree
-        shell: bash
-        run: test -z "$(git status --short --untracked-files=all)"
+        shell: python
+        run: |
+          import subprocess
+          unstaged = subprocess.check_output(
+              ["git", "diff", "--no-ext-diff"],
+              text=True,
+          )
+          staged = subprocess.check_output(
+              ["git", "diff", "--cached", "--no-ext-diff"],
+              text=True,
+          )
+          untracked = subprocess.check_output(
+              ["git", "ls-files", "--others", "--exclude-standard"],
+              text=True,
+          )
+          before = subprocess.check_output(
+              ["git", "status", "--short", "--untracked-files=all"],
+              text=True,
+          )
+          actual_dirty = bool(unstaged or staged or untracked)
+          if not actual_dirty:
+              subprocess.run(
+                  ["git", "restore", "--worktree", "--source=HEAD", "--", "."],
+                  check=True,
+              )
+          after = subprocess.check_output(
+              ["git", "status", "--short", "--untracked-files=all"],
+              text=True,
+          )
+          print("STATUS BEFORE NORMALIZATION")
+          print(before, end="")
+          print("UNSTAGED DIFF")
+          print(unstaged, end="")
+          print("STAGED DIFF")
+          print(staged, end="")
+          print("UNTRACKED")
+          print(untracked, end="")
+          print("STATUS AFTER NORMALIZATION")
+          print(after, end="")
+          raise SystemExit(1 if actual_dirty or after else 0)
 
   policy:
     name: Read-only workflow and ownership policy
