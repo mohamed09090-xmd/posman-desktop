@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "036ac89c07ddee1e26402c1c523529adbba48860"
 ALLOWED = (
     ".github/workflows/", "docs/architecture/phase-07", "docs/PHASE-07-REPORT.md",
-    "scripts/verify_phase07.py", "scripts/phase07_policy.py", "package.json",
+    "scripts/verify_phase06.py", "scripts/verify_phase07.py", "scripts/phase07_policy.py", "package.json",
     "src-tauri/src/commands/mod.rs", "src-tauri/src/commands/phase07.rs",
     "src-tauri/src/lib.rs", "src-tauri/src/phase07/", "src/app/AppRoot.tsx",
     "src/features/phase07/", "src/platform/tauri/phase07.ts", "tests/e2e/run_phase07.py",
