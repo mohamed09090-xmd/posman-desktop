@@ -165,20 +165,6 @@ jobs:
       - run: npm ci
       - name: Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
-      - name: Capture rustfmt diagnostics
-        if: failure()
-        shell: bash
-        run: |
-          cargo fmt --manifest-path src-tauri/Cargo.toml --all
-          git diff -- src-tauri/src > "$RUNNER_TEMP/phase07-rustfmt.patch"
-      - name: Upload rustfmt diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase-07-rustfmt-diagnostics-${{ runner.os }}
-          path: ${{ runner.temp }}/phase07-rustfmt.patch
-          if-no-files-found: error
-          retention-days: 1
       - name: Rust check and Clippy
         shell: bash
         run: |
