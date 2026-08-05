@@ -1,3 +1,6 @@
+use self::error::Phase05Result;
+use rusqlite::Connection;
+
 mod auth;
 mod config;
 mod draft;

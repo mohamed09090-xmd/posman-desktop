@@ -5,6 +5,10 @@ pub(crate) fn validate_commercial_date(value: &str) -> Phase06Result<()> {
         .map_err(|_| Phase06Error::invalid("commercialDate"))
 }
 
+pub(crate) fn validate_business_date(value: &str) -> Phase06Result<()> {
+    validate_commercial_date(value)
+}
+
 pub(crate) fn active_fiscal_scope(
     transaction: &Transaction<'_>,
     company_id: &str,
