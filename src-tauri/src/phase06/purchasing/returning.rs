@@ -113,8 +113,10 @@ impl Phase06Service {
                     i64::try_from(index + 1).map_err(|_| Phase06Error::numeric_overflow())?,
                     &snapshot,
                     &request.payload.commercial_date,
-                    Some(&request.payload.warehouse_id),
-                    Some(&request.payload.reason),
+                    PurchaseLineOptions {
+                        default_warehouse: Some(&request.payload.warehouse_id),
+                        notes: Some(&request.payload.reason),
+                    },
                 )?;
                 insert_link(
                     transaction,
