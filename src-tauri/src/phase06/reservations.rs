@@ -189,9 +189,16 @@ impl Phase06Service {
                 return reservation_result(transaction, &context.company_id, &id, true);
             }
 
-            let row = load_reservation(transaction, &context.company_id, &request.payload.reservation_id)?;
+            let row = load_reservation(
+                transaction,
+                &context.company_id,
+                &request.payload.reservation_id,
+            )?;
             validate_active_reservation(&row.status, row.row_version, request.payload.row_version)?;
-            let quantity = request.payload.quantity_scaled.unwrap_or(row.remaining_quantity);
+            let quantity = request
+                .payload
+                .quantity_scaled
+                .unwrap_or(row.remaining_quantity);
             if quantity <= 0 || quantity > row.remaining_quantity {
                 return Err(Phase06Error::invalid("quantityScaled"));
             }
@@ -209,7 +216,11 @@ impl Phase06Service {
             )?;
             let new_remaining = row.remaining_quantity - quantity;
             let new_status = if new_remaining == 0 {
-                if cancel { "CANCELLED" } else { "RELEASED" }
+                if cancel {
+                    "CANCELLED"
+                } else {
+                    "RELEASED"
+                }
             } else {
                 row.status.as_str()
             };
@@ -380,7 +391,11 @@ struct ReservationRow {
     row_version: i64,
 }
 
-fn validate_active_reservation(status: &str, actual_version: i64, expected_version: i64) -> Phase06Result<()> {
+fn validate_active_reservation(
+    status: &str,
+    actual_version: i64,
+    expected_version: i64,
+) -> Phase06Result<()> {
     if !matches!(status, "ACTIVE" | "PARTIALLY_CONSUMED") {
         return Err(Phase06Error::immutable());
     }

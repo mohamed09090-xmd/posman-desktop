@@ -2,17 +2,15 @@ use rusqlite::{params, OptionalExtension};
 use serde_json::json;
 
 use super::{
-    audit, authorize_transaction, begin_idempotency,
-    document_idempotency_key,
+    audit, authorize_transaction, begin_idempotency, document_idempotency_key,
     dto::{
-        AdjustmentRequest, DocumentActionRequest, EntityResult, IdempotentRequest,
-        MovementView, OpeningDraftRequest, StockBalanceView, StockLineInput,
-        StockQuery, TransferRequest,
+        AdjustmentRequest, DocumentActionRequest, EntityResult, IdempotentRequest, MovementView,
+        OpeningDraftRequest, StockBalanceView, StockLineInput, StockQuery, TransferRequest,
     },
     entity_result,
     error::{Phase06Error, Phase06Result},
-    finish_idempotency, insert_document, insert_status_history, new_id, now_iso,
-    opening_reviewed, product_snapshot,
+    finish_idempotency, insert_document, insert_status_history, new_id, now_iso, opening_reviewed,
+    product_snapshot,
     projections::{apply_movement, balance, MovementSpec},
     request_hash, validate_commercial_date, IdempotencyStart, Phase06Service,
 };

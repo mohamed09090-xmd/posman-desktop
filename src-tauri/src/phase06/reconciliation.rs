@@ -41,8 +41,7 @@ impl Phase06Service {
                 &request.idempotency_key,
                 &hash,
             )? {
-                let mut view =
-                    reconcile_connection(transaction, &context.company_id, false)?;
+                let mut view = reconcile_connection(transaction, &context.company_id, false)?;
                 view.rebuilt = true;
                 return Ok(view);
             }

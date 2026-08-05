@@ -95,11 +95,33 @@ function array(value: unknown): unknown[] { if (!Array.isArray(value)) throw new
 function integer(value: unknown): number { if (typeof value !== "number" || !Number.isSafeInteger(value)) throw new Phase06GatewayError("OPERATION_FAILED"); return value; }
 function nonNegativeInteger(value: unknown): number { const result = integer(value); if (result < 0) throw new Phase06GatewayError("OPERATION_FAILED"); return result; }
 function text(value: unknown): string { if (typeof value !== "string" || value.trim() === "") throw new Phase06GatewayError("OPERATION_FAILED"); return value; }
-function optionalText(value: unknown): string | undefined { return typeof value === "string" && value.trim() !== "" ? value : undefined; }
+function optionalText(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  return text(value);
+}
 function boolean(value: unknown): boolean { if (typeof value !== "boolean") throw new Phase06GatewayError("OPERATION_FAILED"); return value; }
 
 export function validateEntityResult(value: unknown): EntityResult { const row=record(value);return{id:text(row.id),documentNumber:optionalText(row.documentNumber),status:text(row.status),rowVersion:nonNegativeInteger(row.rowVersion),replayed:boolean(row.replayed)}; }
-export function validateStockBalance(value: unknown): StockBalanceView { const row=record(value);return{productId:text(row.productId),productCode:text(row.productCode),productName:text(row.productName),warehouseId:text(row.warehouseId),warehouseName:text(row.warehouseName),warehouseLocationId:optionalText(row.warehouseLocationId),locationName:optionalText(row.locationName),onHandScaled:integer(row.onHandScaled),reservedScaled:nonNegativeInteger(row.reservedScaled),availableScaled:integer(row.availableScaled),averageCostScaled:nonNegativeInteger(row.averageCostScaled),inventoryValueMinor:integer(row.inventoryValueMinor),rowVersion:nonNegativeInteger(row.rowVersion)}; }
+export function validateStockBalance(value: unknown): StockBalanceView {
+  const row = record(value);
+  const warehouseLocationId = optionalText(row.warehouseLocationId);
+  const locationName = optionalText(row.locationName);
+  return {
+    productId: text(row.productId),
+    productCode: text(row.productCode),
+    productName: text(row.productName),
+    warehouseId: text(row.warehouseId),
+    warehouseName: text(row.warehouseName),
+    ...(warehouseLocationId === undefined ? {} : { warehouseLocationId }),
+    ...(locationName === undefined ? {} : { locationName }),
+    onHandScaled: integer(row.onHandScaled),
+    reservedScaled: nonNegativeInteger(row.reservedScaled),
+    availableScaled: integer(row.availableScaled),
+    averageCostScaled: nonNegativeInteger(row.averageCostScaled),
+    inventoryValueMinor: integer(row.inventoryValueMinor),
+    rowVersion: nonNegativeInteger(row.rowVersion),
+  };
+}
 export function validateStockBalances(value: unknown): StockBalanceView[] { return array(value).map(validateStockBalance); }
 export function validateMovement(value: unknown): MovementView { const row=record(value);return{id:text(row.id),productId:text(row.productId),warehouseId:text(row.warehouseId),warehouseLocationId:optionalText(row.warehouseLocationId),sourceDocumentId:optionalText(row.sourceDocumentId),movementType:text(row.movementType),businessDate:text(row.businessDate),quantityDeltaScaled:integer(row.quantityDeltaScaled),quantityAfterScaled:integer(row.quantityAfterScaled),unitCostScaled:row.unitCostScaled==null?undefined:nonNegativeInteger(row.unitCostScaled),averageCostAfterScaled:row.averageCostAfterScaled==null?undefined:nonNegativeInteger(row.averageCostAfterScaled),extendedCostMinor:row.extendedCostMinor==null?undefined:integer(row.extendedCostMinor),notes:optionalText(row.notes)}; }
 export function validateReservation(value: unknown): ReservationView { const row=record(value);return{id:text(row.id),sourceLineId:text(row.sourceLineId),productId:text(row.productId),warehouseId:text(row.warehouseId),warehouseLocationId:optionalText(row.warehouseLocationId),reservedQuantityScaled:nonNegativeInteger(row.reservedQuantityScaled),status:text(row.status),rowVersion:nonNegativeInteger(row.rowVersion)}; }

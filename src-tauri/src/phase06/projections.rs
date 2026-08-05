@@ -228,9 +228,7 @@ pub(crate) fn apply_movement(
         return Err(Phase06Error::invalid("unitCostScaled"));
     }
 
-    let average_after = if specification.quantity_delta > 0
-        && specification.recalculate_average
-    {
+    let average_after = if specification.quantity_delta > 0 && specification.recalculate_average {
         weighted_average_cost(
             aggregate.on_hand,
             average_before,
@@ -369,12 +367,7 @@ pub(crate) fn set_reserved(
     if delta == 0 {
         return Err(Phase06Error::invalid("reservedQuantityScaled"));
     }
-    validate_location(
-        transaction,
-        &context.company_id,
-        warehouse_id,
-        location_id,
-    )?;
+    validate_location(transaction, &context.company_id, warehouse_id, location_id)?;
 
     let aggregate = balance(
         transaction,

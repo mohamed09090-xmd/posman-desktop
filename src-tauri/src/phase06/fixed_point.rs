@@ -10,10 +10,7 @@ fn checked_i64(value: i128) -> Phase06Result<i64> {
     i64::try_from(value).map_err(|_| Phase06Error::numeric_overflow())
 }
 
-pub fn round_half_up_non_negative(
-    numerator: i128,
-    denominator: i128,
-) -> Phase06Result<i128> {
+pub fn round_half_up_non_negative(numerator: i128, denominator: i128) -> Phase06Result<i128> {
     if numerator < 0 || denominator <= 0 {
         return Err(Phase06Error::invalid("fixedPoint"));
     }
@@ -23,10 +20,7 @@ pub fn round_half_up_non_negative(
         .ok_or_else(Phase06Error::numeric_overflow)
 }
 
-pub fn extended_cost_minor(
-    quantity_scaled: i64,
-    unit_cost_scaled: i64,
-) -> Phase06Result<i64> {
+pub fn extended_cost_minor(quantity_scaled: i64, unit_cost_scaled: i64) -> Phase06Result<i64> {
     if unit_cost_scaled < 0 {
         return Err(Phase06Error::invalid("unitCostScaled"));
     }
@@ -46,10 +40,7 @@ pub fn weighted_average_cost(
     received_quantity_scaled: i64,
     receipt_cost_scaled: i64,
 ) -> Phase06Result<i64> {
-    if received_quantity_scaled <= 0
-        || old_average_cost_scaled < 0
-        || receipt_cost_scaled < 0
-    {
+    if received_quantity_scaled <= 0 || old_average_cost_scaled < 0 || receipt_cost_scaled < 0 {
         return Err(Phase06Error::invalid("cost"));
     }
 
@@ -108,8 +99,7 @@ pub fn line_totals(
     let discount_numerator = gross_minor
         .checked_mul(i128::from(discount_rate_scaled))
         .ok_or_else(Phase06Error::numeric_overflow)?;
-    let discount_minor =
-        round_half_up_non_negative(discount_numerator, PERCENT_DENOMINATOR)?;
+    let discount_minor = round_half_up_non_negative(discount_numerator, PERCENT_DENOMINATOR)?;
     let net_ht_minor = gross_minor
         .checked_sub(discount_minor)
         .ok_or_else(|| Phase06Error::invalid("discountRateScaled"))?;

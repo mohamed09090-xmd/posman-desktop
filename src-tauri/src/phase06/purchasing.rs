@@ -1,5 +1,6 @@
 use rusqlite::{params, OptionalExtension, Transaction};
 
+use super::inventory::{negative_override_allowed, post_document};
 use super::{
     audit, authorize_transaction, begin_idempotency,
     dto::{
@@ -15,7 +16,6 @@ use super::{
     projections::{apply_movement, balance, MovementSpec},
     request_hash, update_document_totals, IdempotencyStart, Phase06Service,
 };
-use super::inventory::{negative_override_allowed, post_document};
 
 fn validate_purchase_lines(lines: &[PurchaseLineInput]) -> Phase06Result<()> {
     if lines.is_empty() {

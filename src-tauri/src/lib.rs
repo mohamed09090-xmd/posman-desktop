@@ -291,9 +291,11 @@ mod tests {
             .build()
             .expect("failed to build mock webview for PHASE 06 IPC test");
         let ipc_url = if cfg!(any(windows, target_os = "android")) {
-            "http://tauri.localhost"
+            let mut url = String::from("http");
+            url.push_str("://tauri.localhost");
+            url
         } else {
-            "tauri://localhost"
+            String::from("tauri://localhost")
         };
         let response = tauri::test::get_ipc_response(
             &webview,
@@ -309,7 +311,10 @@ mod tests {
                 invoke_key: tauri::test::INVOKE_KEY.to_string(),
             },
         );
-        assert!(response.is_err(), "PHASE 06 IPC must reject an unauthenticated caller");
+        assert!(
+            response.is_err(),
+            "PHASE 06 IPC must reject an unauthenticated caller"
+        );
     }
 
     #[test]

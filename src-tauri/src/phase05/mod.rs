@@ -29,11 +29,12 @@ impl Phase05Service {
         &self,
         permission: Option<&str>,
     ) -> Phase05Result<Phase06AuthContext> {
-        self.require_session(permission).map(|context| Phase06AuthContext {
-            company_id: context.company_id,
-            user_id: context.user_id,
-            session_id: context.session_id,
-        })
+        self.require_session(permission)
+            .map(|context| Phase06AuthContext {
+                company_id: context.company_id,
+                user_id: context.user_id,
+                session_id: context.session_id,
+            })
     }
 
     pub(crate) fn phase06_open(&self) -> Phase05Result<Connection> {
