@@ -34,8 +34,10 @@ impl Phase06Service {
                     i64::try_from(index + 1).map_err(|_| Phase06Error::numeric_overflow())?,
                     line,
                     &request.commercial_date,
-                    None,
-                    None,
+                    PurchaseLineOptions {
+                        default_warehouse: None,
+                        notes: None,
+                    },
                 )?;
             }
             update_document_totals(transaction, &document_id, &context.company_id)?;
@@ -101,8 +103,10 @@ impl Phase06Service {
                     i64::try_from(index + 1).map_err(|_| Phase06Error::numeric_overflow())?,
                     line,
                     &request.commercial_date,
-                    None,
-                    None,
+                    PurchaseLineOptions {
+                        default_warehouse: None,
+                        notes: None,
+                    },
                 )?;
             }
             update_document_totals(transaction, &request.document_id, &context.company_id)?;
