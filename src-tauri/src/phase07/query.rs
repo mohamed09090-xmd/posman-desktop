@@ -40,7 +40,9 @@ impl Phase07Service {
 
     pub fn get_sales_document(&self, document_id: String) -> Phase06Result<DocumentView> {
         let context = self.context(Some("stock.read"))?;
-        self.read(|connection| get_document_connection(connection, &context.company_id, &document_id))
+        self.read(|connection| {
+            get_document_connection(connection, &context.company_id, &document_id)
+        })
     }
 
     pub fn get_sales_line_availability(

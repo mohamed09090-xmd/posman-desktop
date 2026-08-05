@@ -39,12 +39,16 @@ fn context() -> Phase06AuthContext {
 fn fixture() -> Connection {
     let connection = Connection::open_in_memory().unwrap();
     connection.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
-    connection.execute_batch(include_str!("../../../database/schema.sql")).unwrap();
-    connection.execute(
-        "INSERT INTO companies (id,code,legal_name,name_ar,name_fr,created_at,updated_at)
+    connection
+        .execute_batch(include_str!("../../../database/schema.sql"))
+        .unwrap();
+    connection
+        .execute(
+            "INSERT INTO companies (id,code,legal_name,name_ar,name_fr,created_at,updated_at)
          VALUES ('company-1','C1','Company','شركة','Société',?1,?1)",
-        [NOW],
-    ).unwrap();
+            [NOW],
+        )
+        .unwrap();
     connection.execute(
         "INSERT INTO fiscal_years (id,company_id,code,name,starts_on,ends_on,status,created_at,updated_at)
          VALUES ('fy-1','company-1','2026','2026','2026-01-01','2026-12-31','OPEN',?1,?1)",
@@ -55,11 +59,13 @@ fn fixture() -> Connection {
          VALUES ('unit-1','company-1','PC','قطعة','Pièce',6,?1,?1)",
         [NOW],
     ).unwrap();
-    connection.execute(
-        "INSERT INTO warehouses (id,company_id,code,name_ar,name_fr,created_at,updated_at)
+    connection
+        .execute(
+            "INSERT INTO warehouses (id,company_id,code,name_ar,name_fr,created_at,updated_at)
          VALUES ('warehouse-1','company-1','W1','مخزن','Dépôt',?1,?1)",
-        [NOW],
-    ).unwrap();
+            [NOW],
+        )
+        .unwrap();
     connection.execute(
         "INSERT INTO products (id,company_id,unit_id,code,name_ar,name_fr,product_kind,stock_tracked,created_at,updated_at)
          VALUES ('product-1','company-1','unit-1','P1','منتج','Produit','STOCK_ITEM',1,?1,?1)",
@@ -71,14 +77,20 @@ fn fixture() -> Connection {
         ("delivery-2", "DELIVERY_NOTE", "BL000002"),
         ("delivery-3", "DELIVERY_NOTE", "BL000003"),
     ] {
-        let status = if kind == "SALES_ORDER" { "CONFIRMED" } else { "DRAFT" };
-        connection.execute(
-            "INSERT INTO commercial_documents (
+        let status = if kind == "SALES_ORDER" {
+            "CONFIRMED"
+        } else {
+            "DRAFT"
+        };
+        connection
+            .execute(
+                "INSERT INTO commercial_documents (
                id,company_id,fiscal_year_id,document_type,document_number,workflow_status,
                commercial_date,created_at,updated_at
              ) VALUES (?1,'company-1','fy-1',?2,?3,?4,'2026-08-05',?5,?5)",
-            rusqlite::params![id,kind,number,status,NOW],
-        ).unwrap();
+                rusqlite::params![id, kind, number, status, NOW],
+            )
+            .unwrap();
     }
     for (id, document, line_number, quantity) in [
         ("source-line", "order-1", 1, 20_000_000_i64),
@@ -102,9 +114,29 @@ fn fixture() -> Connection {
 fn sales_transformation_accepts_eight_plus_twelve_and_rejects_twenty_one() {
     let mut connection = fixture();
     let transaction = connection.transaction().unwrap();
-    insert_transform_links(&transaction, &context(), &[prepared("source-line", 8_000_000)], &["target-8".to_owned()], "ORDER_TO_DELIVERY").unwrap();
-    insert_transform_links(&transaction, &context(), &[prepared("source-line", 12_000_000)], &["target-12".to_owned()], "ORDER_TO_DELIVERY").unwrap();
-    let extra = insert_transform_links(&transaction, &context(), &[prepared("source-line", 1_000_000)], &["target-extra".to_owned()], "ORDER_TO_DELIVERY");
+    insert_transform_links(
+        &transaction,
+        &context(),
+        &[prepared("source-line", 8_000_000)],
+        &["target-8".to_owned()],
+        "ORDER_TO_DELIVERY",
+    )
+    .unwrap();
+    insert_transform_links(
+        &transaction,
+        &context(),
+        &[prepared("source-line", 12_000_000)],
+        &["target-12".to_owned()],
+        "ORDER_TO_DELIVERY",
+    )
+    .unwrap();
+    let extra = insert_transform_links(
+        &transaction,
+        &context(),
+        &[prepared("source-line", 1_000_000)],
+        &["target-extra".to_owned()],
+        "ORDER_TO_DELIVERY",
+    );
     assert!(matches!(extra, Err(error) if error.code == "TRANSFORMATION_LIMIT_EXCEEDED"));
 }
 

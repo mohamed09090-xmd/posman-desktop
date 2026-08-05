@@ -3,8 +3,9 @@ use rusqlite::{params, OptionalExtension};
 use crate::phase06::{
     audit, authorize_transaction, begin_idempotency,
     error::{Phase06Error, Phase06Result},
-    finish_idempotency, insert_document, new_id, now_iso,
+    finish_idempotency, insert_document,
     inventory::post_document,
+    new_id, now_iso,
     projections::{apply_movement, set_reserved, MovementSpec},
     request_hash, IdempotencyStart,
 };
@@ -118,8 +119,8 @@ impl Phase07Service {
         &self,
         request: IdempotentRequest<DirectSaleRequest>,
     ) -> Phase06Result<SalesFlowResult> {
-        let context=self.context(Some("sales_invoice.post"))?;
-        let hash=request_hash(&request.payload)?;
+        let context = self.context(Some("sales_invoice.post"))?;
+        let hash = request_hash(&request.payload)?;
         self.immediate(|transaction| {
             authorize_transaction(transaction,&context,"sales_invoice.post")?;
             authorize_transaction(transaction,&context,"delivery_note.post")?;
@@ -175,20 +176,44 @@ impl Phase07Service {
 }
 
 fn consume_order_reservation(
-    transaction:&rusqlite::Transaction<'_>,
-    context:&crate::phase05::Phase06AuthContext,
-    line:&PreparedSalesLine,
+    transaction: &rusqlite::Transaction<'_>,
+    context: &crate::phase05::Phase06AuthContext,
+    line: &PreparedSalesLine,
 ) -> Phase06Result<()> {
-    let source=line.source_line_id.as_deref().ok_or_else(||Phase06Error::invalid("sourceLineId"))?;
-    let row=transaction.query_row(
-        "SELECT id,reserved_quantity_scaled,row_version FROM stock_reservations
+    let source = line
+        .source_line_id
+        .as_deref()
+        .ok_or_else(|| Phase06Error::invalid("sourceLineId"))?;
+    let row = transaction
+        .query_row(
+            "SELECT id,reserved_quantity_scaled,row_version FROM stock_reservations
          WHERE company_id=?1 AND source_line_id=?2 AND status IN ('ACTIVE','PARTIALLY_CONSUMED')
          ORDER BY created_at DESC LIMIT 1",
-        params![context.company_id,source],|row|Ok((row.get::<_,String>(0)?,row.get::<_,i64>(1)?,row.get::<_,i64>(2)?)),
-    ).optional()?.ok_or_else(||Phase06Error::new("RESERVATION_REQUIRED","The order line is not reserved."))?;
-    if line.quantity_scaled>row.1 {return Err(Phase06Error::insufficient_stock());}
-    set_reserved(transaction,context,&line.product_id,&line.warehouse_id,None,-line.quantity_scaled)?;
-    let remaining=row.1-line.quantity_scaled;
+            params![context.company_id, source],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            },
+        )
+        .optional()?
+        .ok_or_else(|| {
+            Phase06Error::new("RESERVATION_REQUIRED", "The order line is not reserved.")
+        })?;
+    if line.quantity_scaled > row.1 {
+        return Err(Phase06Error::insufficient_stock());
+    }
+    set_reserved(
+        transaction,
+        context,
+        &line.product_id,
+        &line.warehouse_id,
+        None,
+        -line.quantity_scaled,
+    )?;
+    let remaining = row.1 - line.quantity_scaled;
     transaction.execute(
         "UPDATE stock_reservations SET reserved_quantity_scaled=?1,status=?2,updated_at=?3,updated_by=?4,row_version=row_version+1
          WHERE id=?5 AND company_id=?6 AND row_version=?7",
@@ -198,34 +223,50 @@ fn consume_order_reservation(
 }
 
 fn update_order_delivery_status(
-    transaction:&rusqlite::Transaction<'_>,
-    context:&crate::phase05::Phase06AuthContext,
-    order_id:&str,
+    transaction: &rusqlite::Transaction<'_>,
+    context: &crate::phase05::Phase06AuthContext,
+    order_id: &str,
 ) -> Phase06Result<()> {
-    let remaining:i64=transaction.query_row(
+    let remaining: i64 = transaction.query_row(
         "SELECT COUNT(*) FROM commercial_document_lines source
          WHERE source.document_id=?1 AND source.company_id=?2 AND
           COALESCE((SELECT SUM(link.transformed_quantity_scaled) FROM document_line_links link
            WHERE link.company_id=source.company_id AND link.source_line_id=source.id
              AND link.transformation_type='ORDER_TO_DELIVERY'),0)<source.quantity_scaled",
-        params![order_id,context.company_id],|row|row.get(0),
+        params![order_id, context.company_id],
+        |row| row.get(0),
     )?;
-    let old:String=transaction.query_row("SELECT workflow_status FROM commercial_documents WHERE id=?1 AND company_id=?2",params![order_id,context.company_id],|row|row.get(0))?;
-    let target=if remaining==0{"DELIVERED"}else{"PARTIALLY_DELIVERED"};
-    if old!=target {
+    let old: String = transaction.query_row(
+        "SELECT workflow_status FROM commercial_documents WHERE id=?1 AND company_id=?2",
+        params![order_id, context.company_id],
+        |row| row.get(0),
+    )?;
+    let target = if remaining == 0 {
+        "DELIVERED"
+    } else {
+        "PARTIALLY_DELIVERED"
+    };
+    if old != target {
         transaction.execute(
             "UPDATE commercial_documents SET workflow_status=?1,updated_at=?2,updated_by=?3,row_version=row_version+1 WHERE id=?4 AND company_id=?5",
             params![target,now_iso()?,context.user_id,order_id,context.company_id],
         )?;
-        insert_status(transaction,context,order_id,&old,target,Some("Delivery posted"))?;
+        insert_status(
+            transaction,
+            context,
+            order_id,
+            &old,
+            target,
+            Some("Delivery posted"),
+        )?;
     }
     Ok(())
 }
 
 fn update_delivery_invoice_status(
-    transaction:&rusqlite::Transaction<'_>,
-    context:&crate::phase05::Phase06AuthContext,
-    delivery_id:&str,
+    transaction: &rusqlite::Transaction<'_>,
+    context: &crate::phase05::Phase06AuthContext,
+    delivery_id: &str,
 ) -> Phase06Result<()> {
     let remaining:i64=transaction.query_row(
         "SELECT COUNT(*) FROM commercial_document_lines source WHERE source.document_id=?1 AND source.company_id=?2 AND
@@ -233,7 +274,11 @@ fn update_delivery_invoice_status(
           AND link.source_line_id=source.id AND link.transformation_type='DELIVERY_TO_INVOICE'),0)<source.quantity_scaled",
         params![delivery_id,context.company_id],|row|row.get(0),
     )?;
-    let target=if remaining==0{"INVOICED"}else{"PARTIALLY_INVOICED"};
+    let target = if remaining == 0 {
+        "INVOICED"
+    } else {
+        "PARTIALLY_INVOICED"
+    };
     transaction.execute(
         "UPDATE commercial_documents SET workflow_status=?1,updated_at=?2,updated_by=?3,row_version=row_version+1
          WHERE id=?4 AND company_id=?5 AND document_type='DELIVERY_NOTE' AND posting_status='POSTED'",

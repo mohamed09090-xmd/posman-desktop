@@ -1,6 +1,9 @@
 use crate::phase06::{
     error::{Phase06Error, Phase06Result},
-    fixed_point::{round_half_up_non_negative, MONEY_SCALE, PERCENT_DENOMINATOR, QUANTITY_SCALE, UNIT_VALUE_SCALE},
+    fixed_point::{
+        round_half_up_non_negative, MONEY_SCALE, PERCENT_DENOMINATOR, QUANTITY_SCALE,
+        UNIT_VALUE_SCALE,
+    },
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -71,7 +74,11 @@ pub(crate) fn base_line(
         allocated_header_discount_minor: 0,
         taxable_ht_minor: checked_i64(before_header_ht)?,
         tax_minor: checked_i64(tax)?,
-        ttc_minor: checked_i64(before_header_ht.checked_add(tax).ok_or_else(Phase06Error::numeric_overflow)?)?,
+        ttc_minor: checked_i64(
+            before_header_ht
+                .checked_add(tax)
+                .ok_or_else(Phase06Error::numeric_overflow)?,
+        )?,
     })
 }
 
@@ -124,11 +131,23 @@ pub(crate) fn allocate_header_discount(
         line.allocated_header_discount_minor = checked_i64(share)?;
         line.taxable_ht_minor = checked_i64(taxable)?;
         line.tax_minor = checked_i64(tax)?;
-        line.ttc_minor = checked_i64(taxable.checked_add(tax).ok_or_else(Phase06Error::numeric_overflow)?)?;
+        line.ttc_minor = checked_i64(
+            taxable
+                .checked_add(tax)
+                .ok_or_else(Phase06Error::numeric_overflow)?,
+        )?;
     }
-    let ht = lines.iter().try_fold(0_i64, |sum, (line, _)| sum.checked_add(line.taxable_ht_minor).ok_or_else(Phase06Error::numeric_overflow))?;
-    let tax = lines.iter().try_fold(0_i64, |sum, (line, _)| sum.checked_add(line.tax_minor).ok_or_else(Phase06Error::numeric_overflow))?;
-    let ttc = ht.checked_add(tax).ok_or_else(Phase06Error::numeric_overflow)?;
+    let ht = lines.iter().try_fold(0_i64, |sum, (line, _)| {
+        sum.checked_add(line.taxable_ht_minor)
+            .ok_or_else(Phase06Error::numeric_overflow)
+    })?;
+    let tax = lines.iter().try_fold(0_i64, |sum, (line, _)| {
+        sum.checked_add(line.tax_minor)
+            .ok_or_else(Phase06Error::numeric_overflow)
+    })?;
+    let ttc = ht
+        .checked_add(tax)
+        .ok_or_else(Phase06Error::numeric_overflow)?;
     Ok((checked_i64(header_total)?, ht, tax, ttc))
 }
 
@@ -139,14 +158,26 @@ mod tests {
     #[test]
     fn header_discount_is_deterministic_and_totals_reconcile() {
         let mut lines = vec![
-            (base_line(8_000_000, 12_500, 0, 190_000, "HT").unwrap(), 190_000),
-            (base_line(12_000_000, 12_500, 0, 190_000, "HT").unwrap(), 190_000),
+            (
+                base_line(8_000_000, 12_500, 0, 190_000, "HT").unwrap(),
+                190_000,
+            ),
+            (
+                base_line(12_000_000, 12_500, 0, 190_000, "HT").unwrap(),
+                190_000,
+            ),
         ];
         let (discount, ht, tax, ttc) = allocate_header_discount(&mut lines, 100_000).unwrap();
         assert_eq!(discount, 250);
         assert_eq!(ht, 2_250);
         assert_eq!(tax, 428);
         assert_eq!(ttc, 2_678);
-        assert_eq!(lines.iter().map(|item| item.0.allocated_header_discount_minor).sum::<i64>(), discount);
+        assert_eq!(
+            lines
+                .iter()
+                .map(|item| item.0.allocated_header_discount_minor)
+                .sum::<i64>(),
+            discount
+        );
     }
 }

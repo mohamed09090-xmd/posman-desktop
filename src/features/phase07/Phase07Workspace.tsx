@@ -31,7 +31,7 @@ export function Phase07Workspace(){
  const [screen,setScreen]=useState<Phase07Screen>("today");const [flash,setFlash]=useState<Flash>();const [scan,setScan]=useState("");
  return <section className="p7-workspace" aria-labelledby="p7-heading">
   <header className="p7-commandbar"><div><p>POSMAN / PHASE 07</p><h1 id="p7-heading">{c.title}</h1><span>{c.subtitle}</span></div><span className="p7-runtime">{gateway?c.ready:c.preview}</span></header>
-  <form className="p7-scan" onSubmit={event=>{event.preventDefault();setScreen("direct");}}><label htmlFor="p7-scan">{c.scan}</label><input id="p7-scan" value={scan} onChange={event=>setScan(event.target.value)} placeholder={c.scanHint}/><Button type="submit">↵</Button></form>
+  <form className="p7-scan" onSubmit={event=>{event.preventDefault();setScreen("direct");}}><label htmlFor="p7-scan">{c.scan}</label><input id="p7-scan" value={scan} onChange={event=>setScan(event.target.value)} placeholder={c.scanHint}/><Button type="submit" aria-label={c.scan}><span aria-hidden="true">↵</span></Button></form>
   <div className="p7-layout"><nav className="p7-rail" aria-label={c.title}>{PHASE07_SCREENS.map((id,index)=><button key={id} className={screen===id?"is-active":""} onClick={()=>{setFlash(undefined);setScreen(id)}}><span aria-hidden="true">{String(index+1).padStart(2,"0")}</span>{c[id]}</button>)}</nav>
    <main className="p7-canvas" data-testid={`phase07-${screen}`} aria-labelledby="p7-screen"><header><p>{c.title}</p><h2 id="p7-screen">{c[screen]}</h2></header>
     {flash?<div role={flash.tone==="error"?"alert":"status"} className={`p7-flash p7-flash--${flash.tone}`}>{flash.text}</div>:null}

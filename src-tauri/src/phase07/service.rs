@@ -5,10 +5,11 @@ use crate::{
     phase06::{
         audit, authorize_transaction,
         dto::EntityResult,
-        entity_result, new_id, now_iso,
-        projections::balance,
-        product_snapshot, tax_snapshot,
+        entity_result,
         error::{Phase06Error, Phase06Result},
+        new_id, now_iso, product_snapshot,
+        projections::balance,
+        tax_snapshot,
     },
 };
 
@@ -17,7 +18,8 @@ use super::{
     pricing::{allocate_header_discount, base_line, PricedLine},
 };
 
-const SALES_CODES: &str = "'stock.read','sales_order.confirm','delivery_note.post','sales_invoice.post'";
+const SALES_CODES: &str =
+    "'stock.read','sales_order.confirm','delivery_note.post','sales_invoice.post'";
 const OWNER_CODES: &str = "'stock.read','sales_order.confirm','delivery_note.post','sales_invoice.post','pricing.override_below_cost'";
 const AUDITOR_CODES: &str = "'stock.read'";
 
@@ -58,14 +60,21 @@ impl Phase07Service {
         grant_company_role(&transaction, "SYSTEM_ADMINISTRATOR", OWNER_CODES, &now)?;
         grant_company_role(&transaction, "OWNER", OWNER_CODES, &now)?;
         grant_company_role(&transaction, "SALES", SALES_CODES, &now)?;
-        grant_company_role(&transaction, "STOCK", "'stock.read','delivery_note.post'", &now)?;
+        grant_company_role(
+            &transaction,
+            "STOCK",
+            "'stock.read','delivery_note.post'",
+            &now,
+        )?;
         grant_company_role(&transaction, "AUDITOR", AUDITOR_CODES, &now)?;
         transaction.commit()?;
         Ok(())
     }
 
     pub(super) fn context(&self, permission: Option<&str>) -> Phase06Result<Phase06AuthContext> {
-        self.phase05.phase06_authorize(permission).map_err(Into::into)
+        self.phase05
+            .phase06_authorize(permission)
+            .map_err(Into::into)
     }
 
     pub(super) fn immediate<T>(
@@ -122,7 +131,10 @@ pub(super) fn ensure_customer(
         .optional()?
         .is_some();
     if !exists {
-        return Err(Phase06Error::new("CUSTOMER_REQUIRED", "Select an active customer."));
+        return Err(Phase06Error::new(
+            "CUSTOMER_REQUIRED",
+            "Select an active customer.",
+        ));
     }
     Ok(())
 }
@@ -350,7 +362,10 @@ pub(super) fn prepare_transformed_lines(
         )?;
         lines.push(line);
     }
-    let mut priced = lines.iter().map(|line| (line.priced.clone(), line.tax_rate_scaled)).collect::<Vec<_>>();
+    let mut priced = lines
+        .iter()
+        .map(|line| (line.priced.clone(), line.tax_rate_scaled))
+        .collect::<Vec<_>>();
     let totals = allocate_header_discount(&mut priced, header_rate)?;
     for (line, (priced, _)) in lines.iter_mut().zip(priced) {
         line.priced = priced;
@@ -369,7 +384,10 @@ pub(super) fn insert_transform_links(
         return Err(Phase06Error::internal());
     }
     for (line, target) in lines.iter().zip(target_ids) {
-        let source = line.source_line_id.as_deref().ok_or_else(|| Phase06Error::invalid("sourceLineId"))?;
+        let source = line
+            .source_line_id
+            .as_deref()
+            .ok_or_else(|| Phase06Error::invalid("sourceLineId"))?;
         let source_quantity: i64 = transaction.query_row(
             "SELECT quantity_scaled FROM commercial_document_lines WHERE id=?1 AND company_id=?2",
             params![source, context.company_id],
@@ -381,7 +399,9 @@ pub(super) fn insert_transform_links(
             params![context.company_id, source, transformation_type],
             |row| row.get(0),
         )?;
-        let total = transformed.checked_add(line.quantity_scaled).ok_or_else(Phase06Error::numeric_overflow)?;
+        let total = transformed
+            .checked_add(line.quantity_scaled)
+            .ok_or_else(Phase06Error::numeric_overflow)?;
         if total > source_quantity {
             return Err(Phase06Error::over_transformation());
         }
@@ -390,7 +410,16 @@ pub(super) fn insert_transform_links(
                id, company_id, source_line_id, target_line_id, transformation_type,
                transformed_quantity_scaled, created_at, created_by
              ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
-            params![new_id(), context.company_id, source, target, transformation_type, line.quantity_scaled, now_iso()?, context.user_id],
+            params![
+                new_id(),
+                context.company_id,
+                source,
+                target,
+                transformation_type,
+                line.quantity_scaled,
+                now_iso()?,
+                context.user_id
+            ],
         )?;
     }
     Ok(())
@@ -413,31 +442,33 @@ pub(super) fn load_document_priced_lines(
            FROM commercial_document_lines line
            WHERE line.document_id=?1 AND line.company_id=?2 ORDER BY line.line_number"#,
     )?;
-    let rows = statement.query_map(params![document_id, context.company_id], |row| {
-        Ok(PreparedSalesLine {
-            source_line_id: Some(row.get(0)?),
-            product_id: row.get(1)?,
-            warehouse_id: row.get::<_, Option<String>>(2)?.unwrap_or_default(),
-            quantity_scaled: row.get(3)?,
-            unit_price_scaled: row.get(4)?,
-            unit_cost_scaled: row.get(5)?,
-            discount_rate_scaled: row.get(6)?,
-            tax_rate_scaled: row.get(7)?,
-            product_code: row.get(8)?,
-            product_name: row.get(9)?,
-            unit_id: row.get(10)?,
-            unit_code: row.get(11)?,
-            tax_code: row.get(12)?,
-            priced: PricedLine {
-                line_discount_minor: row.get(13)?,
-                before_header_ht_minor: row.get::<_, i64>(15)? + row.get::<_, i64>(14)?,
-                allocated_header_discount_minor: row.get(14)?,
-                taxable_ht_minor: row.get(15)?,
-                tax_minor: row.get(16)?,
-                ttc_minor: row.get(17)?,
-            },
-        })
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let rows = statement
+        .query_map(params![document_id, context.company_id], |row| {
+            Ok(PreparedSalesLine {
+                source_line_id: Some(row.get(0)?),
+                product_id: row.get(1)?,
+                warehouse_id: row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                quantity_scaled: row.get(3)?,
+                unit_price_scaled: row.get(4)?,
+                unit_cost_scaled: row.get(5)?,
+                discount_rate_scaled: row.get(6)?,
+                tax_rate_scaled: row.get(7)?,
+                product_code: row.get(8)?,
+                product_name: row.get(9)?,
+                unit_id: row.get(10)?,
+                unit_code: row.get(11)?,
+                tax_code: row.get(12)?,
+                priced: PricedLine {
+                    line_discount_minor: row.get(13)?,
+                    before_header_ht_minor: row.get::<_, i64>(15)? + row.get::<_, i64>(14)?,
+                    allocated_header_discount_minor: row.get(14)?,
+                    taxable_ht_minor: row.get(15)?,
+                    tax_minor: row.get(16)?,
+                    ttc_minor: row.get(17)?,
+                },
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
 
@@ -453,7 +484,16 @@ pub(super) fn apply_document_pricing(
         "UPDATE commercial_documents SET price_mode=?1, header_discount_rate_scaled=?2,
          header_discount_minor=?3, total_ht_minor=?4, total_tax_minor=?5, total_ttc_minor=?6
          WHERE id=?7 AND company_id=?8 AND posting_status='DRAFT'",
-        params![price_mode, header_rate, totals.0, totals.1, totals.2, totals.3, document_id, company_id],
+        params![
+            price_mode,
+            header_rate,
+            totals.0,
+            totals.1,
+            totals.2,
+            totals.3,
+            document_id,
+            company_id
+        ],
     )?;
     Ok(())
 }
@@ -466,14 +506,17 @@ pub(super) fn enforce_below_cost(
     action: &str,
     entity_id: &str,
 ) -> Phase06Result<()> {
-    let below = lines.iter().filter(|line| {
-        crate::phase06::fixed_point::extended_cost_minor(
-            line.quantity_scaled,
-            line.unit_cost_scaled,
-        )
-        .map(|cost| line.priced.taxable_ht_minor < cost)
-        .unwrap_or(true)
-    }).count();
+    let below = lines
+        .iter()
+        .filter(|line| {
+            crate::phase06::fixed_point::extended_cost_minor(
+                line.quantity_scaled,
+                line.unit_cost_scaled,
+            )
+            .map(|cost| line.priced.taxable_ht_minor < cost)
+            .unwrap_or(true)
+        })
+        .count();
     if below == 0 {
         return Ok(());
     }
@@ -483,23 +526,50 @@ pub(super) fn enforce_below_cost(
         |row| row.get(0),
     )?;
     match policy.as_str() {
-        "BLOCK" => return Err(Phase06Error::new("BELOW_COST_BLOCKED", "The sale price is below current CUMP.")),
+        "BLOCK" => {
+            return Err(Phase06Error::new(
+                "BELOW_COST_BLOCKED",
+                "The sale price is below current CUMP.",
+            ))
+        }
         "ADMIN_OVERRIDE" => {
             let reason = override_reason
                 .map(str::trim)
                 .filter(|value| value.len() >= 5)
-                .ok_or_else(|| Phase06Error::new("BELOW_COST_OVERRIDE_REQUIRED", "An authorized reason is required for a below-cost sale."))?;
+                .ok_or_else(|| {
+                    Phase06Error::new(
+                        "BELOW_COST_OVERRIDE_REQUIRED",
+                        "An authorized reason is required for a below-cost sale.",
+                    )
+                })?;
             authorize_transaction(transaction, context, "pricing.override_below_cost")?;
             let details = serde_json::json!({
                 "reason": reason,
                 "belowCostLineCount": below,
                 "comparison": "net HT after discounts versus warehouse CUMP"
-            }).to_string();
-            audit(transaction, context, action, "commercial_document", entity_id, Some(&details))?;
+            })
+            .to_string();
+            audit(
+                transaction,
+                context,
+                action,
+                "commercial_document",
+                entity_id,
+                Some(&details),
+            )?;
         }
         "WARNING_ONLY" => {
-            let details = serde_json::json!({"belowCostLineCount": below, "policy": "WARNING_ONLY"}).to_string();
-            audit(transaction, context, action, "commercial_document", entity_id, Some(&details))?;
+            let details =
+                serde_json::json!({"belowCostLineCount": below, "policy": "WARNING_ONLY"})
+                    .to_string();
+            audit(
+                transaction,
+                context,
+                action,
+                "commercial_document",
+                entity_id,
+                Some(&details),
+            )?;
         }
         _ => return Err(Phase06Error::internal()),
     }
@@ -524,7 +594,17 @@ pub(super) fn insert_status(
            id, company_id, document_id, old_status, new_status, reason,
            row_version_snapshot, changed_at, changed_by
          ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-        params![new_id(), context.company_id, document_id, old_status, new_status, reason, row_version, now_iso()?, context.user_id],
+        params![
+            new_id(),
+            context.company_id,
+            document_id,
+            old_status,
+            new_status,
+            reason,
+            row_version,
+            now_iso()?,
+            context.user_id
+        ],
     )?;
     Ok(())
 }
