@@ -78,8 +78,10 @@ impl Phase06Service {
                     i64::try_from(index + 1).map_err(|_| Phase06Error::numeric_overflow())?,
                     line,
                     &request.commercial_date,
-                    line.warehouse_id.as_deref().or(warehouse_id.as_deref()),
-                    Some(&notes),
+                    PurchaseLineOptions {
+                        default_warehouse: line.warehouse_id.as_deref().or(warehouse_id.as_deref()),
+                        notes: Some(&notes),
+                    },
                 )?;
                 insert_link(
                     transaction,
@@ -235,8 +237,10 @@ impl Phase06Service {
                     line_number,
                     line,
                     &request.payload.commercial_date,
-                    Some(&request.payload.warehouse_id),
-                    Some("Direct receipt"),
+                    PurchaseLineOptions {
+                        default_warehouse: Some(&request.payload.warehouse_id),
+                        notes: Some("Direct receipt"),
+                    },
                 )?;
                 let (invoice_line_id, _) = insert_purchase_line(
                     transaction,
@@ -245,8 +249,10 @@ impl Phase06Service {
                     line_number,
                     line,
                     &request.payload.commercial_date,
-                    Some(&request.payload.warehouse_id),
-                    Some("Direct receive and invoice"),
+                    PurchaseLineOptions {
+                        default_warehouse: Some(&request.payload.warehouse_id),
+                        notes: Some("Direct receive and invoice"),
+                    },
                 )?;
                 insert_link(
                     transaction,
