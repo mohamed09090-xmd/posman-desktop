@@ -24,6 +24,7 @@ window.__POSMAN_DEV_PHASE05_INVOKER__ = async (command, args) => {
   if (command === 'get_current_session') throw {code:'AUTHENTICATION_REQUIRED'};
   if (command === 'login') return {companyId:'company-1',userId:'user-1',username:'admin',displayName:'Administrateur local',preferredLanguage:'ar-DZ',permissions:['*'],locked:false};
   if (command === 'logout') return null;
+  if (command === 'get_company_profile') return {id:'company-1',code:'POSMAN',legalName:'SARL Atlas Commerce',nameAr:'مؤسسة الأطلس للتجارة',nameFr:'Atlas Commerce',activityDescription:'Commerce de gros',addressText:'Alger',wilayaCode:'16',phone:'0550000000',email:'contact@example.dz',defaultMarginRateScaled:200000,belowCostPolicy:'ADMIN_OVERRIDE',sessionIdleTimeoutMinutes:15,rowVersion:1};
   return [];
 };
 const result = (id, status='DRAFT', rowVersion=1) => ({id,documentNumber:`P6-${id}`,status,rowVersion,replayed:false});
