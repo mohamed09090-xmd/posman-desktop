@@ -46,6 +46,10 @@ pub(super) struct PreparedSalesLine {
     pub priced: PricedLine,
 }
 
+type SalesTotals = (i64, i64, i64, i64);
+type PreparedSales = (Vec<PreparedSalesLine>, SalesTotals);
+type TransformedSales = (Vec<PreparedSalesLine>, SalesTotals, String, i64);
+
 impl Phase07Service {
     pub fn new(phase05: Phase05Service) -> Phase06Result<Self> {
         let service = Self { phase05 };
@@ -163,7 +167,7 @@ pub(super) fn prepare_sales_lines(
     date: &str,
     price_mode: &str,
     header_discount_rate_scaled: i64,
-) -> Phase06Result<(Vec<PreparedSalesLine>, (i64, i64, i64, i64))> {
+) -> Phase06Result<PreparedSales> {
     validate_sales_lines(lines)?;
     let mut prepared = Vec::with_capacity(lines.len());
     for input in lines {
@@ -286,7 +290,7 @@ pub(super) fn prepare_transformed_lines(
     context: &Phase06AuthContext,
     source_document_id: &str,
     requested: &[TransformLineInput],
-) -> Phase06Result<(Vec<PreparedSalesLine>, (i64, i64, i64, i64), String, i64)> {
+) -> Phase06Result<TransformedSales> {
     if requested.is_empty() {
         return Err(Phase06Error::invalid("lines"));
     }

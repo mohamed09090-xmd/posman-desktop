@@ -1,11 +1,11 @@
 use rusqlite::{params, OptionalExtension};
 
 use crate::phase06::{
-    audit, authorize_transaction, begin_idempotency,
+    authorize_transaction, begin_idempotency,
     error::{Phase06Error, Phase06Result},
     finish_idempotency, insert_document,
     inventory::post_document,
-    new_id, now_iso,
+    now_iso,
     projections::{apply_movement, set_reserved, MovementSpec},
     request_hash, IdempotencyStart,
 };
