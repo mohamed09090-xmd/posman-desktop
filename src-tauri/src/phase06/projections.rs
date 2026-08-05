@@ -213,7 +213,10 @@ pub(crate) fn apply_movement(
     if quantity_after < 0 && !specification.allow_negative {
         return Err(Phase06Error::insufficient_stock());
     }
-    if specification.quantity_delta < 0 && quantity_after < aggregate.reserved {
+    if specification.quantity_delta < 0
+        && aggregate.reserved > 0
+        && quantity_after < aggregate.reserved
+    {
         return Err(Phase06Error::reserved_stock_conflict());
     }
 
@@ -255,7 +258,7 @@ pub(crate) fn apply_movement(
         if local_after < 0 && !specification.allow_negative {
             return Err(Phase06Error::insufficient_stock());
         }
-        if specification.quantity_delta < 0 && local_after < local.reserved {
+        if specification.quantity_delta < 0 && local.reserved > 0 && local_after < local.reserved {
             return Err(Phase06Error::reserved_stock_conflict());
         }
         Some((location_id, local, local_after))
