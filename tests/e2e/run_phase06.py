@@ -19,6 +19,7 @@ AXE_PATH = ROOT / "node_modules" / "axe-core" / "axe.min.js"
 
 MOCK = r"""
 window.__POSMAN_PHASE06_CALLS__ = [];
+window.__POSMAN_PHASE06_REBUILT__ = false;
 window.__POSMAN_DEV_PHASE05_INVOKER__ = async (command, args) => {
   if (command === 'get_setup_status') return {setupRequired:false,hasDraft:false,schemaVersion:'0005',defaultFiscalStartsOn:'2026-01-01',defaultFiscalEndsOn:'2026-12-31'};
   if (command === 'get_current_session') throw {code:'AUTHENTICATION_REQUIRED'};
@@ -40,8 +41,12 @@ window.__POSMAN_DEV_PHASE06_INVOKER__ = async (command, args) => {
     case 'list_stock_movements': return [{id:'m1',productId:'product-oil',warehouseId:'warehouse-main',sourceDocumentId:'doc-open',movementType:'OPENING',businessDate:'2026-08-05',quantityDeltaScaled:24000000,quantityAfterScaled:24000000,unitCostScaled:5240000,averageCostAfterScaled:5240000,extendedCostMinor:1257600}];
     case 'list_active_stock_reservations': return [{id:'res-1',sourceLineId:'sales-line-1',productId:'product-oil',warehouseId:'warehouse-main',reservedQuantityScaled:3000000,status:'ACTIVE',rowVersion:1}];
     case 'list_purchasing_documents': return [{id:'po-1',documentType:'PURCHASE_ORDER',documentNumber:'BC-2026-000001',workflowStatus:'CONFIRMED',postingStatus:'DRAFT',commercialDate:'2026-08-05',partnerId:'supplier-1',totalHtMinor:104000,totalTaxMinor:19760,totalTtcMinor:123760,rowVersion:2,lines:[]}];
-    case 'reconcile_stock_balances': return {rows:[{productId:'product-oil',warehouseId:'warehouse-main',projectionOnHandScaled:23999999,rebuiltOnHandScaled:24000000,projectionReservedScaled:3000000,rebuiltReservedScaled:3000000,projectionAverageCostScaled:5240000,rebuiltAverageCostScaled:5240000,matches:false}],mismatchCount:1,rebuilt:false};
-    case 'rebuild_stock_balances': return {rows:[{productId:'product-oil',warehouseId:'warehouse-main',projectionOnHandScaled:24000000,rebuiltOnHandScaled:24000000,projectionReservedScaled:3000000,rebuiltReservedScaled:3000000,projectionAverageCostScaled:5240000,rebuiltAverageCostScaled:5240000,matches:true}],mismatchCount:0,rebuilt:true};
+    case 'reconcile_stock_balances':
+      if (window.__POSMAN_PHASE06_REBUILT__) return {rows:[{productId:'product-oil',warehouseId:'warehouse-main',projectionOnHandScaled:24000000,rebuiltOnHandScaled:24000000,projectionReservedScaled:3000000,rebuiltReservedScaled:3000000,projectionAverageCostScaled:5240000,rebuiltAverageCostScaled:5240000,matches:true}],mismatchCount:0,rebuilt:true};
+      return {rows:[{productId:'product-oil',warehouseId:'warehouse-main',projectionOnHandScaled:23999999,rebuiltOnHandScaled:24000000,projectionReservedScaled:3000000,rebuiltReservedScaled:3000000,projectionAverageCostScaled:5240000,rebuiltAverageCostScaled:5240000,matches:false}],mismatchCount:1,rebuilt:false};
+    case 'rebuild_stock_balances':
+      window.__POSMAN_PHASE06_REBUILT__ = true;
+      return {rows:[{productId:'product-oil',warehouseId:'warehouse-main',projectionOnHandScaled:24000000,rebuiltOnHandScaled:24000000,projectionReservedScaled:3000000,rebuiltReservedScaled:3000000,projectionAverageCostScaled:5240000,rebuiltAverageCostScaled:5240000,matches:true}],mismatchCount:0,rebuilt:true};
     case 'create_opening_stock': return result('opening-1');
     case 'review_opening_stock': return result('opening-1','REVIEWED',2);
     case 'post_opening_stock': return result('opening-1','POSTED',3);
