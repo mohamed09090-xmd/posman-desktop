@@ -1,3 +1,6 @@
+use super::*;
+
+impl Phase06Service {
     pub fn post_adjustment(
         &self,
         request: IdempotentRequest<AdjustmentRequest>,
@@ -153,3 +156,4 @@
             })
         })
     }
+}
