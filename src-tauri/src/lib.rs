@@ -4,6 +4,7 @@ mod error;
 mod infrastructure;
 mod phase05;
 mod phase06;
+mod phase07;
 
 use std::{error::Error, path::PathBuf};
 
@@ -12,6 +13,7 @@ use error::RuntimeError;
 use infrastructure::{database::RuntimeDatabase, paths::RuntimePaths};
 use phase05::Phase05Service;
 use phase06::Phase06Service;
+use phase07::Phase07Service;
 use tauri::{Manager, Runtime};
 
 #[derive(Clone)]
@@ -68,6 +70,8 @@ fn configure_application<R: Runtime>(
                 .map_err(|_| "POSMAN PHASE 05 service could not initialize")?;
             let phase06 = Phase06Service::new(phase05.clone())
                 .map_err(|_| "POSMAN PHASE 06 service could not initialize")?;
+            let phase07 = Phase07Service::new(phase05.clone())
+                .map_err(|_| "POSMAN PHASE 07 service could not initialize")?;
             if !app.manage(runtime) {
                 return Err("POSMAN runtime state was already managed".into());
             }
@@ -76,6 +80,9 @@ fn configure_application<R: Runtime>(
             }
             if !app.manage(phase06) {
                 return Err("POSMAN PHASE 06 state was already managed".into());
+            }
+            if !app.manage(phase07) {
+                return Err("POSMAN PHASE 07 state was already managed".into());
             }
             Ok(())
         })
@@ -181,7 +188,21 @@ fn configure_application<R: Runtime>(
             commands::phase06::direct_receive_and_invoice,
             commands::phase06::post_purchase_return,
             commands::phase06::list_purchasing_documents,
-            commands::phase06::get_purchasing_document
+            commands::phase06::get_purchasing_document,
+            commands::phase07::create_sales_order,
+            commands::phase07::update_sales_order,
+            commands::phase07::confirm_sales_order,
+            commands::phase07::hold_sales_order,
+            commands::phase07::resume_sales_order,
+            commands::phase07::cancel_sales_order,
+            commands::phase07::deliver_sales_order,
+            commands::phase07::invoice_sales_delivery,
+            commands::phase07::direct_sale,
+            commands::phase07::post_sales_return,
+            commands::phase07::list_sales_documents,
+            commands::phase07::get_sales_document,
+            commands::phase07::get_sales_line_availability,
+            commands::phase07::get_sales_summary
         ])
 }
 
@@ -314,6 +335,38 @@ mod tests {
         assert!(
             response.is_err(),
             "PHASE 06 IPC must reject an unauthenticated caller"
+        );
+    }
+
+    #[test]
+    fn phase07_command_executes_through_tauri_ipc_and_requires_session() {
+        let directory = TestDirectory::new();
+        let mut application = build_test_application(&directory);
+        execute_setup_once(&mut application);
+
+        let webview = tauri::WebviewWindowBuilder::new(&application, "phase07", Default::default())
+            .build()
+            .expect("failed to build mock webview for PHASE 07 IPC test");
+        let ipc_url = if cfg!(any(windows, target_os = "android")) {
+            String::from("http://tauri.localhost")
+        } else {
+            String::from("tauri://localhost")
+        };
+        let response = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "get_sales_summary".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: ipc_url.parse().expect("local Tauri IPC URL should parse"),
+                body: tauri::ipc::InvokeBody::default(),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+        assert!(
+            response.is_err(),
+            "PHASE 07 IPC must reject an unauthenticated caller"
         );
     }
 
