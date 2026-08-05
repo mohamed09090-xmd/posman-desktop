@@ -1,7 +1,7 @@
 name: PHASE 07 source snapshot
 on:
-  push:
-    branches: [phase/07-sales-cycle]
+  pull_request:
+    branches: [main]
 permissions:
   contents: read
 jobs:
@@ -15,7 +15,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "036ac89c07ddee1e26402c1c523529adbba48860"
+          test "$(git merge-base origin/main HEAD)" = "036ac89c07ddee1e26402c1c523529adbba48860"
           tar --exclude=.git --exclude=node_modules --exclude=target -czf "$RUNNER_TEMP/phase07-source.tar.gz" .
           sha256sum "$RUNNER_TEMP/phase07-source.tar.gz" > "$RUNNER_TEMP/phase07-source.sha256"
       - uses: actions/upload-artifact@v4
