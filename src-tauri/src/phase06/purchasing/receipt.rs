@@ -57,8 +57,10 @@ impl Phase06Service {
                     i64::try_from(index + 1).map_err(|_| Phase06Error::numeric_overflow())?,
                     line,
                     &request.commercial_date,
-                    Some(&request.warehouse_id),
-                    None,
+                    PurchaseLineOptions {
+                        default_warehouse: Some(&request.warehouse_id),
+                        notes: None,
+                    },
                 )?;
                 match (
                     request.purchase_order_id.as_deref(),
