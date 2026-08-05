@@ -1,3 +1,8 @@
+pub(crate) struct PurchaseLineOptions<'a> {
+    pub default_warehouse: Option<&'a str>,
+    pub notes: Option<&'a str>,
+}
+
 pub(crate) fn insert_purchase_line(
     transaction: &Transaction<'_>,
     context: &Phase06AuthContext,
@@ -5,12 +10,11 @@ pub(crate) fn insert_purchase_line(
     line_number: i64,
     input: &dto::PurchaseLineInput,
     commercial_date: &str,
-    default_warehouse: Option<&str>,
-    notes: Option<&str>,
+    options: PurchaseLineOptions<'_>,
 ) -> Phase06Result<(String, (i64, i64, i64))> {
     let (product_code, product_name, unit_id, unit_code, default_tax_id) =
         product_snapshot(transaction, &context.company_id, &input.product_id)?;
-    let warehouse_id = input.warehouse_id.as_deref().or(default_warehouse);
+    let warehouse_id = input.warehouse_id.as_deref().or(options.default_warehouse);
     if let Some(warehouse_id) = warehouse_id {
         ensure_warehouse(transaction, &context.company_id, warehouse_id)?;
     }
@@ -61,7 +65,7 @@ pub(crate) fn insert_purchase_line(
             line_ht_minor,
             line_tax_minor,
             line_ttc_minor,
-            notes,
+            options.notes,
             now,
             context.user_id
         ],
