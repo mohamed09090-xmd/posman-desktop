@@ -1,3 +1,6 @@
+use super::*;
+
+impl Phase06Service {
     pub fn list_stock_balances(
         &self,
         query: StockQuery,
@@ -79,7 +82,7 @@
                         average_cost_scaled,
                         row_version,
                     )| {
-                        let absolute = super::fixed_point::extended_cost_minor(
+                        let absolute = super::super::fixed_point::extended_cost_minor(
                             on_hand_scaled,
                             average_cost_scaled,
                         )?;
@@ -131,7 +134,7 @@
                 LIMIT ?5
                 "#,
             )?;
-            Ok(statement
+            let rows = statement
                 .query_map(
                     params![
                         context.company_id,
@@ -158,6 +161,8 @@
                         })
                     },
                 )?
-                .collect::<Result<Vec<_>, _>>()?)
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
         })
     }
+}
