@@ -1,3 +1,6 @@
+use super::*;
+
+impl Phase06Service {
     pub fn post_transfer(
         &self,
         request: IdempotentRequest<TransferRequest>,
@@ -197,3 +200,4 @@
             })
         })
     }
+}
