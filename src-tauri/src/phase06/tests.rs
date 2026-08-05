@@ -85,8 +85,7 @@ fn movement<'a>(
     quantity_delta: i64,
     inbound_cost: Option<i64>,
     recalculate_average: bool,
-    event: &'a str,
-    allow_negative: bool,
+    event: (&'a str, bool),
 ) -> MovementSpec<'a> {
     MovementSpec {
         product_id: "p1",
@@ -99,10 +98,10 @@ fn movement<'a>(
         quantity_delta,
         inbound_cost,
         recalculate_average,
-        posting_event_key: event,
+        posting_event_key: event.0,
         transfer_group_id: None,
         notes: None,
-        allow_negative,
+        allow_negative: event.1,
     }
 }
 
@@ -148,8 +147,7 @@ fn opening_and_receipt_update_aggregate_and_location_cump() {
             10_000_000,
             Some(10_000),
             true,
-            "open-1",
-            false,
+            ("open-1", false),
         ),
     )
     .unwrap();
@@ -163,8 +161,7 @@ fn opening_and_receipt_update_aggregate_and_location_cump() {
             5_000_000,
             Some(16_000),
             true,
-            "receipt-1",
-            false,
+            ("receipt-1", false),
         ),
     )
     .unwrap();
@@ -201,8 +198,7 @@ fn negative_stock_block_and_override_are_distinct() {
             -1_000_000,
             None,
             false,
-            "negative-block",
-            false,
+            ("negative-block", false),
         ),
     );
     assert!(matches!(blocked, Err(Phase06Error { code, .. }) if code == "INSUFFICIENT_STOCK"));
@@ -216,8 +212,7 @@ fn negative_stock_block_and_override_are_distinct() {
             -1_000_000,
             None,
             false,
-            "negative-override",
-            true,
+            ("negative-override", true),
         ),
     )
     .unwrap();
@@ -241,8 +236,7 @@ fn cross_warehouse_transfer_pair_carries_source_cump() {
             10_000_000,
             Some(12_000),
             true,
-            "opening-w1",
-            false,
+            ("opening-w1", false),
         ),
     )
     .unwrap();
@@ -253,8 +247,7 @@ fn cross_warehouse_transfer_pair_carries_source_cump() {
         -4_000_000,
         None,
         false,
-        "transfer-out",
-        false,
+        ("transfer-out", false),
     );
     out.transfer_group_id = Some("group-1");
     apply_movement(&transaction, &context, out).unwrap();
@@ -265,8 +258,7 @@ fn cross_warehouse_transfer_pair_carries_source_cump() {
         4_000_000,
         Some(12_000),
         true,
-        "transfer-in",
-        false,
+        ("transfer-in", false),
     );
     incoming.transfer_group_id = Some("group-1");
     apply_movement(&transaction, &context, incoming).unwrap();
@@ -305,8 +297,7 @@ fn same_warehouse_location_transfer_preserves_cump() {
             8_000_000,
             Some(9_500),
             true,
-            "loc-opening",
-            false,
+            ("loc-opening", false),
         ),
     )
     .unwrap();
@@ -320,8 +311,7 @@ fn same_warehouse_location_transfer_preserves_cump() {
             -3_000_000,
             None,
             false,
-            "loc-out",
-            false,
+            ("loc-out", false),
         ),
     )
     .unwrap();
@@ -335,8 +325,7 @@ fn same_warehouse_location_transfer_preserves_cump() {
             3_000_000,
             Some(9_500),
             false,
-            "loc-in",
-            false,
+            ("loc-in", false),
         ),
     )
     .unwrap();
@@ -376,8 +365,7 @@ fn reservations_never_exceed_available_and_support_partial_release() {
             5_000_000,
             Some(10_000),
             true,
-            "reserve-opening",
-            false,
+            ("reserve-opening", false),
         ),
     )
     .unwrap();
@@ -455,8 +443,7 @@ fn stock_movement_ledger_is_append_only_and_events_unique() {
                 1_000_000,
                 Some(10_000),
                 true,
-                "immutable-event",
-                false,
+                ("immutable-event", false),
             ),
         )
         .unwrap()
@@ -485,8 +472,7 @@ fn stock_movement_ledger_is_append_only_and_events_unique() {
             1_000_000,
             Some(10_000),
             true,
-            "immutable-event",
-            false
+            ("immutable-event", false)
         )
     )
     .is_err());
