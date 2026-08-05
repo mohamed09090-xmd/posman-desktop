@@ -27,7 +27,7 @@ The implementation is source-visible in the PR. No chunks, Base64 payload source
 7. Purchase aggregate transformation is checked transactionally for order→receipt, receipt→invoice, and document→return.
 8. No accepted migration was modified and no migration was added.
 9. Phase 05 authentication, company scope, permissions, audit, and safe-error conventions are reused rather than duplicated.
-10. React uses one typed Tauri gateway and integrates PHASE 06 inside the authenticated PHASE 05 workspace; no alternate route or authentication bypass is introduced.
+10. React uses one typed Tauri gateway and exposes PHASE 06 through the authenticated desktop workspace switcher; no alternate authentication path is introduced.
 
 ## Document workflows
 
@@ -50,7 +50,7 @@ The implementation is source-visible in the PR. No chunks, Base64 payload source
 
 | Command | Result | Exit code |
 |---|---:|---:|
-| `python scripts/verify_schema.py` | PASS — 5 migrations, schema `0005`, 52 tables, 25 triggers, 147 checks, one PHASE 07 pending invariant | 0 |
+| `python scripts/verify_schema.py` | PASS — 5 migrations, schema `0005`, 52 tables, 25 triggers, 133 accepted checks; PHASE 06 precision is reported by `verify_phase06.py` | 0 |
 | `python scripts/verify_phase06.py` | PASS — baseline, frozen migrations, 12 permissions, 32 commands, and three purchase transformation paths verified | 0 |
 | `npm run test:ui` | PASS — 7 tests | 0 |
 | `node --experimental-strip-types --test tests/integration/phase06-request-gate.test.ts` | PASS — 3 tests | 0 |
