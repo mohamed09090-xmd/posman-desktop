@@ -92,7 +92,7 @@ def main() -> int:
         "phase06Permissions": len(REQUIRED_PERMISSIONS),
         "typedCommands": len(REQUIRED_COMMANDS),
         "purchaseAggregateTransformation": "enforced for order-to-receipt, receipt-to-invoice, and document-to-return",
-        "pendingApplicationInvariant": "sales-side aggregate transformation only (PHASE 07)",
+        "pendingApplicationInvariant": "sales-side enforcement is supplied by PHASE 07 when that module is present",
     }
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

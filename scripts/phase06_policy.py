@@ -9,8 +9,10 @@ BASELINE='ccf2263104455681cc07ecceda2569c4f7ce0de9'
 ALLOWED=(
  'database/schema.sql','database/seed/reference_data.sql','database/tests/invariants.sql',
  'scripts/verify_schema.py','scripts/verify_phase06.py','scripts/phase06_policy.py',
+ 'scripts/verify_phase07.py','scripts/phase07_policy.py',
  'src-tauri/src/','src/','tests/','playwright.phase06.config.ts','package.json','package-lock.json',
- 'src-tauri/Cargo.toml','src-tauri/Cargo.lock','.github/workflows/','docs/architecture/','docs/PHASE-06-REPORT.md',
+ 'src-tauri/Cargo.toml','src-tauri/Cargo.lock','.github/workflows/','docs/architecture/',
+ 'docs/PHASE-06-REPORT.md','docs/PHASE-07-REPORT.md',
 )
 BANNED_SUFFIXES=('.zip','.tar','.tgz','.gz','.7z','.rar','.b64','.base64','.chunk','.chunks')
 BANNED_PARTS=('payload','transport-workflow','write-workflow','temporary-workflow')
