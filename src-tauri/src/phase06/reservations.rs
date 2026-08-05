@@ -23,7 +23,7 @@ impl Phase06Service {
                  WHERE company_id = ?1 AND status IN ('ACTIVE', 'PARTIALLY_CONSUMED')
                  ORDER BY created_at, id",
             )?;
-            Ok(statement
+            let rows = statement
                 .query_map([context.company_id], |row| {
                     Ok(ReservationView {
                         id: row.get(0)?,
@@ -36,7 +36,8 @@ impl Phase06Service {
                         row_version: row.get(7)?,
                     })
                 })?
-                .collect::<Result<Vec<_>, _>>()?)
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
         })
     }
 
