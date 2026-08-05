@@ -45,9 +45,9 @@ export function Phase06Workspace() {
     <div className="p6-layout">
       <nav className="p6-process" aria-label={copy.title}>
         <h2>{copy.inventory}</h2>
-        {inventory.map((id,index)=><button key={id} className={screen===id?"is-active":""} onClick={()=>{setFlash(undefined);setScreen(id);}}><span>{String(index+1).padStart(2,"0")}</span>{copy[id]}</button>)}
+        {inventory.map((id,index)=><button key={id} className={screen===id?"is-active":""} onClick={()=>{setFlash(undefined);setScreen(id);}}><span aria-hidden="true">{String(index+1).padStart(2,"0")}</span>{copy[id]}</button>)}
         <h2>{copy.purchasing}</h2>
-        {purchasing.map((id,index)=><button key={id} className={screen===id?"is-active":""} onClick={()=>{setFlash(undefined);setScreen(id);}}><span>{String(index+9).padStart(2,"0")}</span>{copy[id]}</button>)}
+        {purchasing.map((id,index)=><button key={id} className={screen===id?"is-active":""} onClick={()=>{setFlash(undefined);setScreen(id);}}><span aria-hidden="true">{String(index+9).padStart(2,"0")}</span>{copy[id]}</button>)}
       </nav>
       <main className="p6-canvas" data-testid={`phase06-${screen}`} aria-labelledby="p6-screen-heading">
         <header className="p6-canvas__header"><div><p>{copy.title}</p><h2 id="p6-screen-heading">{copy[screen]}</h2></div></header>
