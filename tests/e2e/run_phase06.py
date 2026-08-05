@@ -157,7 +157,7 @@ def main() -> int:
             reports.append(run_case(browser,"ar-negative-override-warning",1280,800,False,override))
             reports.append(run_case(browser,"fr-supplier-return",1280,800,True,lambda page:(select(page,"مرتجع المشتريات","Retour fournisseur",True),page.locator("[data-testid='phase06-return'] button[type='submit']").click())))
             def reconcile(page):
-                select(page,"مطابقة الأرصدة","Rapprochement des soldes",False); page.get_by_text("عدم تطابق",exact=True).wait_for(); page.get_by_role("button",name="إعادة بناء projection",exact=True).click(); page.get_by_text("OK",exact=True).wait_for()
+                select(page,"مطابقة الأرصدة","Rapprochement des soldes",False); page.locator(".p6-callout").get_by_text("عدم تطابق",exact=True).wait_for(); page.get_by_role("button",name="إعادة بناء projection",exact=True).click(); page.locator(".p6-callout").get_by_text("OK",exact=True).wait_for()
             reports.append(run_case(browser,"ar-reconciliation-rebuild",1280,800,False,reconcile))
             reports.append(run_case(browser,"ar-critical-1024x640",1024,640,False,lambda page:(select(page,"تحويل المخزون","Transfert de stock",False),page.locator("[data-testid='phase06-transfer']").wait_for())))
             reports.append(run_case(browser,"fr-critical-1024x640",1024,640,True,lambda page:(select(page,"استلام المشتريات","Réception achat",True),page.locator("[data-testid='phase06-receipt']").wait_for())))
