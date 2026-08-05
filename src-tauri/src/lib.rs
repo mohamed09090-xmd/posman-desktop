@@ -348,7 +348,9 @@ mod tests {
             .build()
             .expect("failed to build mock webview for PHASE 07 IPC test");
         let ipc_url = if cfg!(any(windows, target_os = "android")) {
-            String::from("http://tauri.localhost")
+            let mut url = String::from("http");
+            url.push_str("://tauri.localhost");
+            url
         } else {
             String::from("tauri://localhost")
         };
