@@ -10,15 +10,21 @@ on:
       - "package-lock.json"
       - "src/platform/tauri/**"
       - "src/features/runtime/**"
+      - "src/features/phase06/**"
       - "src/app/AppRoot.tsx"
       - "src/components/layout.tsx"
       - "src/i18n/dictionaries.ts"
       - "src-tauri/src/lib.rs"
+      - "src-tauri/src/phase06/**"
+      - "src-tauri/src/commands/phase06.rs"
       - "tests/integration/**"
-      - "tests/ui/i18n-fixtures.test.ts"
+      - "tests/ui/**"
       - "tests/e2e/run_ui_gallery.py"
+      - "tests/e2e/run_phase06.py"
       - "docs/architecture/frontend-runtime-integration.md"
+      - "docs/architecture/phase-06-inventory-purchasing.md"
       - "docs/PHASE-04-REPORT.md"
+      - "docs/PHASE-06-REPORT.md"
   push:
     branches:
       - "main"
@@ -30,15 +36,21 @@ on:
       - "package-lock.json"
       - "src/platform/tauri/**"
       - "src/features/runtime/**"
+      - "src/features/phase06/**"
       - "src/app/AppRoot.tsx"
       - "src/components/layout.tsx"
       - "src/i18n/dictionaries.ts"
       - "src-tauri/src/lib.rs"
+      - "src-tauri/src/phase06/**"
+      - "src-tauri/src/commands/phase06.rs"
       - "tests/integration/**"
-      - "tests/ui/i18n-fixtures.test.ts"
+      - "tests/ui/**"
       - "tests/e2e/run_ui_gallery.py"
+      - "tests/e2e/run_phase06.py"
       - "docs/architecture/frontend-runtime-integration.md"
+      - "docs/architecture/phase-06-inventory-purchasing.md"
       - "docs/PHASE-04-REPORT.md"
+      - "docs/PHASE-06-REPORT.md"
 
 concurrency:
   group: frontend-runtime-${{ github.workflow }}-${{ github.ref }}
@@ -97,8 +109,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          evidence_dir="${RUNNER_TEMP}/phase-05-integration-evidence"
-          ui_artifact_dir="${RUNNER_TEMP}/posman-phase05-ui-artifacts"
+          evidence_dir="${RUNNER_TEMP}/phase-06-compat-integration-evidence"
+          ui_artifact_dir="${RUNNER_TEMP}/phase-06-compat-ui-artifacts"
           echo "EVIDENCE_DIR=${evidence_dir}" >> "$GITHUB_ENV"
           echo "UI_ARTIFACT_DIR=${ui_artifact_dir}" >> "$GITHUB_ENV"
           mkdir -p "$evidence_dir"
@@ -138,8 +150,9 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/verify_schema.py 2>&1 | tee "$EVIDENCE_DIR/schema-verification.log"
+          python scripts/verify_phase06.py 2>&1 | tee "$EVIDENCE_DIR/phase06-verification.log"
 
-      - name: Enforce PHASE 05 ownership for triggering change
+      - name: Enforce accepted integration ownership for triggering change
         shell: python
         run: |
           import os
@@ -148,20 +161,18 @@ jobs:
           from pathlib import Path
           ownership_range = "${{ steps.ownership.outputs.range }}"
           changed = subprocess.check_output(["git", "diff", "--name-only", ownership_range], text=True).splitlines()
-          exact = {"package.json", "package-lock.json", "src/app/AppRoot.tsx", "scripts/verify_schema.py"}
+          exact = {"package.json", "package-lock.json", "src/app/AppRoot.tsx", "scripts/verify_schema.py", "scripts/verify_phase06.py", "scripts/phase06_policy.py"}
           prefixes = (
               ".github/workflows/", "database/", "src-tauri/", "src/platform/tauri/",
-              "src/features/phase05/", "src/features/runtime/", "src/i18n/", "src/styles/",
-              "tests/", "docs/architecture/phase-05", "docs/PHASE-05-REPORT.md",
+              "src/features/phase05/", "src/features/phase06/", "src/features/runtime/",
+              "src/i18n/", "src/styles/", "tests/", "docs/architecture/phase-05",
+              "docs/architecture/phase-06", "docs/PHASE-05-REPORT.md", "docs/PHASE-06-REPORT.md",
           )
           unexpected = [path for path in changed if path not in exact and not path.startswith(prefixes)]
-          Path(os.environ["EVIDENCE_DIR"], "ownership-diff.txt").write_text(
-              "\n".join(changed) + "\n",
-              encoding="utf-8",
-          )
+          Path(os.environ["EVIDENCE_DIR"], "ownership-diff.txt").write_text("\n".join(changed) + "\n", encoding="utf-8")
           print("\n".join(changed))
           if unexpected:
-              print("Unexpected PHASE 05 paths:\n" + "\n".join(unexpected), file=sys.stderr)
+              print("Unexpected integration paths:\n" + "\n".join(unexpected), file=sys.stderr)
               raise SystemExit(1)
 
       - name: Confirm no write-capable workflow remains
@@ -169,22 +180,12 @@ jobs:
         run: |
           import re
           from pathlib import Path
-
-          permission_pattern = re.compile(
-              r"^contents\s*:\s*write(?:\s*#.*)?$",
-              re.IGNORECASE,
-          )
-          workflow_paths = [
-              *Path(".github/workflows").glob("*.yml"),
-              *Path(".github/workflows").glob("*.yaml"),
-          ]
+          permission_pattern = re.compile(r"^contents\s*:\s*write(?:\s*#.*)?$", re.IGNORECASE)
+          workflow_paths = [*Path(".github/workflows").glob("*.yml"), *Path(".github/workflows").glob("*.yaml")]
           failures = [
               str(path)
               for path in workflow_paths
-              if any(
-                  permission_pattern.fullmatch(line.strip())
-                  for line in path.read_text(encoding="utf-8").splitlines()
-              )
+              if any(permission_pattern.fullmatch(line.strip()) for line in path.read_text(encoding="utf-8").splitlines())
           ]
           print("\n".join(failures))
           raise SystemExit(1 if failures else 0)
@@ -209,7 +210,7 @@ jobs:
           from pathlib import Path
           roots = [
               Path("src/app"), Path("src/components"), Path("src/i18n"),
-              Path("src/styles"), Path("src/features/runtime"), Path("src/platform/tauri"),
+              Path("src/styles"), Path("src/features/phase05"), Path("src/features/phase06"), Path("src/features/runtime"), Path("src/platform/tauri"),
           ]
           needles = ("fetch(", "XMLHttpRequest", "WebSocket(", "http://", "https://")
           failures = []
@@ -242,7 +243,7 @@ jobs:
           dist = Path("dist")
           if not dist.is_dir():
               raise SystemExit("Production dist directory is missing")
-          needles = ("__POSMAN_DEV_RUNTIME_INVOKER__", "__POSMAN_DEV_PHASE05_INVOKER__")
+          needles = ("__POSMAN_DEV_RUNTIME_INVOKER__", "__POSMAN_DEV_PHASE05_INVOKER__", "__POSMAN_DEV_PHASE06_INVOKER__")
           matches = []
           for path in dist.rglob("*"):
               if not path.is_file():
@@ -254,11 +255,7 @@ jobs:
               if any(needle in text for needle in needles):
                   matches.append(str(path))
           evidence = Path(os.environ["EVIDENCE_DIR"], "production-hook-scan.txt")
-          evidence.write_text(
-              "DEV runtime hooks absent from production bundle.\n"
-              if not matches else "\n".join(matches) + "\n",
-              encoding="utf-8",
-          )
+          evidence.write_text("DEV runtime hooks absent from production bundle.\n" if not matches else "\n".join(matches) + "\n", encoding="utf-8")
           print(evidence.read_text(encoding="utf-8"), end="")
           raise SystemExit(1 if matches else 0)
 
@@ -271,7 +268,7 @@ jobs:
 
       - name: Run Playwright browser, accessibility, and screenshot evidence
         env:
-          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/posman-phase05-ui-artifacts
+          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/phase-06-compat-ui-artifacts
         shell: bash
         run: |
           set -euo pipefail
@@ -286,7 +283,7 @@ jobs:
           cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture 2>&1 | tee "$EVIDENCE_DIR/rust-tests.log"
           npm run desktop:check 2>&1 | tee "$EVIDENCE_DIR/desktop-check.log"
 
-      - name: Check Phase 04 patch and worktree
+      - name: Check compatibility patch and worktree
         shell: bash
         run: |
           set -euo pipefail
@@ -296,13 +293,13 @@ jobs:
           printf '%s\n' "$status" | tee "$EVIDENCE_DIR/worktree-status.txt"
           [[ -z "$status" ]]
 
-      - name: Upload Phase 04 integration evidence
+      - name: Upload compatibility integration evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase-05-integration-evidence
+          name: phase-06-compat-integration-evidence
           path: |
-            ${{ runner.temp }}/phase-05-integration-evidence
-            ${{ runner.temp }}/posman-phase05-ui-artifacts
+            ${{ runner.temp }}/phase-06-compat-integration-evidence
+            ${{ runner.temp }}/phase-06-compat-ui-artifacts
           if-no-files-found: error
           retention-days: 30

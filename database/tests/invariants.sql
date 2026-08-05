@@ -102,7 +102,7 @@ FROM roles
 WHERE company_id IS NULL AND is_system = 1;
 
 INSERT INTO invariant_assertions
-SELECT 'safe permissions seeded', COUNT(*) = 23
+SELECT 'safe permissions seeded', COUNT(*) = 28
 FROM permissions;
 
 INSERT INTO invariant_assertions
