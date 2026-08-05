@@ -3,6 +3,7 @@ mod commands;
 mod error;
 mod infrastructure;
 mod phase05;
+mod phase06;
 
 use std::{error::Error, path::PathBuf};
 
@@ -10,6 +11,7 @@ pub use application::RuntimeStatus;
 use error::RuntimeError;
 use infrastructure::{database::RuntimeDatabase, paths::RuntimePaths};
 use phase05::Phase05Service;
+use phase06::Phase06Service;
 use tauri::{Manager, Runtime};
 
 #[derive(Clone)]
@@ -64,11 +66,16 @@ fn configure_application<R: Runtime>(
             let runtime = RuntimeService::initialize(root).map_err(boxed_runtime_error)?;
             let phase05 = Phase05Service::new(runtime.database.path())
                 .map_err(|_| "POSMAN PHASE 05 service could not initialize")?;
+            let phase06 = Phase06Service::new(phase05.clone())
+                .map_err(|_| "POSMAN PHASE 06 service could not initialize")?;
             if !app.manage(runtime) {
                 return Err("POSMAN runtime state was already managed".into());
             }
             if !app.manage(phase05) {
                 return Err("POSMAN PHASE 05 state was already managed".into());
+            }
+            if !app.manage(phase06) {
+                return Err("POSMAN PHASE 06 state was already managed".into());
             }
             Ok(())
         })
@@ -142,7 +149,39 @@ fn configure_application<R: Runtime>(
             commands::phase05::update_product_family,
             commands::phase05::set_product_family_active,
             commands::phase05::list_partner_addresses,
-            commands::phase05::list_partner_contacts
+            commands::phase05::list_partner_contacts,
+            commands::phase06::list_stock_balances,
+            commands::phase06::list_stock_movements,
+            commands::phase06::create_opening_stock,
+            commands::phase06::review_opening_stock,
+            commands::phase06::post_opening_stock,
+            commands::phase06::post_stock_adjustment,
+            commands::phase06::post_stock_transfer,
+            commands::phase06::create_inventory_count,
+            commands::phase06::update_inventory_count,
+            commands::phase06::review_inventory_count,
+            commands::phase06::post_inventory_count,
+            commands::phase06::get_inventory_count,
+            commands::phase06::create_stock_reservation,
+            commands::phase06::release_stock_reservation,
+            commands::phase06::consume_stock_reservation,
+            commands::phase06::cancel_stock_reservation,
+            commands::phase06::list_active_stock_reservations,
+            commands::phase06::reconcile_stock_balances,
+            commands::phase06::rebuild_stock_balances,
+            commands::phase06::create_purchase_order,
+            commands::phase06::update_purchase_order,
+            commands::phase06::confirm_purchase_order,
+            commands::phase06::cancel_purchase_order,
+            commands::phase06::hold_purchase_order,
+            commands::phase06::create_purchase_receipt,
+            commands::phase06::post_purchase_receipt,
+            commands::phase06::create_purchase_invoice,
+            commands::phase06::post_purchase_invoice,
+            commands::phase06::direct_receive_and_invoice,
+            commands::phase06::post_purchase_return,
+            commands::phase06::list_purchasing_documents,
+            commands::phase06::get_purchasing_document
         ])
 }
 
@@ -240,6 +279,37 @@ mod tests {
             .expect("failed to count mock runtime migrations");
         assert_eq!(migration_count, 5);
         assert!(contract.foreign_keys_enabled);
+    }
+
+    #[test]
+    fn phase06_command_executes_through_tauri_ipc_and_requires_session() {
+        let directory = TestDirectory::new();
+        let mut application = build_test_application(&directory);
+        execute_setup_once(&mut application);
+
+        let webview = tauri::WebviewWindowBuilder::new(&application, "phase06", Default::default())
+            .build()
+            .expect("failed to build mock webview for PHASE 06 IPC test");
+        let ipc_url = if cfg!(any(windows, target_os = "android")) {
+            "http://tauri.localhost"
+        } else {
+            "tauri://localhost"
+        };
+        let response = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "list_stock_balances".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: ipc_url.parse().expect("local Tauri IPC URL should parse"),
+                body: tauri::ipc::InvokeBody::Json(serde_json::json!({
+                    "request": {"limit": 10}
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+        assert!(response.is_err(), "PHASE 06 IPC must reject an unauthenticated caller");
     }
 
     #[test]
