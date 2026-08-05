@@ -28,12 +28,7 @@ impl Phase06Service {
                 &request.idempotency_key,
                 &hash,
             )? {
-                return entity_result(
-                    transaction,
-                    &context.company_id,
-                    &document_id,
-                    true,
-                );
+                return entity_result(transaction, &context.company_id, &document_id, true);
             }
 
             let document_key =
@@ -99,9 +94,7 @@ impl Phase06Service {
                 )?;
                 let cost = if signed_quantity > 0 {
                     explicit_cost
-                        .or_else(|| {
-                            (current.average_cost > 0).then_some(current.average_cost)
-                        })
+                        .or_else(|| (current.average_cost > 0).then_some(current.average_cost))
                         .ok_or_else(|| Phase06Error::invalid("unitCostScaled"))?
                 } else {
                     current.average_cost
@@ -121,10 +114,7 @@ impl Phase06Service {
                         quantity_delta: signed_quantity,
                         inbound_cost: Some(cost),
                         recalculate_average: signed_quantity > 0,
-                        posting_event_key: &format!(
-                            "adjustment:{document_id}:{}",
-                            index + 1
-                        ),
+                        posting_event_key: &format!("adjustment:{document_id}:{}", index + 1),
                         transfer_group_id: None,
                         notes: Some(&request.payload.reason),
                         allow_negative,
