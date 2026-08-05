@@ -148,10 +148,7 @@ impl Phase06Service {
                         quantity_delta: -line.quantity_scaled,
                         inbound_cost: None,
                         recalculate_average: false,
-                        posting_event_key: &format!(
-                            "purchase-return:{document_id}:{}",
-                            index + 1
-                        ),
+                        posting_event_key: &format!("purchase-return:{document_id}:{}", index + 1),
                         transfer_group_id: None,
                         notes: Some(&request.payload.reason),
                         allow_negative,
