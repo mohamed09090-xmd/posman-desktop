@@ -24,7 +24,7 @@ impl Phase06Service {
 
         self.immediate(|transaction| {
             authorize_transaction(transaction, &context, "stock.count")?;
-            super::document_core::validate_business_date(&request.commercial_date)?;
+            super::validate_business_date(&request.commercial_date)?;
             super::projections::validate_warehouse_scope(
                 transaction,
                 &context.company_id,
@@ -447,7 +447,7 @@ fn load_count_posting_lines(
          WHERE inventory_count_id = ?1 AND company_id = ?2
          ORDER BY id",
     )?;
-    Ok(statement
+    let rows = statement
         .query_map(params![count_id, company_id], |row| {
             Ok(CountPostingLine {
                 product_id: row.get(0)?,
@@ -457,7 +457,8 @@ fn load_count_posting_lines(
                 explicit_cost: row.get(4)?,
             })
         })?
-        .collect::<Result<Vec<_>, _>>()?)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
 }
 
 fn load_count(connection: &Connection, company_id: &str, id: &str) -> Phase06Result<CountView> {
