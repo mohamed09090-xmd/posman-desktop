@@ -50,8 +50,8 @@ fn fixture() -> Connection {
         )
         .unwrap();
     connection.execute(
-        "INSERT INTO fiscal_years (id,company_id,code,name,starts_on,ends_on,status,created_at,updated_at)
-         VALUES ('fy-1','company-1','2026','2026','2026-01-01','2026-12-31','OPEN',?1,?1)",
+        "INSERT INTO fiscal_years (id,company_id,code,starts_on,ends_on,status,created_at,updated_at)
+         VALUES ('fy-1','company-1','2026','2026-01-01','2026-12-31','OPEN',?1,?1)",
         [NOW],
     ).unwrap();
     connection.execute(
