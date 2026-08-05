@@ -19,6 +19,7 @@ pub(crate) struct BalanceState {
 }
 
 impl BalanceState {
+    #[cfg(test)]
     pub fn available(&self) -> Phase06Result<i64> {
         self.on_hand
             .checked_sub(self.reserved)
