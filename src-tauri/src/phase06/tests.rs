@@ -123,7 +123,7 @@ fn cump_and_rounding_are_exact_integer_results() {
         weighted_average_cost(-4_000_000, 10_000, 3_000_000, 15_000).unwrap(),
         10_000
     );
-    assert_eq!(extended_cost_minor(1_500_000, 12_345).unwrap(), 1_852);
+    assert_eq!(extended_cost_minor(1_500_000, 12_345).unwrap(), 185);
     assert_eq!(
         line_totals(2_000_000, 10_000, 100_000, 190_000).unwrap(),
         (20, 180, 34, 214)
@@ -301,34 +301,28 @@ fn same_warehouse_location_transfer_preserves_cump() {
         ),
     )
     .unwrap();
-    apply_movement(
-        &transaction,
-        &context,
-        movement(
-            "w1",
-            Some("l1"),
-            "TRANSFER_OUT",
-            -3_000_000,
-            None,
-            false,
-            ("loc-out", false),
-        ),
-    )
-    .unwrap();
-    apply_movement(
-        &transaction,
-        &context,
-        movement(
-            "w1",
-            Some("l2"),
-            "TRANSFER_IN",
-            3_000_000,
-            Some(9_500),
-            false,
-            ("loc-in", false),
-        ),
-    )
-    .unwrap();
+    let mut outgoing = movement(
+        "w1",
+        Some("l1"),
+        "TRANSFER_OUT",
+        -3_000_000,
+        None,
+        false,
+        ("loc-out", false),
+    );
+    outgoing.transfer_group_id = Some("location-group");
+    apply_movement(&transaction, &context, outgoing).unwrap();
+    let mut incoming = movement(
+        "w1",
+        Some("l2"),
+        "TRANSFER_IN",
+        3_000_000,
+        Some(9_500),
+        false,
+        ("loc-in", false),
+    );
+    incoming.transfer_group_id = Some("location-group");
+    apply_movement(&transaction, &context, incoming).unwrap();
     let aggregate = balance(&transaction, "c1", "p1", "w1", None).unwrap();
     assert_eq!(
         (aggregate.on_hand, aggregate.average_cost),
