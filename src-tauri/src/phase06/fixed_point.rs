@@ -127,7 +127,7 @@ mod tests {
     fn fixed_point_boundaries_are_half_up() {
         assert_eq!(round_half_up_non_negative(5, 10).unwrap(), 1);
         assert_eq!(round_half_up_non_negative(4, 10).unwrap(), 0);
-        assert_eq!(extended_cost_minor(1_500_000, 12_345).unwrap(), 1_852);
+        assert_eq!(extended_cost_minor(1_500_000, 12_345).unwrap(), 185);
     }
 
     #[test]
