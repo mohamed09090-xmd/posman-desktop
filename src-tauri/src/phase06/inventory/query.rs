@@ -1,10 +1,7 @@
 use super::*;
 
 impl Phase06Service {
-    pub fn list_stock_balances(
-        &self,
-        query: StockQuery,
-    ) -> Phase06Result<Vec<StockBalanceView>> {
+    pub fn list_stock_balances(&self, query: StockQuery) -> Phase06Result<Vec<StockBalanceView>> {
         let context = self.context(Some("stock.read"))?;
         self.read(|connection| {
             let mut statement = connection.prepare(
@@ -112,10 +109,7 @@ impl Phase06Service {
         })
     }
 
-    pub fn list_stock_movements(
-        &self,
-        query: StockQuery,
-    ) -> Phase06Result<Vec<MovementView>> {
+    pub fn list_stock_movements(&self, query: StockQuery) -> Phase06Result<Vec<MovementView>> {
         let context = self.context(Some("stock.read"))?;
         self.read(|connection| {
             let mut statement = connection.prepare(
