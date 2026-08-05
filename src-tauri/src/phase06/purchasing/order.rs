@@ -114,7 +114,12 @@ impl Phase06Service {
                 &request.document_id,
                 None,
             )?;
-            entity_result(transaction, &context.company_id, &request.document_id, false)
+            entity_result(
+                transaction,
+                &context.company_id,
+                &request.document_id,
+                false,
+            )
         })
     }
 
