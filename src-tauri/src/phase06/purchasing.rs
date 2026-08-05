@@ -12,6 +12,7 @@ use super::{
     entity_result,
     error::{Phase06Error, Phase06Result},
     finish_idempotency, get_document_connection, insert_document, insert_purchase_line, new_id,
+    PurchaseLineOptions,
     now_iso,
     projections::{apply_movement, balance, MovementSpec},
     request_hash, update_document_totals, IdempotencyStart, Phase06Service,
