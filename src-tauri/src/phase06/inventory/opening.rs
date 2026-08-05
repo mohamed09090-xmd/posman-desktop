@@ -1,3 +1,6 @@
+use super::*;
+
+impl Phase06Service {
     pub fn create_opening_stock(
         &self,
         request: OpeningDraftRequest,
@@ -268,3 +271,4 @@
             )
         })
     }
+}
