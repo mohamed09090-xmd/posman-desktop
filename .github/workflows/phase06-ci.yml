@@ -228,6 +228,16 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/phase-06-integration"
           git diff --check
+          if git diff --quiet --no-ext-diff \
+            && git diff --cached --quiet --no-ext-diff \
+            && test -z "$(git ls-files --others --exclude-standard)"; then
+            git restore --worktree --source=HEAD -- .
+          else
+            git diff --no-ext-diff
+            git diff --cached --no-ext-diff
+            git ls-files --others --exclude-standard
+            exit 1
+          fi
           test -z "$(git status --short --untracked-files=all)"
 
   policy:
