@@ -16,10 +16,8 @@ impl Phase06Service {
         {
             return Err(Phase06Error::invalid("lines"));
         }
-        if request.payload.source_warehouse_id
-            == request.payload.destination_warehouse_id
-            && request.payload.source_location_id
-                == request.payload.destination_location_id
+        if request.payload.source_warehouse_id == request.payload.destination_warehouse_id
+            && request.payload.source_location_id == request.payload.destination_location_id
         {
             return Err(Phase06Error::invalid("destination"));
         }
@@ -40,12 +38,7 @@ impl Phase06Service {
                 &request.idempotency_key,
                 &hash,
             )? {
-                return entity_result(
-                    transaction,
-                    &context.company_id,
-                    &document_id,
-                    true,
-                );
+                return entity_result(transaction, &context.company_id, &document_id, true);
             }
 
             let transfer_group_id = new_id();
@@ -112,9 +105,7 @@ impl Phase06Service {
                 .collect::<Result<Vec<_>, _>>()?;
             drop(statement);
 
-            for (index, (line_id, product_id, quantity)) in
-                lines.into_iter().enumerate()
-            {
+            for (index, (line_id, product_id, quantity)) in lines.into_iter().enumerate() {
                 let source_balance = balance(
                     transaction,
                     &context.company_id,
@@ -137,27 +128,21 @@ impl Phase06Service {
                         quantity_delta: -quantity,
                         inbound_cost: None,
                         recalculate_average: false,
-                        posting_event_key: &format!(
-                            "transfer:{document_id}:{}:out",
-                            index + 1
-                        ),
+                        posting_event_key: &format!("transfer:{document_id}:{}:out", index + 1),
                         transfer_group_id: Some(&transfer_group_id),
                         notes: request.payload.reason.as_deref(),
                         allow_negative,
                     },
                 )?;
-                let cross_warehouse = request.payload.source_warehouse_id
-                    != request.payload.destination_warehouse_id;
+                let cross_warehouse =
+                    request.payload.source_warehouse_id != request.payload.destination_warehouse_id;
                 apply_movement(
                     transaction,
                     &context,
                     MovementSpec {
                         product_id: &product_id,
                         warehouse_id: &request.payload.destination_warehouse_id,
-                        location_id: request
-                            .payload
-                            .destination_location_id
-                            .as_deref(),
+                        location_id: request.payload.destination_location_id.as_deref(),
                         source_document_id: Some(&document_id),
                         source_line_id: Some(&line_id),
                         movement_type: "TRANSFER_IN",
@@ -165,10 +150,7 @@ impl Phase06Service {
                         quantity_delta: quantity,
                         inbound_cost: Some(carry_cost),
                         recalculate_average: cross_warehouse,
-                        posting_event_key: &format!(
-                            "transfer:{document_id}:{}:in",
-                            index + 1
-                        ),
+                        posting_event_key: &format!("transfer:{document_id}:{}:in", index + 1),
                         transfer_group_id: Some(&transfer_group_id),
                         notes: request.payload.reason.as_deref(),
                         allow_negative: false,
