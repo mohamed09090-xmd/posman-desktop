@@ -8,7 +8,7 @@ pub struct Phase06Error {
     pub code: String,
     pub message: String,
     #[serde(skip)]
-    pub(crate) accounting_failure: Option<crate::phase08::integration::FailedPostingAttempt>,
+    pub(crate) accounting_failure: Option<Box<crate::phase08::integration::FailedPostingAttempt>>,
 }
 
 impl Phase06Error {
@@ -24,7 +24,7 @@ impl Phase06Error {
         mut self,
         failure: crate::phase08::integration::FailedPostingAttempt,
     ) -> Self {
-        self.accounting_failure = Some(failure);
+        self.accounting_failure = Some(Box::new(failure));
         self
     }
 
