@@ -223,7 +223,9 @@ def main() -> int:
                 section(page, 3)
                 page.get_by_text("SALES_INVOICE", exact=True).wait_for()
                 page.get_by_text("invoice-7", exact=True).wait_for()
-                page.get_by_text("1190,00", exact=False).first.wait_for()
+                entry_text = page.locator(".p8-entry").first.inner_text().replace("\u202f", "").replace(" ", "")
+                if "1190,00" not in entry_text:
+                    raise AssertionError(f"localized sales amount missing: {entry_text}")
 
             reports.append(run_case(browser, "fr-sales-source-journal-trace-1280x800", 1280, 800, True, sales_trace))
 
@@ -257,10 +259,12 @@ def main() -> int:
                 allocation.locator("input[name='payment']").fill("pay-customer-1")
                 allocation.locator("input[name='amount']").fill("200")
                 allocation.locator("button[type='submit']").click()
-                page.get_by_text("400,00", exact=False).wait_for()
+                page.wait_for_function("() => window.__POSMAN_PHASE08_ALLOCATION_COUNT__ === 1")
+                page.get_by_role("status").filter(has_text="اكتملت").wait_for()
                 allocation.locator("input[name='amount']").fill("400")
                 allocation.locator("button[type='submit']").click()
-                page.get_by_text("0,00", exact=False).wait_for()
+                page.wait_for_function("() => window.__POSMAN_PHASE08_ALLOCATION_COUNT__ === 2")
+                page.get_by_role("status").filter(has_text="اكتملت").wait_for()
 
             reports.append(run_case(browser, "ar-customer-payment-partial-full-allocation-1024x640", 1024, 640, False, customer_partial_full))
 
