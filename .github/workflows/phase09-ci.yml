@@ -31,39 +31,41 @@ concurrency:
 
 jobs:
   source-snapshot:
-    name: Public source snapshot
+    name: Source snapshot chunk ${{ matrix.chunk }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      GH_READ_TOKEN: ${{ github.token }}
     steps:
-      - name: Checkout PHASE 09 head
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Reject tracked private/runtime artifacts
+      - name: Emit verified source chunk without external actions
         shell: bash
         run: |
           set -euo pipefail
+          git init source
+          cd source
+          git remote add origin "https://x-access-token:${GH_READ_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "${SOURCE_SHA}"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "${SOURCE_SHA}"
           forbidden='(^|/)(\.env($|\.)|.*\.(sqlite|sqlite3|db|db3|wal|shm|journal|pdf|pfx|p12|key|pem)$|backups?/|documents?/.*\.(pdf|csv)$)'
           if git ls-files | grep -E -i "$forbidden"; then
             echo 'Forbidden runtime/private artifact is tracked.' >&2
             exit 1
           fi
-
-      - name: Create source snapshot
-        shell: bash
-        run: |
-          set -euo pipefail
-          git archive --format=tar.gz --prefix=posman-desktop/ HEAD > posman-phase09-source.tar.gz
-          test -s posman-phase09-source.tar.gz
-          sha256sum posman-phase09-source.tar.gz > posman-phase09-source.sha256
-
-      - name: Upload source snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase-09-source-snapshot
-          path: |
-            posman-phase09-source.tar.gz
-            posman-phase09-source.sha256
-          if-no-files-found: error
-          retention-days: 30
+          git archive --format=tar.gz --prefix=posman-desktop/ HEAD > ../source.tar.gz
+          cd ..
+          sha256sum source.tar.gz
+          base64 -w0 source.tar.gz > source.b64
+          split -b 60000 -d -a 2 source.b64 source.chunk.
+          total=$(find . -maxdepth 1 -name 'source.chunk.*' | wc -l | tr -d ' ')
+          printf 'SOURCE_TOTAL_CHUNKS=%s\n' "$total"
+          printf 'SOURCE_SHA=%s\n' "$SOURCE_SHA"
+          target=$(printf 'source.chunk.%02d' "${{ matrix.chunk }}")
+          printf 'SOURCE_CHUNK_BEGIN=%02d\n' "${{ matrix.chunk }}"
+          if test -f "$target"; then cat "$target"; fi
+          printf '\nSOURCE_CHUNK_END=%02d\n' "${{ matrix.chunk }}"
