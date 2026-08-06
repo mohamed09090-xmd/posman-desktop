@@ -1,12 +1,6 @@
 name: PHASE 09 temporary recovery bootstrap
 
 on:
-  push:
-    branches:
-      - phase/09-documents-reports-audit-backup
-    paths:
-      - '.github/workflows/phase09-source-bootstrap.yml'
-      - '.phase09-bootstrap/**'
   pull_request:
     branches:
       - main
@@ -43,18 +37,14 @@ jobs:
         run: |
           set -euo pipefail
           cd source
-          mapfile -t archives < <(find .phase09-bootstrap -maxdepth 1 -type f -name '*.tar.gz' 2>/dev/null | sort)
-          if [[ ${#archives[@]} -eq 0 ]]; then
-            echo "No checkpoint archive present; nothing to apply."
+          mapfile -t parts < <(find .phase09-bootstrap -maxdepth 1 -type f -name '*.b64.part-*' 2>/dev/null | sort)
+          if [[ ${#parts[@]} -eq 0 ]]; then
+            echo "No checkpoint parts present; nothing to apply."
             exit 0
           fi
-          if [[ ${#archives[@]} -ne 1 ]]; then
-            echo "Expected exactly one checkpoint archive, found ${#archives[@]}." >&2
-            exit 1
-          fi
-          archive="${archives[0]}"
           work="$(mktemp -d)"
-          tar --extract --gzip --file "$archive" --directory "$work" --no-same-owner
+          cat "${parts[@]}" | base64 --decode > "$work/checkpoint.tar.gz"
+          tar --extract --gzip --file "$work/checkpoint.tar.gz" --directory "$work" --no-same-owner
           test -d "$work/files"
           test -f "$work/manifest/message.txt"
           message="$(cat "$work/manifest/message.txt")"
