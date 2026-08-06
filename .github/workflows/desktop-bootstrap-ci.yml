@@ -338,3 +338,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: worktree-diagnostics-${{ runner.os }}
+          path: ${{ runner.temp }}/worktree-diagnostics.txt
+          if-no-files-found: error
+          retention-days: 3
