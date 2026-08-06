@@ -17,7 +17,7 @@ mod users;
 
 pub use state::Phase05Service;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Phase06AuthContext {
     pub company_id: String,
     pub user_id: String,

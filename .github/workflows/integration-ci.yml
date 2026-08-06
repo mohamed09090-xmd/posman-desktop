@@ -6,31 +6,46 @@ on:
       - ".github/workflows/integration-ci.yml"
       - ".github/workflows/ui-ci.yml"
       - ".github/workflows/runtime-ci.yml"
+      - ".github/workflows/phase08-ci.yml"
+      - "database/migrations/0006_*.sql"
+      - "database/schema.sql"
+      - "database/tests/invariants.sql"
       - "package.json"
       - "package-lock.json"
       - "src/platform/tauri/**"
       - "src/features/runtime/**"
       - "src/features/phase06/**"
       - "src/features/phase07/**"
+      - "src/features/phase08/**"
       - "src/app/AppRoot.tsx"
       - "src/components/layout.tsx"
       - "src/i18n/dictionaries.ts"
       - "src-tauri/src/lib.rs"
       - "src-tauri/src/phase06/**"
       - "src-tauri/src/phase07/**"
+      - "src-tauri/src/phase08/**"
       - "src-tauri/src/commands/phase06.rs"
       - "src-tauri/src/commands/phase07.rs"
+      - "src-tauri/src/commands/phase08.rs"
+      - "scripts/verify_schema.py"
+      - "scripts/verify_phase06.py"
+      - "scripts/verify_phase07.py"
+      - "scripts/verify_phase08.py"
+      - "scripts/phase08_policy.py"
       - "tests/integration/**"
       - "tests/ui/**"
       - "tests/e2e/run_ui_gallery.py"
       - "tests/e2e/run_phase06.py"
       - "tests/e2e/run_phase07.py"
+      - "tests/e2e/run_phase08.py"
       - "docs/architecture/frontend-runtime-integration.md"
       - "docs/architecture/phase-06-inventory-purchasing.md"
       - "docs/architecture/phase-07-sales-cycle.md"
+      - "docs/architecture/phase-08-accounting-payments.md"
       - "docs/PHASE-04-REPORT.md"
       - "docs/PHASE-06-REPORT.md"
       - "docs/PHASE-07-REPORT.md"
+      - "docs/PHASE-08-REPORT.md"
   push:
     branches:
       - "main"
@@ -38,31 +53,46 @@ on:
       - ".github/workflows/integration-ci.yml"
       - ".github/workflows/ui-ci.yml"
       - ".github/workflows/runtime-ci.yml"
+      - ".github/workflows/phase08-ci.yml"
+      - "database/migrations/0006_*.sql"
+      - "database/schema.sql"
+      - "database/tests/invariants.sql"
       - "package.json"
       - "package-lock.json"
       - "src/platform/tauri/**"
       - "src/features/runtime/**"
       - "src/features/phase06/**"
       - "src/features/phase07/**"
+      - "src/features/phase08/**"
       - "src/app/AppRoot.tsx"
       - "src/components/layout.tsx"
       - "src/i18n/dictionaries.ts"
       - "src-tauri/src/lib.rs"
       - "src-tauri/src/phase06/**"
       - "src-tauri/src/phase07/**"
+      - "src-tauri/src/phase08/**"
       - "src-tauri/src/commands/phase06.rs"
       - "src-tauri/src/commands/phase07.rs"
+      - "src-tauri/src/commands/phase08.rs"
+      - "scripts/verify_schema.py"
+      - "scripts/verify_phase06.py"
+      - "scripts/verify_phase07.py"
+      - "scripts/verify_phase08.py"
+      - "scripts/phase08_policy.py"
       - "tests/integration/**"
       - "tests/ui/**"
       - "tests/e2e/run_ui_gallery.py"
       - "tests/e2e/run_phase06.py"
       - "tests/e2e/run_phase07.py"
+      - "tests/e2e/run_phase08.py"
       - "docs/architecture/frontend-runtime-integration.md"
       - "docs/architecture/phase-06-inventory-purchasing.md"
       - "docs/architecture/phase-07-sales-cycle.md"
+      - "docs/architecture/phase-08-accounting-payments.md"
       - "docs/PHASE-04-REPORT.md"
       - "docs/PHASE-06-REPORT.md"
       - "docs/PHASE-07-REPORT.md"
+      - "docs/PHASE-08-REPORT.md"
 
 concurrency:
   group: frontend-runtime-${{ github.workflow }}-${{ github.ref }}
@@ -121,8 +151,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          evidence_dir="${RUNNER_TEMP}/phase-06-compat-integration-evidence"
-          ui_artifact_dir="${RUNNER_TEMP}/phase-06-compat-ui-artifacts"
+          evidence_dir="${RUNNER_TEMP}/phase-08-compat-integration-evidence"
+          ui_artifact_dir="${RUNNER_TEMP}/phase-08-compat-ui-artifacts"
           echo "EVIDENCE_DIR=${evidence_dir}" >> "$GITHUB_ENV"
           echo "UI_ARTIFACT_DIR=${ui_artifact_dir}" >> "$GITHUB_ENV"
           mkdir -p "$evidence_dir"
@@ -164,6 +194,8 @@ jobs:
           python scripts/verify_schema.py 2>&1 | tee "$EVIDENCE_DIR/schema-verification.log"
           python scripts/verify_phase06.py 2>&1 | tee "$EVIDENCE_DIR/phase06-verification.log"
           python scripts/verify_phase07.py 2>&1 | tee "$EVIDENCE_DIR/phase07-verification.log"
+          python scripts/verify_phase08.py 2>&1 | tee "$EVIDENCE_DIR/phase08-verification.log"
+          python scripts/phase08_policy.py 2>&1 | tee "$EVIDENCE_DIR/phase08-policy.log"
 
       - name: Enforce accepted integration ownership for triggering change
         shell: python
@@ -174,12 +206,12 @@ jobs:
           from pathlib import Path
           ownership_range = "${{ steps.ownership.outputs.range }}"
           changed = subprocess.check_output(["git", "diff", "--name-only", ownership_range], text=True).splitlines()
-          exact = {"package.json", "package-lock.json", "src/app/AppRoot.tsx", "scripts/verify_schema.py", "scripts/verify_phase06.py", "scripts/phase06_policy.py", "scripts/verify_phase07.py", "scripts/phase07_policy.py"}
+          exact = {"package.json", "package-lock.json", "src/app/AppRoot.tsx", "scripts/verify_schema.py", "scripts/verify_phase06.py", "scripts/phase06_policy.py", "scripts/verify_phase07.py", "scripts/phase07_policy.py", "scripts/verify_phase08.py", "scripts/phase08_policy.py"}
           prefixes = (
               ".github/workflows/", "database/", "src-tauri/", "src/platform/tauri/",
-              "src/features/phase05/", "src/features/phase06/", "src/features/phase07/", "src/features/runtime/",
+              "src/features/phase05/", "src/features/phase06/", "src/features/phase07/", "src/features/phase08/", "src/features/runtime/",
               "src/i18n/", "src/styles/", "tests/", "docs/architecture/phase-05",
-              "docs/architecture/phase-06", "docs/architecture/phase-07", "docs/PHASE-05-REPORT.md", "docs/PHASE-06-REPORT.md", "docs/PHASE-07-REPORT.md",
+              "docs/architecture/phase-06", "docs/architecture/phase-07", "docs/architecture/phase-08", "docs/PHASE-05-REPORT.md", "docs/PHASE-06-REPORT.md", "docs/PHASE-07-REPORT.md", "docs/PHASE-08-REPORT.md",
           )
           unexpected = [path for path in changed if path not in exact and not path.startswith(prefixes)]
           Path(os.environ["EVIDENCE_DIR"], "ownership-diff.txt").write_text("\n".join(changed) + "\n", encoding="utf-8")
@@ -223,7 +255,7 @@ jobs:
           from pathlib import Path
           roots = [
               Path("src/app"), Path("src/components"), Path("src/i18n"),
-              Path("src/styles"), Path("src/features/phase05"), Path("src/features/phase06"), Path("src/features/phase07"), Path("src/features/runtime"), Path("src/platform/tauri"),
+              Path("src/styles"), Path("src/features/phase05"), Path("src/features/phase06"), Path("src/features/phase07"), Path("src/features/phase08"), Path("src/features/runtime"), Path("src/platform/tauri"),
           ]
           needles = ("fetch(", "XMLHttpRequest", "WebSocket(", "http://", "https://")
           failures = []
@@ -256,7 +288,7 @@ jobs:
           dist = Path("dist")
           if not dist.is_dir():
               raise SystemExit("Production dist directory is missing")
-          needles = ("__POSMAN_DEV_RUNTIME_INVOKER__", "__POSMAN_DEV_PHASE05_INVOKER__", "__POSMAN_DEV_PHASE06_INVOKER__", "__POSMAN_DEV_PHASE07_INVOKER__")
+          needles = ("__POSMAN_DEV_RUNTIME_INVOKER__", "__POSMAN_DEV_PHASE05_INVOKER__", "__POSMAN_DEV_PHASE06_INVOKER__", "__POSMAN_DEV_PHASE07_INVOKER__", "__POSMAN_DEV_PHASE08_INVOKER__")
           matches = []
           for path in dist.rglob("*"):
               if not path.is_file():
@@ -281,7 +313,7 @@ jobs:
 
       - name: Run Playwright browser, accessibility, and screenshot evidence
         env:
-          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/phase-06-compat-ui-artifacts
+          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/phase-08-compat-ui-artifacts
         shell: bash
         run: |
           set -euo pipefail
@@ -310,9 +342,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase-06-compat-integration-evidence
+          name: phase-08-compat-integration-evidence
           path: |
-            ${{ runner.temp }}/phase-06-compat-integration-evidence
-            ${{ runner.temp }}/phase-06-compat-ui-artifacts
+            ${{ runner.temp }}/phase-08-compat-integration-evidence
+            ${{ runner.temp }}/phase-08-compat-ui-artifacts
           if-no-files-found: error
           retention-days: 30

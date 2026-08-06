@@ -89,14 +89,14 @@ fn fresh_database_creates_directories_schema_seed_and_connection_contract() {
             &connection,
             "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
         ),
-        52
+        57
     );
     assert_eq!(
         scalar_i64(
             &connection,
             "SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger'"
         ),
-        25
+        47
     );
     assert_eq!(
         scalar_i64(
@@ -111,7 +111,7 @@ fn fresh_database_creates_directories_schema_seed_and_connection_contract() {
     );
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
-        5
+        6
     );
     assert_eq!(scalar_i64(&connection, "PRAGMA foreign_keys"), 1);
     assert_eq!(scalar_i64(&connection, "PRAGMA busy_timeout"), 5_000);
@@ -128,8 +128,8 @@ fn fresh_database_creates_directories_schema_seed_and_connection_contract() {
     assert!(!foreign_key_violations);
 
     let status = runtime.status();
-    assert_eq!(status.schema_version, "0005");
-    assert_eq!(status.migration_count, 5);
+    assert_eq!(status.schema_version, "0006");
+    assert_eq!(status.migration_count, 6);
     assert!(status.database_ready);
     assert!(status.foreign_keys_enabled);
     assert_eq!(status.journal_mode, contract.journal_mode);
@@ -196,7 +196,7 @@ fn checksum_mismatch_is_fatal_and_names_the_version() {
     );
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
-        5
+        6
     );
 }
 
@@ -207,7 +207,7 @@ fn unknown_newer_schema_is_rejected_without_reset_or_downgrade() {
         .expect("runtime connection should open for fixture mutation");
     connection
         .execute(
-            "INSERT INTO app_migrations (id, version, name, checksum_sha256, applied_at)\n             VALUES (6, '0006', 'future_schema', ?1, '2026-07-29T00:00:00Z')",
+            "INSERT INTO app_migrations (id, version, name, checksum_sha256, applied_at)\n             VALUES (7, '0007', 'future_schema', ?1, '2026-07-29T00:00:00Z')",
             ["f".repeat(64)],
         )
         .expect("failed to add the future ledger row");
@@ -222,14 +222,14 @@ fn unknown_newer_schema_is_rejected_without_reset_or_downgrade() {
         RuntimeError::UnsupportedSchema {
             found_version,
             supported_version
-        } if found_version == "0006" && supported_version == "0005"
+        } if found_version == "0007" && supported_version == "0006"
     ));
 
     let (connection, _) = open_configured_connection(&paths.database)
         .expect("future-schema fixture should not be reset");
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
-        6
+        7
     );
 }
 
@@ -257,7 +257,7 @@ fn ledger_gap_is_rejected_before_seed_or_migration_work() {
         open_configured_connection(&paths.database).expect("gap fixture should remain inspectable");
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
-        4
+        5
     );
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM role_permissions"),
@@ -394,8 +394,8 @@ fn seed_is_idempotent_and_failure_rolls_back_all_seed_writes() {
 fn runtime_status_serializes_camel_case_without_database_path() {
     let status = RuntimeStatus {
         database_ready: true,
-        schema_version: "0005".to_owned(),
-        migration_count: 5,
+        schema_version: "0006".to_owned(),
+        migration_count: 6,
         foreign_keys_enabled: true,
         journal_mode: "wal".to_owned(),
     };

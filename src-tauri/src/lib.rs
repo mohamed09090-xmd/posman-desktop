@@ -5,6 +5,7 @@ mod infrastructure;
 mod phase05;
 mod phase06;
 mod phase07;
+mod phase08;
 
 use std::{error::Error, path::PathBuf};
 
@@ -14,6 +15,7 @@ use infrastructure::{database::RuntimeDatabase, paths::RuntimePaths};
 use phase05::Phase05Service;
 use phase06::Phase06Service;
 use phase07::Phase07Service;
+use phase08::Phase08Service;
 use tauri::{Manager, Runtime};
 
 #[derive(Clone)]
@@ -72,6 +74,8 @@ fn configure_application<R: Runtime>(
                 .map_err(|_| "POSMAN PHASE 06 service could not initialize")?;
             let phase07 = Phase07Service::new(phase05.clone())
                 .map_err(|_| "POSMAN PHASE 07 service could not initialize")?;
+            let phase08 = Phase08Service::new(phase05.clone())
+                .map_err(|_| "POSMAN PHASE 08 service could not initialize")?;
             if !app.manage(runtime) {
                 return Err("POSMAN runtime state was already managed".into());
             }
@@ -83,6 +87,9 @@ fn configure_application<R: Runtime>(
             }
             if !app.manage(phase07) {
                 return Err("POSMAN PHASE 07 state was already managed".into());
+            }
+            if !app.manage(phase08) {
+                return Err("POSMAN PHASE 08 state was already managed".into());
             }
             Ok(())
         })
@@ -202,7 +209,42 @@ fn configure_application<R: Runtime>(
             commands::phase07::list_sales_documents,
             commands::phase07::get_sales_document,
             commands::phase07::get_sales_line_availability,
-            commands::phase07::get_sales_summary
+            commands::phase07::get_sales_summary,
+            commands::phase08::install_accounting_template,
+            commands::phase08::list_accounts,
+            commands::phase08::create_account,
+            commands::phase08::update_account,
+            commands::phase08::list_accounting_journals,
+            commands::phase08::create_accounting_journal,
+            commands::phase08::update_accounting_journal,
+            commands::phase08::list_posting_rules,
+            commands::phase08::save_posting_rule,
+            commands::phase08::validate_posting_configuration,
+            commands::phase08::list_accounting_posting_queue,
+            commands::phase08::post_source_event,
+            commands::phase08::retry_posting_attempt,
+            commands::phase08::list_journal_entries,
+            commands::phase08::get_journal_entry,
+            commands::phase08::create_manual_journal_entry,
+            commands::phase08::update_manual_journal_entry,
+            commands::phase08::post_manual_journal_entry,
+            commands::phase08::reverse_journal_entry,
+            commands::phase08::post_customer_receipt,
+            commands::phase08::post_supplier_payment,
+            commands::phase08::allocate_payment,
+            commands::phase08::reverse_payment_allocation,
+            commands::phase08::reverse_payment,
+            commands::phase08::list_payments,
+            commands::phase08::get_partner_statement,
+            commands::phase08::get_cash_bank_register,
+            commands::phase08::get_trial_balance,
+            commands::phase08::get_general_ledger,
+            commands::phase08::get_account_ledger,
+            commands::phase08::get_open_receivables,
+            commands::phase08::get_open_payables,
+            commands::phase08::list_fiscal_periods,
+            commands::phase08::close_fiscal_period,
+            commands::phase08::reopen_fiscal_period
         ])
 }
 
@@ -222,197 +264,4 @@ pub fn run() {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{configure_application, RuntimeRoot, RuntimeService};
-    use crate::infrastructure::database::open_configured_connection;
-    use std::{
-        fs,
-        path::{Path, PathBuf},
-        sync::atomic::{AtomicU64, Ordering},
-        time::{SystemTime, UNIX_EPOCH},
-    };
-    use tauri::Manager;
-
-    static TEST_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-
-    struct TestDirectory {
-        path: PathBuf,
-    }
-
-    impl TestDirectory {
-        fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("system clock should be after the Unix epoch")
-                .as_nanos();
-            let sequence = TEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-            let path = std::env::temp_dir().join(format!(
-                "posman-tauri-test-{}-{nonce}-{sequence}",
-                std::process::id()
-            ));
-            fs::create_dir_all(&path).expect("failed to create Tauri test directory");
-            Self { path }
-        }
-
-        fn path(&self) -> &Path {
-            &self.path
-        }
-    }
-
-    impl Drop for TestDirectory {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
-
-    #[allow(deprecated)]
-    fn execute_setup_once(application: &mut tauri::App<tauri::test::MockRuntime>) {
-        application.run_iteration(|_, _| {});
-    }
-
-    fn build_test_application(directory: &TestDirectory) -> tauri::App<tauri::test::MockRuntime> {
-        configure_application(
-            tauri::test::mock_builder(),
-            RuntimeRoot::Explicit(directory.path().to_path_buf()),
-        )
-        .build(tauri::test::mock_context(tauri::test::noop_assets()))
-        .expect("failed to build the POSMAN runtime with Tauri's mock runtime")
-    }
-
-    #[test]
-    fn application_setup_builds_with_mock_runtime() {
-        let directory = TestDirectory::new();
-        let mut application = build_test_application(&directory);
-
-        execute_setup_once(&mut application);
-
-        let status = application.state::<RuntimeService>().status();
-        assert!(status.database_ready);
-        assert_eq!(status.schema_version, "0005");
-        assert_eq!(status.migration_count, 5);
-
-        let database_path = directory.path().join("data").join("posman.sqlite3");
-        assert!(database_path.is_file());
-        let (connection, contract) = open_configured_connection(&database_path)
-            .expect("mock runtime database should open with the connection contract");
-        let migration_count: i64 = connection
-            .query_row("SELECT COUNT(*) FROM app_migrations", [], |row| row.get(0))
-            .expect("failed to count mock runtime migrations");
-        assert_eq!(migration_count, 5);
-        assert!(contract.foreign_keys_enabled);
-    }
-
-    #[test]
-    fn phase06_command_executes_through_tauri_ipc_and_requires_session() {
-        let directory = TestDirectory::new();
-        let mut application = build_test_application(&directory);
-        execute_setup_once(&mut application);
-
-        let webview = tauri::WebviewWindowBuilder::new(&application, "phase06", Default::default())
-            .build()
-            .expect("failed to build mock webview for PHASE 06 IPC test");
-        let ipc_url = if cfg!(any(windows, target_os = "android")) {
-            let mut url = String::from("http");
-            url.push_str("://tauri.localhost");
-            url
-        } else {
-            String::from("tauri://localhost")
-        };
-        let response = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "list_stock_balances".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: ipc_url.parse().expect("local Tauri IPC URL should parse"),
-                body: tauri::ipc::InvokeBody::Json(serde_json::json!({
-                    "request": {"limit": 10}
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        );
-        assert!(
-            response.is_err(),
-            "PHASE 06 IPC must reject an unauthenticated caller"
-        );
-    }
-
-    #[test]
-    fn phase07_command_executes_through_tauri_ipc_and_requires_session() {
-        let directory = TestDirectory::new();
-        let mut application = build_test_application(&directory);
-        execute_setup_once(&mut application);
-
-        let webview = tauri::WebviewWindowBuilder::new(&application, "phase07", Default::default())
-            .build()
-            .expect("failed to build mock webview for PHASE 07 IPC test");
-        let ipc_url = if cfg!(any(windows, target_os = "android")) {
-            let mut url = String::from("http");
-            url.push_str("://tauri.localhost");
-            url
-        } else {
-            String::from("tauri://localhost")
-        };
-        let response = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "get_sales_summary".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: ipc_url.parse().expect("local Tauri IPC URL should parse"),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        );
-        assert!(
-            response.is_err(),
-            "PHASE 07 IPC must reject an unauthenticated caller"
-        );
-    }
-
-    #[test]
-    fn get_runtime_status_executes_through_tauri_ipc() {
-        let directory = TestDirectory::new();
-        let mut application = build_test_application(&directory);
-        execute_setup_once(&mut application);
-
-        let webview = tauri::WebviewWindowBuilder::new(&application, "main", Default::default())
-            .build()
-            .expect("failed to build mock webview for IPC test");
-        let ipc_url = if cfg!(any(windows, target_os = "android")) {
-            let mut url = String::from("http");
-            url.push_str("://tauri.localhost");
-            url
-        } else {
-            String::from("tauri://localhost")
-        };
-
-        let response = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "get_runtime_status".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: ipc_url.parse().expect("local Tauri IPC URL should parse"),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        )
-        .expect("get_runtime_status should resolve through Tauri IPC");
-
-        let payload = response
-            .deserialize::<serde_json::Value>()
-            .expect("runtime status IPC response should be valid JSON");
-
-        assert_eq!(payload["databaseReady"], true);
-        assert_eq!(payload["schemaVersion"], "0005");
-        assert_eq!(payload["migrationCount"], 5);
-        assert_eq!(payload["foreignKeysEnabled"], true);
-        assert!(payload["journalMode"]
-            .as_str()
-            .is_some_and(|journal_mode| !journal_mode.trim().is_empty()));
-    }
-}
+mod ipc_tests;
