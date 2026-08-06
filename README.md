@@ -2,94 +2,140 @@
 
 POSMAN is a Windows-first, offline desktop commercial-management application for Algerian merchants. Version 1 targets Windows 10/11 64-bit, Arabic-first operation with French support, local embedded SQLite, and DZD.
 
-## Phase 01 scope
+## Current repository status
 
-PHASE 01 established the SQLite data foundation:
+The accepted `main` baseline currently includes PHASE 01–08 through commit:
 
-- ordered relational migrations with explicitly non-null, nonblank text business identifiers;
-- deterministic safe reference seed data;
-- a generated complete schema snapshot;
-- commercial-document lineage for partial delivery and invoicing;
-- append-only inventory, audit, and historical-document protections, including old/new parent checks for posted child-line updates;
-- configurable accounting structures and balanced-posting protection;
-- ERD, data dictionary, migration policy, and accounting-posting documentation;
-- automated schema and invariant verification on Linux and Windows CI runners.
+```text
+5821004c6f3a51b4b0116ec3dbc1b9c2264ccf69
+```
 
-PHASE 01 did not implement application services, business workflows, PDF generation, installation, or operational UI.
+| Delivery | Status | Main capability |
+| --- | --- | --- |
+| PHASE 01 | Accepted | SQLite data foundation and invariants |
+| Bootstrap Gate | Accepted | Tauri 2 desktop shell |
+| PHASE 02 | Accepted | Local runtime and embedded migrations |
+| PHASE 03 | Accepted | Arabic/French UI foundation |
+| PHASE 04 | Accepted | Typed frontend/runtime integration |
+| PHASE 05 | Accepted | Setup, authentication, users, permissions, catalogue, and partners |
+| PHASE 06 | Accepted | Inventory, CUMP/CMUP, purchasing, reservations, and reconciliation |
+| PHASE 07 | Accepted | Sales, delivery/invoice transformation, direct sale, and returns |
+| PHASE 08 | Accepted | Accounting posting, payments, allocations, ledgers, and period controls |
+| PHASE 09 | Not started | Documents, printing, reports, audit presentation, and backup/restore |
+| PHASE 10 | Not started | Distribution, hardening, installer, and v1 release |
 
-## Desktop shell bootstrap
+POSMAN is therefore a substantial working product baseline, but it is **not yet production-ready or distributable as v1.0.0** because PHASE 09 and PHASE 10 remain incomplete.
 
-The Bootstrap Gate adds one shared Tauri 2 + React + TypeScript + Vite desktop-project structure before PHASE 02 and PHASE 03 run in parallel. It contains only a minimal Arabic/RTL render proof and native shell bootstrap. It does not contain runtime database services, business commands, authentication, reports, or a design system.
+## Implemented product capabilities
 
-### Development prerequisites
+The accepted source contains:
 
-Use Node.js 24 LTS with npm and Rust stable. Windows development also requires the current Microsoft C++ build tools and WebView2 prerequisites documented by Tauri. Linux CI installs the official Tauri 2 Debian/Ubuntu packages.
+- atomic first-run company setup, fiscal configuration, users, roles, permissions, local login, sessions, inactivity lock, and Argon2id password handling;
+- configurable products, families, units, taxes, prices, warehouses, locations, customers, suppliers, payment methods, and payment terms;
+- append-only inventory movements, stock projections, opening stock, adjustments, transfers, counts, reservations, negative-stock controls, moving CUMP/CMUP, reconciliation, and rebuild;
+- purchase orders, receipts, supplier invoices, direct receive-and-invoice, and purchase returns;
+- sales orders, reservations, partial/full delivery, delivery-backed invoicing, direct sale, returns/credit documents, lineage, fixed-point totals, and below-cost policy;
+- configurable chart of accounts, journals and posting rules, automatic source posting, manual journals, reversals, customer receipts, supplier payments, allocations, statements, trial balance, general ledger, account ledger, open balances, and fiscal-period controls;
+- typed Tauri command gateways, company scoping, authorization, audit, idempotency, safe error normalization, Arabic RTL, French LTR, and permanent CI coverage.
 
-### Development commands
+See the phase reports under `docs/PHASE-01-REPORT.md` through `docs/PHASE-08-REPORT.md` for detailed scope and validation evidence.
+
+## Technology
+
+- Tauri 2
+- React 19
+- TypeScript
+- Vite
+- Rust 1.85 minimum supported toolchain
+- `rusqlite` with bundled SQLite
+- Local/offline operation with no external database server
+
+## Development prerequisites
+
+Use Node.js 24 LTS with npm 11 and Rust 1.85 or newer. Windows development also requires Microsoft C++ Build Tools and WebView2 prerequisites required by Tauri.
+
+## Development and validation commands
 
 ```bash
 npm ci
-npm run dev
 npm run typecheck
 npm run build
-npm run desktop:dev
+npm run test:ui
+npm run test:integration
+npm run test:e2e
+python scripts/verify_schema.py
+python scripts/verify_phase06.py
+python scripts/verify_phase07.py
+python scripts/verify_phase08.py
+cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked
 npm run desktop:check
 ```
 
-`npm run desktop:check` compiles a debug Tauri application without producing a bundle or published installer.
+For interactive development:
 
-## Authoritative specification
+```bash
+npm run dev
+npm run desktop:dev
+```
 
-The preserved product specification is:
+`npm run desktop:check` compiles a debug Tauri application without producing a published installer.
+
+## Authoritative specification and continuity
+
+The product specification is:
 
 ```text
 docs/spec/POSMAN-Blueprint-v1.md
 ```
 
-Domain behavior must remain consistent with that file.
+Before continuing project work, read:
 
-## Verify the schema
-
-Python standard library is sufficient:
-
-```bash
-python scripts/verify_schema.py
+```text
+docs/continuity/PROJECT-MEMORY-INDEX.md
 ```
 
-The script creates a temporary SQLite database, enables foreign keys, applies all migrations and seed data, verifies the expected 49 tables, rejects `REAL` declarations, inspects built-schema text-primary-key nullability, proves null/blank identifiers are rejected, proves draft lines cannot be reparented into posted commercial or journal parents, runs positive and negative fixture scenarios, executes `database/tests/invariants.sql`, and removes temporary output.
-
-Regenerate the review snapshot after intentionally changing an unreleased migration:
-
-```bash
-python scripts/verify_schema.py --write-schema
-python scripts/verify_schema.py
-```
+The continuity package records accepted phases, repository coordinates, architecture decisions, recovery procedure, and the next authorized boundary.
 
 ## Database source of truth
 
-Ordered files in `database/migrations/` are authoritative. `database/schema.sql` is a generated, reviewable snapshot and must match those migrations exactly. Released migrations are immutable; corrections are roll-forward migrations.
+Ordered files in `database/migrations/` are authoritative. `database/schema.sql` is a generated review snapshot and must match those migrations exactly.
 
-Every future SQLite connection must execute:
+The accepted schema currently contains:
 
-```sql
-PRAGMA foreign_keys = ON;
-```
+- six ordered migrations through `0006`;
+- 57 tables;
+- 47 triggers;
+- fixed-point integer storage for business truth;
+- append-only and immutable-history protections.
 
-WAL is the preferred normal runtime mode for the local application database, but it is a per-database/runtime concern and is not assumed to be permanently configured by migrations.
+Accepted migrations must never be edited. Corrections are roll-forward migrations.
+
+Every SQLite connection must enforce foreign keys. The runtime also uses a bounded busy timeout and requests WAL mode.
 
 ## Fixed-point numeric rules
 
-No application column uses SQLite `REAL`:
+No application column uses SQLite `REAL` for business truth.
 
 | Value | Storage | Scale |
-|---|---|---:|
+| --- | --- | ---: |
 | Final monetary amounts | `INTEGER` minor units | 2 |
 | Unit prices and unit costs | `INTEGER` | 4 |
 | Quantities | `INTEGER` | 6 |
 | Percentage rates | `INTEGER` percentage points | 4 |
 
-For percentage rates, `19.0000%` is stored as `190000`. Future Rust services must use decimal arithmetic and explicit rounding rules.
+For percentage rates, `19.0000%` is stored as `190000`.
 
-## Current non-goals
+## Remaining production work
 
-This repository is not yet a finished or production-ready application. It does not contain operational authentication screens, runtime posting services, CUMP calculation services, stock-balance projection logic, PDF rendering, backups, installer/release output, cloud synchronization, telemetry, licensing, subscriptions, or real business data.
+The repository does not yet contain the completed PHASE 09/10 delivery:
+
+- validated historical document rendering and PDF/printing;
+- complete operational report/export workspace;
+- audit-log presentation;
+- safe manual/automatic backup and validated restore;
+- production Windows installer, signing strategy, clean-machine upgrade/uninstall evidence, and v1 release artifacts.
+
+Cloud synchronization, telemetry, subscriptions, and mandatory online activation remain outside the approved v1 boundary.
