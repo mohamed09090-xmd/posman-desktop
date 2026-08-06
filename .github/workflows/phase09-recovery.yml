@@ -1,0 +1,102 @@
+name: PHASE 09 verified recovery runner
+
+on:
+  push:
+    branches:
+      - phase/09-documents-reports-audit-backup
+    paths:
+      - '.github/workflows/phase09-recovery.yml'
+      - '.phase09-recovery-trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: phase09-verified-recovery
+  cancel-in-progress: false
+
+jobs:
+  apply-checkpoint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: '14'
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase/09-documents-reports-audit-backup
+          fetch-depth: 0
+      - name: Configure Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "POSMAN Phase 09 Recovery"
+          git config user.email "144628717+mohamed09090-xmd@users.noreply.github.com"
+      - name: Collect and verify checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" \
+            --jq '.[] | .body' > comment-bodies.txt
+          python - <<'PY'
+          import base64
+          import hashlib
+          from pathlib import Path
+
+          bodies = Path('comment-bodies.txt').read_text(encoding='utf-8').splitlines()
+          applies = [line for line in bodies if line.startswith('PHASE09_CHECKPOINT_APPLY ')]
+          if not applies:
+              raise SystemExit('No checkpoint apply marker present.')
+          _, checkpoint, total_text, expected = applies[-1].split()
+          total = int(total_text)
+          parts = {}
+          for index, line in enumerate(bodies):
+              prefix = f'PHASE09_CHECKPOINT_PART {checkpoint} '
+              if line.startswith(prefix):
+                  part_index = int(line.removeprefix(prefix))
+                  if index + 1 >= len(bodies):
+                      raise SystemExit(f'missing payload after part {part_index}')
+                  parts[part_index] = bodies[index + 1].strip()
+          if sorted(parts) != list(range(total)):
+              raise SystemExit(f'checkpoint parts mismatch: have {sorted(parts)}, expected 0..{total - 1}')
+          encoded = ''.join(parts[index] for index in range(total))
+          archive = base64.b64decode(encoded, validate=True)
+          actual = hashlib.sha256(archive).hexdigest()
+          if actual != expected:
+              raise SystemExit(f'checkpoint digest mismatch: {actual} != {expected}')
+          Path('checkpoint.tar.gz').write_bytes(archive)
+          print(f'verified {checkpoint}: {actual}; {len(archive)} bytes')
+          PY
+      - name: Apply verified checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          tar --extract --gzip --file checkpoint.tar.gz --directory "$work" --no-same-owner
+          test -d "$work/files"
+          test -f "$work/manifest/message.txt"
+          message="$(cat "$work/manifest/message.txt")"
+          test -n "$message"
+          cp -a "$work/files/." .
+          if [[ -s "$work/manifest/delete.txt" ]]; then
+            while IFS= read -r path; do
+              [[ -z "$path" ]] && continue
+              [[ "$path" != /* && "$path" != *'..'* ]] || { echo "Unsafe delete path: $path" >&2; exit 1; }
+              rm -rf -- "$path"
+            done < "$work/manifest/delete.txt"
+          fi
+          rm -rf .phase09-bootstrap
+          rm -f .phase09-recovery-trigger
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "Checkpoint produced no repository changes."
+            exit 0
+          fi
+          git commit -m "$message"
+          git push origin HEAD:phase/09-documents-reports-audit-backup
