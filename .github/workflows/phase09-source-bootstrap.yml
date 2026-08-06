@@ -17,9 +17,13 @@ concurrency:
 
 jobs:
   source-snapshot:
-    name: Verified source archive
-    runs-on: macos-latest
+    name: Verified source archive (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
     env:
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       GH_READ_TOKEN: ${{ github.token }}
@@ -54,13 +58,22 @@ jobs:
           git archive --format=tar.gz --prefix=posman-desktop/ HEAD > ../posman-phase09-source.tar.gz
           cd ..
           test -s posman-phase09-source.tar.gz
-          shasum -a 256 posman-phase09-source.tar.gz | tee posman-phase09-source.sha256
+          python - <<'PY'
+          from hashlib import sha256
+          from pathlib import Path
+          artifact = Path('posman-phase09-source.tar.gz')
+          digest = sha256(artifact.read_bytes()).hexdigest()
+          Path('posman-phase09-source.sha256').write_text(
+              f'{digest}  {artifact.name}\n', encoding='utf-8'
+          )
+          print(digest, artifact.name)
+          PY
           printf '%s\n' "$SOURCE_SHA" > posman-phase09-source.commit
 
       - name: Upload verified source archive
         uses: actions/upload-artifact@v4
         with:
-          name: phase-09-verified-source-${{ github.run_id }}
+          name: phase-09-verified-source-${{ matrix.os }}-${{ github.run_id }}
           path: |
             posman-phase09-source.tar.gz
             posman-phase09-source.sha256
