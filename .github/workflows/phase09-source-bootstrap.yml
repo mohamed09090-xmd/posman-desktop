@@ -7,13 +7,17 @@ on:
     paths:
       - '.github/workflows/phase09-source-bootstrap.yml'
       - '.phase09-bootstrap/**'
+  pull_request:
+    branches:
+      - main
+    types: [edited, reopened, synchronize]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: phase09-recovery-bootstrap-${{ github.ref }}
+  group: phase09-recovery-bootstrap-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -23,12 +27,13 @@ jobs:
     timeout-minutes: 15
     env:
       GH_WRITE_TOKEN: ${{ github.token }}
+      HEAD_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
     steps:
       - name: Fetch exact branch
         shell: bash
         run: |
           set -euo pipefail
-          git clone --branch "${GITHUB_REF_NAME}" --single-branch \
+          git clone --branch "${HEAD_BRANCH}" --single-branch \
             "https://x-access-token:${GH_WRITE_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" source
           cd source
           git config user.name "POSMAN Phase 09 Recovery"
@@ -70,4 +75,4 @@ jobs:
             exit 0
           fi
           git commit -m "$message"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "HEAD:${HEAD_BRANCH}"
