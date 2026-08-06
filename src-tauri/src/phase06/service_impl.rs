@@ -65,9 +65,20 @@ impl Phase06Service {
         let mut connection = self.phase05.phase06_open()?;
         let transaction =
             connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let result = operation(&transaction)?;
-        transaction.commit()?;
-        Ok(result)
+        match operation(&transaction) {
+            Ok(result) => {
+                transaction.commit()?;
+                Ok(result)
+            }
+            Err(mut error) => {
+                drop(transaction);
+                if let Some(failure) = error.accounting_failure.take() {
+                    crate::phase08::record_failed_posting_attempt(&mut connection, &failure)
+                        .map_err(|_| Phase06Error::internal())?;
+                }
+                Err(error)
+            }
+        }
     }
 
     fn read<T>(

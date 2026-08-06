@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and verify the accepted POSMAN SQLite foundation plus PHASE 05."""
+"""Build and verify the accepted POSMAN SQLite foundation through PHASE 08."""
 
 from __future__ import annotations
 
@@ -28,6 +28,7 @@ ACCEPTED_MIGRATION_HASHES = {
     "0002_reference_catalog_partners.sql": "f7aab1bb8f8784624cadb4cc9d1cb7e6dde56cad1cbffffa4da90a8e48e7b715",
     "0003_commerce_inventory.sql": "093aa71fe7e8ba58b6b487a7c578cd39c353b3225783ce87cabf6a2e8a111d39",
     "0004_accounting_documents_audit.sql": "c7d9ac5e194f1c1f47cd4d37f691218635fc6a98b23dd9afbb5a541538f7d99e",
+    "0005_setup_security_reference_data.sql": "10eab9cadd76adbefa60ad9891b737549948d06d5fb8ea8437ac160f7d91127f",
 }
 
 EXPECTED_TABLES = {
@@ -83,9 +84,14 @@ EXPECTED_TABLES = {
     "setup_drafts",
     "initial_setup_requests",
     "user_recovery_codes",
+    "accounting_setups",
+    "accounting_account_roles",
+    "posting_rule_lines",
+    "payment_method_accounting",
+    "fiscal_period_events",
 }
-EXPECTED_TEXT_PRIMARY_KEYS = 51
-EXPECTED_TRIGGER_COUNT = 25
+EXPECTED_TEXT_PRIMARY_KEYS = 55
+EXPECTED_TRIGGER_COUNT = 47
 
 
 class VerificationError(RuntimeError):
@@ -113,9 +119,9 @@ def migration_files(evidence: Evidence) -> list[Path]:
     expected_versions = [f"{index:04d}" for index in range(1, len(files) + 1)]
     actual_versions = [path.name[:4] for path in files]
     evidence.require(
-        actual_versions == expected_versions == ["0001", "0002", "0003", "0004", "0005"],
-        "five contiguous ordered migrations through 0005",
-        f"migration versions must be contiguous through 0005: got {actual_versions}",
+        actual_versions == expected_versions == ["0001", "0002", "0003", "0004", "0005", "0006"],
+        "six contiguous ordered migrations through 0006",
+        f"migration versions must be contiguous through 0006: got {actual_versions}",
     )
     for name, expected_hash in ACCEPTED_MIGRATION_HASHES.items():
         actual_hash = hashlib.sha256((MIGRATIONS_DIR / name).read_bytes()).hexdigest()
@@ -344,8 +350,8 @@ def assert_core_schema(connection: sqlite3.Connection, evidence: Evidence) -> No
         "SELECT id, version, name, checksum_sha256 FROM app_migrations ORDER BY id"
     ).fetchall()
     evidence.require(
-        [row[1] for row in ledger] == ["0001", "0002", "0003", "0004", "0005"],
-        "migration ledger reaches schema version 0005",
+        [row[1] for row in ledger] == ["0001", "0002", "0003", "0004", "0005", "0006"],
+        "migration ledger reaches schema version 0006",
         f"unexpected migration ledger: {ledger}",
     )
 
@@ -1897,8 +1903,8 @@ def verify_upgrade(files: list[Path], evidence: Evidence) -> None:
         connection.execute(
             "SELECT version FROM app_migrations ORDER BY id DESC LIMIT 1"
         ).fetchone()[0]
-        == "0005",
-        "real 0004 database upgraded to schema 0005",
+        == "0006",
+        "real 0004 database upgraded through schema 0006",
     )
     evidence.require(
         connection.execute(
@@ -1911,14 +1917,14 @@ def verify_upgrade(files: list[Path], evidence: Evidence) -> None:
     violations = connection.execute("PRAGMA foreign_key_check").fetchall()
     evidence.require(
         not violations,
-        "real 0004 to 0005 upgrade has no foreign-key violations",
+        "real 0004 to 0006 upgrade has no foreign-key violations",
         f"upgrade foreign-key violations: {violations}",
     )
     connection.close()
 
 
 def verify_phase05_contract_sensitivity(files: list[Path], evidence: Evidence) -> None:
-    migration = files[-1].read_text(encoding="utf-8")
+    migration = files[4].read_text(encoding="utf-8")
     required_fragments = {
         "default tax foreign key": "default_tax_rate_id TEXT",
         "setup draft JSON object contract": "json_type(validated_json) = 'object'",
@@ -1969,7 +1975,7 @@ def run(write_schema: bool) -> int:
         connection.execute("PRAGMA busy_timeout=5000")
 
         apply_migrations(connection, files)
-        evidence.record("applied 5 ordered migrations to a fresh database")
+        evidence.record("applied 6 ordered migrations to a fresh database")
         apply_seed_twice(connection, evidence)
         assert_core_schema(connection, evidence)
         create_positive_fixtures(connection, evidence)

@@ -2,11 +2,13 @@ use serde::Serialize;
 
 pub type Phase06Result<T> = Result<T, Phase06Error>;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Phase06Error {
     pub code: String,
     pub message: String,
+    #[serde(skip)]
+    pub(crate) accounting_failure: Option<Box<crate::phase08::integration::FailedPostingAttempt>>,
 }
 
 impl Phase06Error {
@@ -14,7 +16,16 @@ impl Phase06Error {
         Self {
             code: code.to_owned(),
             message: message.to_owned(),
+            accounting_failure: None,
         }
+    }
+
+    pub(crate) fn with_accounting_failure(
+        mut self,
+        failure: crate::phase08::integration::FailedPostingAttempt,
+    ) -> Self {
+        self.accounting_failure = Some(Box::new(failure));
+        self
     }
 
     pub fn invalid(field: &str) -> Self {
@@ -105,6 +116,14 @@ impl Phase06Error {
         )
     }
 }
+
+impl PartialEq for Phase06Error {
+    fn eq(&self, other: &Self) -> bool {
+        self.code == other.code && self.message == other.message
+    }
+}
+
+impl Eq for Phase06Error {}
 
 impl From<rusqlite::Error> for Phase06Error {
     fn from(_: rusqlite::Error) -> Self {

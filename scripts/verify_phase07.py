@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify PHASE 07 sales-cycle contracts without changing the accepted schema."""
+"""Verify accepted PHASE 07 contracts while allowing the additive PHASE 08 migration."""
 from __future__ import annotations
 
 import hashlib
@@ -44,8 +44,11 @@ def digest(path: Path) -> str:
 
 def main() -> int:
     migrations = sorted((ROOT / "database/migrations").glob("*.sql"))
-    if [path.name for path in migrations] != list(FROZEN_MIGRATIONS):
-        fail("accepted migrations must remain exactly 0001-0005; PHASE 07 needs no 0006")
+    names = [path.name for path in migrations]
+    if names[:5] != list(FROZEN_MIGRATIONS) or len(names) not in {5, 6}:
+        fail(f"accepted migrations 0001-0005 must remain frozen and only 0006 may be appended: {names}")
+    if len(names) == 6 and not names[5].startswith("0006_"):
+        fail(f"the only authorized additive migration is 0006: {names[5]}")
     for name, expected in FROZEN_MIGRATIONS.items():
         actual = digest(ROOT / "database/migrations" / name)
         if actual != expected:
@@ -99,13 +102,13 @@ def main() -> int:
     result = {
         "status": "PASS",
         "baseline": BASELINE,
-        "migrationCount": len(FROZEN_MIGRATIONS),
-        "migration0006": "not created; accepted schema and IMMEDIATE Rust transactions satisfy PHASE 07",
+        "frozenMigrationCount": len(FROZEN_MIGRATIONS),
+        "schemaMigrationCount": len(migrations),
+        "migration0006": "authorized additive PHASE 08 migration; accepted PHASE 07 behavior remains frozen",
         "typedCommands": len(REQUIRED_COMMANDS),
         "salesAggregateTransformation": "enforced for order-to-delivery, delivery-to-invoice, and document-to-return",
         "requiredExample": "20 units delivered as 8 + 12; a further 1 is rejected",
         "belowCost": "warehouse CUMP comparison with BLOCK/WARNING_ONLY/ADMIN_OVERRIDE policy and audited reason",
-        "pendingApplicationInvariant": "none for accepted sales transformations",
     }
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

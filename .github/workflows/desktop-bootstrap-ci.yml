@@ -172,7 +172,7 @@ jobs:
 
           try {
             $testOutput = Get-Content (Join-Path $env:RUNNER_TEMP 'rust-test-output.txt') -Raw
-            if ($testOutput -notmatch 'test tests::application_setup_builds_with_mock_runtime \.\.\. ok') {
+            if ($testOutput -notmatch 'test ipc_tests::application_setup_builds_with_mock_runtime \.\.\. ok') {
               throw 'The named Tauri mock-runtime unit-test PASS line was not found.'
             }
 

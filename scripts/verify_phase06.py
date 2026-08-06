@@ -46,8 +46,11 @@ def digest(path: Path) -> str:
 
 def main() -> int:
     migrations = sorted((ROOT / "database/migrations").glob("*.sql"))
-    if [path.name for path in migrations] != list(FROZEN_MIGRATIONS):
-        fail("accepted migrations must remain exactly 0001-0005; no 0006 is justified")
+    names = [path.name for path in migrations]
+    if names[:5] != list(FROZEN_MIGRATIONS) or len(names) not in {5, 6}:
+        fail("accepted migrations 0001-0005 must remain ordered and frozen")
+    if len(names) == 6 and not names[5].startswith("0006_"):
+        fail(f"the only authorized additive migration is 0006: {names[5]}")
     for name, expected in FROZEN_MIGRATIONS.items():
         actual = digest(ROOT / "database/migrations" / name)
         if actual != expected:
@@ -86,13 +89,14 @@ def main() -> int:
     result = {
         "status": "PASS",
         "baseline": BASELINE,
-        "migrationCount": len(FROZEN_MIGRATIONS),
+        "frozenMigrationCount": len(FROZEN_MIGRATIONS),
+        "schemaMigrationCount": len(migrations),
         "migrationSha256": FROZEN_MIGRATIONS,
-        "migration0006": "not created; accepted schema plus IMMEDIATE Rust transactions enforce PHASE 06",
+        "migration0006": "authorized PHASE 08 additive migration; 0001-0005 remain frozen",
         "phase06Permissions": len(REQUIRED_PERMISSIONS),
         "typedCommands": len(REQUIRED_COMMANDS),
         "purchaseAggregateTransformation": "enforced for order-to-receipt, receipt-to-invoice, and document-to-return",
-        "pendingApplicationInvariant": "sales-side enforcement is supplied by PHASE 07 when that module is present",
+        "pendingApplicationInvariant": "sales-side aggregate transformation only (PHASE 07)",
     }
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

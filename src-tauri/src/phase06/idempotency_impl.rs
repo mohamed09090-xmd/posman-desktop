@@ -94,6 +94,48 @@ pub(crate) fn finish_idempotency(
     entity_type: &str,
     entity_id: &str,
 ) -> Phase06Result<()> {
+    let validated_key = validate_idempotency_key(key)?;
+    if entity_type == "commercial_document"
+        && crate::phase08::accounting_enabled_in_tx(transaction, &context.company_id)
+            .map_err(|error| Phase06Error::new(&error.code, &error.message))?
+    {
+        if let Some((source_event_type, include_stock_cost)) =
+            crate::phase08::commercial_event_plan(namespace)
+        {
+            let source = crate::phase08::document_source_event_in_tx(
+                transaction,
+                &context.company_id,
+                entity_id,
+                source_event_type,
+                entity_id,
+                &transaction.query_row(
+                    "SELECT commercial_date FROM commercial_documents WHERE id=?1 AND company_id=?2",
+                    params![entity_id, context.company_id],
+                    |row| row.get::<_, String>(0),
+                )?,
+                include_stock_cost,
+            )
+            .map_err(|error| Phase06Error::new(&error.code, &error.message))?;
+            let accounting_request = crate::phase08::dto::Idempotent {
+                idempotency_key: format!("{namespace}:{validated_key}:accounting"),
+                request_hash_sha256: crate::phase08::request_hash(&source)
+                    .map_err(|error| Phase06Error::new(&error.code, &error.message))?,
+                payload: source,
+            };
+            if let Err(error) = crate::phase08::post_source_event_in_tx(
+                transaction,
+                context,
+                &accounting_request,
+            ) {
+                return Err(crate::phase08::phase06_error(
+                    error,
+                    context,
+                    accounting_request,
+                ));
+            }
+        }
+    }
+
     let changed = transaction.execute(
         r#"
         UPDATE idempotency_keys
@@ -108,7 +150,7 @@ pub(crate) fn finish_idempotency(
             now_iso()?,
             context.company_id,
             namespace,
-            validate_idempotency_key(key)?
+            validated_key
         ],
     )?;
     if changed != 1 {

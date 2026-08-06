@@ -1,0 +1,266 @@
+name: PHASE 08 accounting and payments
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [phase/08-accounting-payments]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase08-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  database:
+    name: SQLite accounting contracts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Verify schema and compatibility contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="${RUNNER_TEMP}/phase-08-integration/database-${RUNNER_OS}"
+          mkdir -p "$evidence"
+          python scripts/verify_schema.py 2>&1 | tee "$evidence/verify-schema.log"
+          python scripts/verify_phase06.py 2>&1 | tee "$evidence/verify-phase06.log"
+          python scripts/verify_phase07.py 2>&1 | tee "$evidence/verify-phase07.log"
+          python scripts/verify_phase08.py 2>&1 | tee "$evidence/verify-phase08.log"
+          python scripts/phase08_policy.py 2>&1 | tee "$evidence/policy.log"
+          git diff --check ae133cea9c3b6760a5fd22b38d3169aa2f976dc6...HEAD 2>&1 | tee "$evidence/whitespace.log"
+          git status --short --untracked-files=all | tee "$evidence/clean-tree.log"
+          test -z "$(cat "$evidence/clean-tree.log")"
+          printf 'head=%s\nrun=%s/%s/actions/runs/%s\nos=%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$RUNNER_OS" > "$evidence/metadata.txt"
+          find "$evidence" -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > "$evidence/SHA256SUMS"
+      - name: Upload database evidence part
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-08-integration-part-database-${{ runner.os }}
+          path: ${{ runner.temp }}/phase-08-integration/database-${{ runner.os }}
+          if-no-files-found: error
+          retention-days: 30
+
+  frontend:
+    name: Accounting UI, typed gateway, E2E, and Axe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install locked product dependencies
+        run: npm ci
+      - name: Install browser evidence tooling outside product dependencies
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+          npm install --no-save --package-lock=false axe-core@4.10.3
+      - name: Typecheck, build, UI, and gateway tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="${RUNNER_TEMP}/phase-08-integration/frontend"
+          mkdir -p "$evidence"
+          npm run typecheck 2>&1 | tee "$evidence/typecheck.log"
+          npm run build 2>&1 | tee "$evidence/build.log"
+          npm run test:ui 2>&1 | tee "$evidence/ui-tests.log"
+          npm run test:integration 2>&1 | tee "$evidence/integration-tests.log"
+      - name: Reject production hooks, frontend SQL, and runtime network clients
+        shell: python
+        run: |
+          from pathlib import Path
+          failures=[]
+          for path in Path('src').rglob('*'):
+              if not path.is_file(): continue
+              text=path.read_text(encoding='utf-8')
+              for needle in ('SELECT ', 'INSERT INTO ', 'UPDATE ', 'DELETE FROM ', 'fetch(', 'XMLHttpRequest', 'WebSocket(', 'axios.'):
+                  if needle in text: failures.append(f'{path}: {needle}')
+          hooks=('__POSMAN_DEV_RUNTIME_INVOKER__','__POSMAN_DEV_PHASE05_INVOKER__','__POSMAN_DEV_PHASE06_INVOKER__','__POSMAN_DEV_PHASE07_INVOKER__','__POSMAN_DEV_PHASE08_INVOKER__')
+          for path in Path('dist').rglob('*'):
+              if not path.is_file(): continue
+              try: text=path.read_text(encoding='utf-8')
+              except UnicodeDecodeError: continue
+              for hook in hooks:
+                  if hook in text: failures.append(f'{path}: {hook}')
+          print('\n'.join(failures)); raise SystemExit(1 if failures else 0)
+      - name: Operational browser workflows, Axe, overflow, clipping, and screenshots
+        env:
+          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/phase-08-ui-evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:e2e 2>&1 | tee "$RUNNER_TEMP/phase-08-integration/frontend/e2e.log"
+      - name: Record frontend evidence metadata and digests
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/phase-08-integration/frontend" "$RUNNER_TEMP/phase-08-ui-evidence"
+          printf 'head=%s\nrun=%s/%s/actions/runs/%s\nnode=%s\nnpm=%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(node --version)" "$(npm --version)" > "$RUNNER_TEMP/phase-08-integration/frontend/metadata.txt"
+          git diff --check > "$RUNNER_TEMP/phase-08-integration/frontend/whitespace.log"
+          git status --short --untracked-files=all > "$RUNNER_TEMP/phase-08-integration/frontend/clean-tree.log"
+          find "$RUNNER_TEMP/phase-08-ui-evidence" -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > "$RUNNER_TEMP/phase-08-ui-evidence/SHA256SUMS"
+          find "$RUNNER_TEMP/phase-08-integration/frontend" -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > "$RUNNER_TEMP/phase-08-integration/frontend/SHA256SUMS"
+      - name: Upload PHASE 08 UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-08-ui-evidence
+          path: ${{ runner.temp }}/phase-08-ui-evidence
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload frontend evidence part
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-08-integration-part-frontend
+          path: ${{ runner.temp }}/phase-08-integration/frontend
+          if-no-files-found: error
+          retention-days: 30
+      - name: Clean generated outputs and verify worktree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf dist "$RUNNER_TEMP/phase-08-ui-evidence" "$RUNNER_TEMP/phase-08-integration"
+          git diff --check
+          test -z "$(git status --short --untracked-files=all)"
+
+  rust:
+    name: Rust 1.85 accounting runtime and native Tauri (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.85.0"
+          components: rustfmt, clippy
+      - name: Install official Tauri Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - run: npm ci
+      - name: Rust formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="${RUNNER_TEMP}/phase-08-integration/rust-${RUNNER_OS}"
+          mkdir -p "$evidence"
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check 2>&1 | tee "$evidence/rustfmt.log"
+      - name: Rust locked check
+        shell: bash
+        run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked 2>&1 | tee "$RUNNER_TEMP/phase-08-integration/rust-${RUNNER_OS}/cargo-check.log"
+      - name: Rust locked Clippy with warnings denied
+        shell: bash
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings 2>&1 | tee "$RUNNER_TEMP/phase-08-integration/rust-${RUNNER_OS}/clippy.log"
+      - name: Rust SQLite and real Tauri IPC tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="${RUNNER_TEMP}/phase-08-integration/rust-${RUNNER_OS}"
+          rustc --version | tee "$evidence/toolchain.txt"
+          cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture 2>&1 | tee "$evidence/tests.log"
+      - name: Native Tauri compile
+        shell: bash
+        run: npm run desktop:check 2>&1 | tee "$RUNNER_TEMP/phase-08-integration/rust-${RUNNER_OS}/desktop-check.log"
+      - name: Verify embedded Windows manifest
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe=(Resolve-Path 'src-tauri\target\debug\posman-desktop.exe').Path
+          $mt=Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\mt.exe') -File | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $mt) { throw 'mt.exe not found' }
+          $manifest=Join-Path $env:RUNNER_TEMP 'posman-phase08.manifest.xml'
+          & $mt "-inputresource:$exe;#1" "-out:$manifest"
+          if ($LASTEXITCODE -ne 0) { throw 'manifest extraction failed' }
+          $text=Get-Content $manifest -Raw
+          if ($text -notmatch 'Microsoft\.Windows\.Common-Controls' -or $text -notmatch '6\.0\.0\.0') { throw 'Common Controls v6 missing' }
+          if ($text -notmatch 'requestedExecutionLevel' -or $text -notmatch 'asInvoker') { throw 'asInvoker execution level missing' }
+          Copy-Item $manifest (Join-Path $env:RUNNER_TEMP 'phase-08-integration\rust-Windows\windows-manifest.xml')
+          Get-FileHash $manifest -Algorithm SHA256 | Out-File (Join-Path $env:RUNNER_TEMP 'phase-08-integration\rust-Windows\windows-manifest-sha256.txt')
+      - name: Record Rust evidence metadata and digests
+        if: always()
+        shell: bash
+        run: |
+          evidence="${RUNNER_TEMP}/phase-08-integration/rust-${RUNNER_OS}"
+          mkdir -p "$evidence"
+          printf 'head=%s\nrun=%s/%s/actions/runs/%s\nos=%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$RUNNER_OS" >> "$evidence/toolchain.txt"
+          git diff --check > "$evidence/whitespace.log"
+          git status --short --untracked-files=all > "$evidence/clean-tree.log"
+          find "$evidence" -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > "$evidence/SHA256SUMS"
+      - name: Upload Rust evidence part
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-08-integration-part-rust-${{ runner.os }}
+          path: ${{ runner.temp }}/phase-08-integration/rust-${{ runner.os }}
+          if-no-files-found: error
+          retention-days: 30
+      - name: Clean generated evidence and verify worktree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/phase-08-integration"
+          git diff --check
+          if git diff --quiet --no-ext-diff && git diff --cached --quiet --no-ext-diff && test -z "$(git ls-files --others --exclude-standard)"; then
+            git restore --worktree --source=HEAD -- .
+          else
+            git diff --no-ext-diff
+            git diff --cached --no-ext-diff
+            git ls-files --others --exclude-standard
+            exit 1
+          fi
+          test -z "$(git status --short --untracked-files=all)"
+
+  evidence:
+    name: Final PHASE 08 integration evidence
+    needs: [database, frontend, rust]
+    if: ${{ always() && needs.database.result == 'success' && needs.frontend.result == 'success' && needs.rust.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: phase-08-integration-part-*
+          path: phase-08-integration-evidence
+          merge-multiple: true
+      - name: Record final metadata, contents, and digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'head=%s\nrun=%s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > phase-08-integration-evidence/final-metadata.txt
+          find phase-08-integration-evidence -type f -printf '%P\n' | sort > phase-08-integration-evidence/CONTENTS.txt
+          find phase-08-integration-evidence -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > phase-08-integration-evidence/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase-08-integration-evidence
+          path: phase-08-integration-evidence
+          if-no-files-found: error
+          retention-days: 30
