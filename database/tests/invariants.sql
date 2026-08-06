@@ -18,7 +18,7 @@ SELECT 'schema version 0007', MAX(version) = '0007'
 FROM app_migrations;
 
 INSERT INTO invariant_assertions
-SELECT 'expected application table count', COUNT(*) = 63
+SELECT 'expected application table count', COUNT(*) = 64
 FROM sqlite_schema
 WHERE type = 'table' AND name NOT LIKE 'sqlite_%';
 
