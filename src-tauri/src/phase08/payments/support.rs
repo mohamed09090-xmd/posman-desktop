@@ -2,7 +2,7 @@ fn payment_reversal_source(
     tx: &Transaction<'_>,
     context: &Phase06AuthContext,
     payment_id: &str,
-    reversal_id: &str,
+    _reversal_id: &str,
     reversal_date: &str,
     reason: &str,
 ) -> Phase08Result<(SourceEventRequest, i64, String, String, String, String, String)> {

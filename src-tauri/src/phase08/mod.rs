@@ -21,8 +21,6 @@ pub struct Phase08Service {
 
 pub(crate) use integration::{
     accounting_enabled_in_tx, commercial_event_plan, document_source_event_in_tx, phase06_error,
-    record_failed_posting_attempt, record_failed_posting_attempt_at_path,
+    record_failed_posting_attempt,
 };
-pub(crate) use posting::{
-    post_source_event_in_tx, record_failed_attempt_after_rollback, request_hash,
-};
+pub(crate) use posting::{post_source_event_in_tx, request_hash};

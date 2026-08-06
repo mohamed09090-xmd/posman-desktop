@@ -19,7 +19,7 @@ export function Phase08Workspace() {
   return <section className="p8-workspace" aria-labelledby="p8-title">
     <header className="p8-commandbar">
       <div><p>POSMAN / PHASE 08</p><h1 id="p8-title">{c.title}</h1><span>{c.subtitle}</span></div>
-      <div className="p8-command-actions"><div className="p8-language" aria-label="Language"><button type="button" aria-pressed={locale === "ar-DZ"} onClick={() => setLocale("ar-DZ")}>العربية</button><button type="button" aria-pressed={locale === "fr-DZ"} onClick={() => setLocale("fr-DZ")}>Français</button></div><span className="p8-runtime">{gateway ? c.ready : c.preview}</span></div>
+      <div className="p8-command-actions"><div className="p8-language" role="group" aria-label="Language"><button type="button" aria-pressed={locale === "ar-DZ"} onClick={() => setLocale("ar-DZ")}>العربية</button><button type="button" aria-pressed={locale === "fr-DZ"} onClick={() => setLocale("fr-DZ")}>Français</button></div><span className="p8-runtime">{gateway ? c.ready : c.preview}</span></div>
     </header>
     <div className="p8-layout">
       <nav className="p8-rail" aria-label={c.title}>

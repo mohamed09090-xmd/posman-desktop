@@ -127,19 +127,10 @@ pub(crate) fn finish_idempotency(
                 context,
                 &accounting_request,
             ) {
-                let database_path = transaction
-                    .query_row(
-                        "SELECT file FROM pragma_database_list WHERE name='main'",
-                        [],
-                        |row| row.get::<_, String>(0),
-                    )
-                    .optional()?
-                    .filter(|path| !path.trim().is_empty());
                 return Err(crate::phase08::phase06_error(
                     error,
                     context,
                     accounting_request,
-                    database_path,
                 ));
             }
         }

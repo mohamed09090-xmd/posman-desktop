@@ -1,7 +1,8 @@
 pub(crate) fn resolve_open_period(tx:&Transaction<'_>,company:&str,date:&str)->Phase08Result<(String,String)>{
     let rows={
         let mut s=tx.prepare("SELECT fy.id,fp.id,fy.status,fp.status FROM fiscal_periods fp JOIN fiscal_years fy ON fy.id=fp.fiscal_year_id AND fy.company_id=fp.company_id WHERE fp.company_id=?1 AND fp.starts_on<=?2 AND fp.ends_on>=?2 ORDER BY fp.period_number")?;
-        s.query_map(params![company,date],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?)))?.collect::<Result<Vec<_>,_>>()?
+        let rows = s.query_map(params![company,date],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?)))?.collect::<Result<Vec<_>,_>>()?;
+        rows
     };
     if rows.len()!=1{return Err(Phase08Error::new("FISCAL_PERIOD_NOT_FOUND","Exactly one fiscal period must contain the posting date.",false));}
     if rows[0].2!="OPEN"||rows[0].3!="OPEN"{return Err(Phase08Error::new("FISCAL_PERIOD_CLOSED","The posting date belongs to a closed or locked fiscal period.",false));}
@@ -10,7 +11,7 @@ pub(crate) fn resolve_open_period(tx:&Transaction<'_>,company:&str,date:&str)->P
 
 fn next_entry_number(tx:&Transaction<'_>,company:&str,year:&str,journal:&str,date:&str)->Phase08Result<String>{
     let count:i64=tx.query_row("SELECT COUNT(*)+1 FROM journal_entries WHERE company_id=?1 AND fiscal_year_id=?2 AND accounting_journal_id=?3",params![company,year,journal],|r|r.get(0))?;
-    Ok(format!("{}-{:06}",date.replace('-',''),count))
+    Ok(format!("{}-{:06}",date.replace('-', ""),count))
 }
 
 fn validate_generated_lines(lines:&[(i64,String,Option<String>,Option<String>,String,i64,i64)])->Phase08Result<()> {

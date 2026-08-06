@@ -62,5 +62,3 @@ fn assert_balanced(connection: &Connection, entry_id: &str, expected: i64) {
     assert_eq!(values.1, expected);
     assert_eq!(values.2, expected);
 }
-
-#[test]
