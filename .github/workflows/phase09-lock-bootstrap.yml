@@ -3,6 +3,7 @@ name: PHASE 09 temporary lock bootstrap
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
     paths:
       - 'src-tauri/Cargo.toml'
       - '.github/workflows/phase09-lock-bootstrap.yml'
@@ -44,7 +45,7 @@ jobs:
       - name: Upload lockfile
         uses: actions/upload-artifact@v4
         with:
-          name: phase09-cargo-lock-${{ github.run_id }}
+          name: phase09-cargo-lock-secondary-${{ github.run_id }}
           path: |
             source/src-tauri/Cargo.lock
             cargo-lock.sha256
