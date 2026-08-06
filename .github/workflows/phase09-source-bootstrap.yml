@@ -1,0 +1,65 @@
+name: PHASE 09 temporary source bootstrap
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/phase09-source-bootstrap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-snapshot:
+    name: Verified source archive
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      GH_READ_TOKEN: ${{ github.token }}
+    steps:
+      - name: Fetch exact PHASE 09 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init source
+          cd source
+          git remote add origin "https://x-access-token:${GH_READ_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "${SOURCE_SHA}"
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "${SOURCE_SHA}"
+
+      - name: Reject tracked private runtime artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd source
+          forbidden='(^|/)(\.env($|\.)|.*\.(sqlite|sqlite3|db|db3|wal|shm|journal|pdf|pfx|p12|key|pem)$|backups?/|documents?/.*\.(pdf|csv)$)'
+          if git ls-files | grep -E -i "$forbidden"; then
+            echo 'Forbidden runtime/private artifact is tracked.' >&2
+            exit 1
+          fi
+
+      - name: Build verified source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd source
+          git archive --format=tar.gz --prefix=posman-desktop/ HEAD > ../posman-phase09-source.tar.gz
+          cd ..
+          test -s posman-phase09-source.tar.gz
+          sha256sum posman-phase09-source.tar.gz | tee posman-phase09-source.sha256
+          printf '%s\n' "$SOURCE_SHA" > posman-phase09-source.commit
+
+      - name: Upload verified source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-09-verified-source-${{ github.run_id }}
+          path: |
+            posman-phase09-source.tar.gz
+            posman-phase09-source.sha256
+            posman-phase09-source.commit
+          if-no-files-found: error
+          retention-days: 1
