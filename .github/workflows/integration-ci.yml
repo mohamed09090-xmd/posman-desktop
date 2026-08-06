@@ -7,6 +7,9 @@ on:
       - ".github/workflows/ui-ci.yml"
       - ".github/workflows/runtime-ci.yml"
       - ".github/workflows/phase08-ci.yml"
+      - "AGENTS.md"
+      - "README.md"
+      - "docs/continuity/**"
       - "database/migrations/0006_*.sql"
       - "database/schema.sql"
       - "database/tests/invariants.sql"
@@ -54,6 +57,9 @@ on:
       - ".github/workflows/ui-ci.yml"
       - ".github/workflows/runtime-ci.yml"
       - ".github/workflows/phase08-ci.yml"
+      - "AGENTS.md"
+      - "README.md"
+      - "docs/continuity/**"
       - "database/migrations/0006_*.sql"
       - "database/schema.sql"
       - "database/tests/invariants.sql"
@@ -206,11 +212,11 @@ jobs:
           from pathlib import Path
           ownership_range = "${{ steps.ownership.outputs.range }}"
           changed = subprocess.check_output(["git", "diff", "--name-only", ownership_range], text=True).splitlines()
-          exact = {"package.json", "package-lock.json", "src/app/AppRoot.tsx", "scripts/verify_schema.py", "scripts/verify_phase06.py", "scripts/phase06_policy.py", "scripts/verify_phase07.py", "scripts/phase07_policy.py", "scripts/verify_phase08.py", "scripts/phase08_policy.py"}
+          exact = {"AGENTS.md", "README.md", "package.json", "package-lock.json", "src/app/AppRoot.tsx", "scripts/verify_schema.py", "scripts/verify_phase06.py", "scripts/phase06_policy.py", "scripts/verify_phase07.py", "scripts/phase07_policy.py", "scripts/verify_phase08.py", "scripts/phase08_policy.py"}
           prefixes = (
               ".github/workflows/", "database/", "src-tauri/", "src/platform/tauri/",
               "src/features/phase05/", "src/features/phase06/", "src/features/phase07/", "src/features/phase08/", "src/features/runtime/",
-              "src/i18n/", "src/styles/", "tests/", "docs/architecture/phase-05",
+              "src/i18n/", "src/styles/", "tests/", "docs/continuity/", "docs/architecture/phase-05",
               "docs/architecture/phase-06", "docs/architecture/phase-07", "docs/architecture/phase-08", "docs/PHASE-05-REPORT.md", "docs/PHASE-06-REPORT.md", "docs/PHASE-07-REPORT.md", "docs/PHASE-08-REPORT.md",
           )
           unexpected = [path for path in changed if path not in exact and not path.startswith(prefixes)]
