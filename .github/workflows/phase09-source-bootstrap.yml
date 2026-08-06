@@ -1,6 +1,12 @@
 name: PHASE 09 temporary source bootstrap
 
 on:
+  push:
+    branches:
+      - phase/09-documents-reports-audit-backup
+    paths:
+      - '.github/workflows/phase09-source-bootstrap.yml'
+      - 'src-tauri/Cargo.toml'
   pull_request:
     branches:
       - main
