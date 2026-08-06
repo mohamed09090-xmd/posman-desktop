@@ -1,3 +1,4 @@
+#[test]
 fn balanced_sales_posting() {
     let mut db=fixture(); let result=post(&mut db,&event("SALES_INVOICE","sale-1",&[("DOCUMENT_HT",1000),("DOCUMENT_TAX",190),("DOCUMENT_TTC",1190)])); assert_balanced(&db,&result.journal_entry_id,1190);
 }

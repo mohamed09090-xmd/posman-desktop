@@ -1,9 +1,6 @@
 pub(crate) fn resolve_open_period(tx:&Transaction<'_>,company:&str,date:&str)->Phase08Result<(String,String)>{
-    let rows={
-        let mut s=tx.prepare("SELECT fy.id,fp.id,fy.status,fp.status FROM fiscal_periods fp JOIN fiscal_years fy ON fy.id=fp.fiscal_year_id AND fy.company_id=fp.company_id WHERE fp.company_id=?1 AND fp.starts_on<=?2 AND fp.ends_on>=?2 ORDER BY fp.period_number")?;
-        let rows = s.query_map(params![company,date],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?)))?.collect::<Result<Vec<_>,_>>()?;
-        rows
-    };
+    let mut s=tx.prepare("SELECT fy.id,fp.id,fy.status,fp.status FROM fiscal_periods fp JOIN fiscal_years fy ON fy.id=fp.fiscal_year_id AND fy.company_id=fp.company_id WHERE fp.company_id=?1 AND fp.starts_on<=?2 AND fp.ends_on>=?2 ORDER BY fp.period_number")?;
+    let rows = s.query_map(params![company,date],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?)))?.collect::<Result<Vec<_>,_>>()?;
     if rows.len()!=1{return Err(Phase08Error::new("FISCAL_PERIOD_NOT_FOUND","Exactly one fiscal period must contain the posting date.",false));}
     if rows[0].2!="OPEN"||rows[0].3!="OPEN"{return Err(Phase08Error::new("FISCAL_PERIOD_CLOSED","The posting date belongs to a closed or locked fiscal period.",false));}
     Ok((rows[0].0.clone(),rows[0].1.clone()))
@@ -14,7 +11,9 @@ fn next_entry_number(tx:&Transaction<'_>,company:&str,year:&str,journal:&str,dat
     Ok(format!("{}-{:06}",date.replace('-', ""),count))
 }
 
-fn validate_generated_lines(lines:&[(i64,String,Option<String>,Option<String>,String,i64,i64)])->Phase08Result<()> {
+type GeneratedPostingLine = (i64,String,Option<String>,Option<String>,String,i64,i64);
+
+fn validate_generated_lines(lines:&[GeneratedPostingLine])->Phase08Result<()> {
     if lines.len()<2{return Err(Phase08Error::new("UNBALANCED_GENERATED_ENTRY","Generated journal entry requires at least two non-zero lines.",false));}
     let debit = lines.iter().try_fold(0_i64, |total, line| total.checked_add(line.5).ok_or_else(Phase08Error::internal))?;
     let credit = lines.iter().try_fold(0_i64, |total, line| total.checked_add(line.6).ok_or_else(Phase08Error::internal))?;

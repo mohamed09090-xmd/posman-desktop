@@ -1,3 +1,4 @@
+#[test]
 fn business_source_stock_and_accounting_failure_roll_back_together() {
     let mut db = fixture();
     let mut request = event(
