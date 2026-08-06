@@ -11,10 +11,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: phase09-source-bootstrap-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   source-snapshot:
     name: Verified source archive
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     timeout-minutes: 10
     env:
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -50,7 +54,7 @@ jobs:
           git archive --format=tar.gz --prefix=posman-desktop/ HEAD > ../posman-phase09-source.tar.gz
           cd ..
           test -s posman-phase09-source.tar.gz
-          sha256sum posman-phase09-source.tar.gz | tee posman-phase09-source.sha256
+          shasum -a 256 posman-phase09-source.tar.gz | tee posman-phase09-source.sha256
           printf '%s\n' "$SOURCE_SHA" > posman-phase09-source.commit
 
       - name: Upload verified source archive
