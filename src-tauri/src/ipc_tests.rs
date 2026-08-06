@@ -1,4 +1,3 @@
-
 use super::{configure_application, RuntimeRoot, RuntimeService};
 use crate::infrastructure::database::open_configured_connection;
 use std::{
