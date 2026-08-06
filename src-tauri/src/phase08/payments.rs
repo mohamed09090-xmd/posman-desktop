@@ -14,7 +14,6 @@ use super::{
 };
 use crate::phase05::Phase06AuthContext;
 
-
 include!("payments/service_post.rs");
 include!("payments/service_allocation.rs");
 include!("payments/post_payment.rs");

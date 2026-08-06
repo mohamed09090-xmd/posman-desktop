@@ -9,7 +9,7 @@ use super::{
 
 impl Phase08Service {
     pub fn list_fiscal_periods(&self, _: ()) -> Phase08Result<Vec<FiscalPeriodView>> {
-        let context=self.context(Some("accounting.read"))?;
+        let context = self.context(Some("accounting.read"))?;
         self.read(|c| {
             let mut s=c.prepare("SELECT id,fiscal_year_id,period_number,name,starts_on,ends_on,status,row_version FROM fiscal_periods WHERE company_id=?1 ORDER BY starts_on")?;
             let rows=s.query_map([context.company_id],|r| Ok(FiscalPeriodView{id:r.get(0)?,fiscal_year_id:r.get(1)?,period_number:r.get(2)?,name:r.get(3)?,starts_on:r.get(4)?,ends_on:r.get(5)?,status:r.get(6)?,row_version:r.get(7)?}))?;
@@ -17,11 +17,24 @@ impl Phase08Service {
         })
     }
 
-    pub fn close_fiscal_period(&self, input: PeriodActionInput) -> Phase08Result<EntityVersion> { self.change_period(input,"CLOSED","CLOSED") }
-    pub fn reopen_fiscal_period(&self, input: PeriodActionInput) -> Phase08Result<EntityVersion> { self.change_period(input,"OPEN","REOPENED") }
-    fn change_period(&self,input:PeriodActionInput,new_status:&str,event:&str)->Phase08Result<EntityVersion>{
-        let context=self.context(Some("accounting.period.manage"))?;
-        if input.reason.trim().is_empty(){return Err(Phase08Error::validation("A period-change reason is required."));}
+    pub fn close_fiscal_period(&self, input: PeriodActionInput) -> Phase08Result<EntityVersion> {
+        self.change_period(input, "CLOSED", "CLOSED")
+    }
+    pub fn reopen_fiscal_period(&self, input: PeriodActionInput) -> Phase08Result<EntityVersion> {
+        self.change_period(input, "OPEN", "REOPENED")
+    }
+    fn change_period(
+        &self,
+        input: PeriodActionInput,
+        new_status: &str,
+        event: &str,
+    ) -> Phase08Result<EntityVersion> {
+        let context = self.context(Some("accounting.period.manage"))?;
+        if input.reason.trim().is_empty() {
+            return Err(Phase08Error::validation(
+                "A period-change reason is required.",
+            ));
+        }
         self.immediate(|tx|{
             let old:String=tx.query_row("SELECT status FROM fiscal_periods WHERE id=?1 AND company_id=?2",params![input.fiscal_period_id,context.company_id],|r|r.get(0)).optional()?.ok_or_else(||Phase08Error::new("FISCAL_PERIOD_NOT_FOUND","Fiscal period was not found.",false))?;
             if old=="LOCKED" {return Err(Phase08Error::new("FISCAL_PERIOD_LOCKED","A locked fiscal period cannot be changed.",false));}

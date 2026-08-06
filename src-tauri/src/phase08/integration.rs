@@ -4,10 +4,7 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::{
     phase05::Phase06AuthContext,
-    phase06::{
-        error::Phase06Error,
-        fixed_point::extended_cost_minor,
-    },
+    phase06::{error::Phase06Error, fixed_point::extended_cost_minor},
 };
 
 use super::{
@@ -15,7 +12,6 @@ use super::{
     error::{Phase08Error, Phase08Result},
     posting::post_source_event_in_tx,
 };
-
 
 #[derive(Clone, Debug)]
 pub(crate) struct FailedPostingAttempt {
@@ -41,14 +37,16 @@ pub(crate) fn record_failed_posting_attempt(
 pub(crate) fn record_failed_posting_attempt_at_path(
     failure: &FailedPostingAttempt,
 ) -> Phase08Result<()> {
-    let path = failure.database_path.as_deref().ok_or_else(Phase08Error::internal)?;
+    let path = failure
+        .database_path
+        .as_deref()
+        .ok_or_else(Phase08Error::internal)?;
     if path.trim().is_empty() {
         return Err(Phase08Error::internal());
     }
-    let (mut connection, _) = crate::infrastructure::database::open_configured_connection(
-        std::path::Path::new(path),
-    )
-    .map_err(|_| Phase08Error::internal())?;
+    let (mut connection, _) =
+        crate::infrastructure::database::open_configured_connection(std::path::Path::new(path))
+            .map_err(|_| Phase08Error::internal())?;
     record_failed_posting_attempt(&mut connection, failure)
 }
 
@@ -159,12 +157,10 @@ pub(crate) fn phase06_error(
     request: Idempotent<SourceEventRequest>,
     database_path: Option<String>,
 ) -> Phase06Error {
-    Phase06Error::new(&error.code, &error.message).with_accounting_failure(
-        FailedPostingAttempt {
-            context: context.clone(),
-            request,
-            error,
-            database_path,
-        },
-    )
+    Phase06Error::new(&error.code, &error.message).with_accounting_failure(FailedPostingAttempt {
+        context: context.clone(),
+        request,
+        error,
+        database_path,
+    })
 }

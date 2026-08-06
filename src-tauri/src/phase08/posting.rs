@@ -31,7 +31,6 @@ struct SelectedRule {
     lines: Vec<RuleLine>,
 }
 
-
 include!("posting/source.rs");
 include!("posting/service_methods.rs");
 include!("posting/reversal_rules.rs");

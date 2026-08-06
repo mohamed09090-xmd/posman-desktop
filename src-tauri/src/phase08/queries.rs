@@ -1,9 +1,7 @@
 use rusqlite::{params, Connection};
 
 use super::{
-    dto::{
-        LedgerRow, OpenBalanceRow, PaymentResult, StatementRow, TrialBalanceRow,
-    },
+    dto::{LedgerRow, OpenBalanceRow, PaymentResult, StatementRow, TrialBalanceRow},
     error::{Phase08Error, Phase08Result},
     payments::{document_open, payment_unallocated},
     Phase08Service,
