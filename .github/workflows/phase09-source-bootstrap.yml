@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: write
+  issues: read
+  pull-requests: read
 
 concurrency:
   group: phase09-recovery-bootstrap-${{ github.event.pull_request.number || github.ref }}
@@ -20,35 +22,70 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      GH_WRITE_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
       HEAD_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      PR_NUMBER: ${{ github.event.pull_request.number || '14' }}
     steps:
       - name: Fetch exact branch
         shell: bash
         run: |
           set -euo pipefail
           git clone --branch "${HEAD_BRANCH}" --single-branch \
-            "https://x-access-token:${GH_WRITE_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" source
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" source
           cd source
           git config user.name "POSMAN Phase 09 Recovery"
           git config user.email "144628717+mohamed09090-xmd@users.noreply.github.com"
-      - name: Apply one preserved checkpoint
+      - name: Collect and verify checkpoint
         shell: bash
         run: |
           set -euo pipefail
-          cd source
-          mapfile -t parts < <(find .phase09-bootstrap -maxdepth 1 -type f -name '*.b64.part-*' 2>/dev/null | sort)
-          if [[ ${#parts[@]} -eq 0 ]]; then
-            echo "No checkpoint parts present; nothing to apply."
-            exit 0
-          fi
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" \
+            --jq '.[] | .body' > comment-bodies.txt
+          python - <<'PY'
+          import base64
+          import hashlib
+          import os
+          from pathlib import Path
+
+          bodies = Path('comment-bodies.txt').read_text(encoding='utf-8').splitlines()
+          applies = [line for line in bodies if line.startswith('PHASE09_CHECKPOINT_APPLY ')]
+          if not applies:
+              print('No checkpoint apply marker present; nothing to apply.')
+              Path('no-checkpoint').write_text('1', encoding='utf-8')
+              raise SystemExit(0)
+          _, checkpoint, total_text, expected = applies[-1].split()
+          total = int(total_text)
+          parts = {}
+          for index, line in enumerate(bodies):
+              prefix = f'PHASE09_CHECKPOINT_PART {checkpoint} '
+              if line.startswith(prefix):
+                  part_index = int(line.removeprefix(prefix))
+                  if index + 1 >= len(bodies):
+                      raise SystemExit(f'missing payload after part {part_index}')
+                  parts[part_index] = bodies[index + 1].strip()
+          if sorted(parts) != list(range(total)):
+              raise SystemExit(f'checkpoint parts mismatch: have {sorted(parts)}, expected 0..{total - 1}')
+          encoded = ''.join(parts[index] for index in range(total))
+          archive = base64.b64decode(encoded, validate=True)
+          actual = hashlib.sha256(archive).hexdigest()
+          if actual != expected:
+              raise SystemExit(f'checkpoint digest mismatch: {actual} != {expected}')
+          Path('checkpoint.tar.gz').write_bytes(archive)
+          Path('checkpoint-id').write_text(checkpoint, encoding='utf-8')
+          print(f'verified {checkpoint}: {actual}; {len(archive)} bytes')
+          PY
+      - name: Apply one preserved checkpoint
+        if: ${{ hashFiles('no-checkpoint') == '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
           work="$(mktemp -d)"
-          cat "${parts[@]}" | base64 --decode > "$work/checkpoint.tar.gz"
-          tar --extract --gzip --file "$work/checkpoint.tar.gz" --directory "$work" --no-same-owner
+          tar --extract --gzip --file checkpoint.tar.gz --directory "$work" --no-same-owner
           test -d "$work/files"
           test -f "$work/manifest/message.txt"
           message="$(cat "$work/manifest/message.txt")"
           test -n "$message"
+          cd source
           cp -a "$work/files/." .
           if [[ -s "$work/manifest/delete.txt" ]]; then
             while IFS= read -r path; do
