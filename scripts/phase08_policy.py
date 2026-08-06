@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "ae133cea9c3b6760a5fd22b38d3169aa2f976dc6"
 ALLOWED = (
     ".github/workflows/", "database/", "docs/", "scripts/", "src-tauri/", "src/", "tests/",
-    "package.json", "package-lock.json",
+    "AGENTS.md", "README.md", "package.json", "package-lock.json",
 )
 BANNED_SUFFIXES = (".zip", ".tar", ".tgz", ".gz", ".7z", ".rar", ".b64", ".base64", ".chunk", ".chunks")
 BANNED_PARTS = ("payload", "transport-workflow", "write-workflow", "temporary-workflow")
