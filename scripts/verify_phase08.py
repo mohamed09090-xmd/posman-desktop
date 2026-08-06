@@ -18,6 +18,7 @@ FROZEN_MIGRATIONS = {
     "0004_accounting_documents_audit.sql": "c7d9ac5e194f1c1f47cd4d37f691218635fc6a98b23dd9afbb5a541538f7d99e",
     "0005_setup_security_reference_data.sql": "10eab9cadd76adbefa60ad9891b737549948d06d5fb8ea8437ac160f7d91127f",
 }
+ACCEPTED_MIGRATION_0006 = "08763076ce7cbd77e585bf06b10bc856e7b8f02193484b1db974db95143cebd0"
 REQUIRED_COMMANDS = {
     "install_accounting_template", "list_accounts", "create_account", "update_account",
     "list_accounting_journals", "create_accounting_journal", "update_accounting_journal",
@@ -74,8 +75,12 @@ def read(path: str) -> str:
 def main() -> int:
     migrations = sorted((ROOT / "database/migrations").glob("*.sql"))
     names = [path.name for path in migrations]
-    if names[:5] != list(FROZEN_MIGRATIONS) or len(names) != 6 or not names[5].startswith("0006_"):
-        fail(f"expected frozen 0001-0005 plus exactly one 0006 migration, got {names}")
+    if names[:5] != list(FROZEN_MIGRATIONS) or len(names) not in {6, 7} or not names[5].startswith("0006_"):
+        fail(f"expected frozen 0001-0005 and accepted 0006, optionally followed by PHASE 09 migration 0007; got {names}")
+    if digest(migrations[5]) != ACCEPTED_MIGRATION_0006:
+        fail(f"accepted migration 0006 changed: {digest(migrations[5])}")
+    if len(names) == 7 and not names[6].startswith("0007_"):
+        fail(f"the only authorized PHASE 09 additive migration is 0007: {names[6]}")
     for name, expected in FROZEN_MIGRATIONS.items():
         actual = digest(ROOT / "database/migrations" / name)
         if actual != expected:
