@@ -1,4 +1,4 @@
-name: PHASE 09 temporary source bootstrap
+name: PHASE 09 temporary recovery bootstrap
 
 on:
   push:
@@ -6,58 +6,68 @@ on:
       - phase/09-documents-reports-audit-backup
     paths:
       - '.github/workflows/phase09-source-bootstrap.yml'
-      - 'src-tauri/Cargo.toml'
-  pull_request:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
-    paths:
-      - '.github/workflows/phase09-source-bootstrap.yml'
-      - 'src-tauri/Cargo.toml'
+      - '.phase09-bootstrap/**'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: phase09-source-bootstrap-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: phase09-recovery-bootstrap-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  cargo-lock:
-    name: Generate verified Cargo lock
+  apply-checkpoint:
+    name: Apply preserved PHASE 09 checkpoint
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     env:
-      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      GH_READ_TOKEN: ${{ github.token }}
+      GH_WRITE_TOKEN: ${{ github.token }}
     steps:
-      - name: Fetch exact PHASE 09 head
+      - name: Fetch exact branch
         shell: bash
         run: |
           set -euo pipefail
-          git init source
+          git clone --branch "${GITHUB_REF_NAME}" --single-branch \
+            "https://x-access-token:${GH_WRITE_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" source
           cd source
-          git remote add origin "https://x-access-token:${GH_READ_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git fetch --no-tags --depth=1 origin "${SOURCE_SHA}"
-          git checkout --detach FETCH_HEAD
-          test "$(git rev-parse HEAD)" = "${SOURCE_SHA}"
-      - name: Generate and verify pinned lockfile
+          git config user.name "POSMAN Phase 09 Recovery"
+          git config user.email "144628717+mohamed09090-xmd@users.noreply.github.com"
+      - name: Apply one preserved checkpoint
         shell: bash
         run: |
           set -euo pipefail
-          cargo generate-lockfile --manifest-path source/src-tauri/Cargo.toml
-          cargo metadata --manifest-path source/src-tauri/Cargo.toml --locked --no-deps > cargo-metadata.json
-          sha256sum source/src-tauri/Cargo.lock | tee cargo-lock.sha256
-          printf '%s\n' "$SOURCE_SHA" > cargo-lock.commit
-      - name: Upload verified Cargo lock
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase09-cargo-lock-${{ github.run_id }}
-          path: |
-            source/src-tauri/Cargo.lock
-            cargo-lock.sha256
-            cargo-lock.commit
-            cargo-metadata.json
-          if-no-files-found: error
-          retention-days: 1
+          cd source
+          mapfile -t archives < <(find .phase09-bootstrap -maxdepth 1 -type f -name '*.tar.gz' 2>/dev/null | sort)
+          if [[ ${#archives[@]} -eq 0 ]]; then
+            echo "No checkpoint archive present; nothing to apply."
+            exit 0
+          fi
+          if [[ ${#archives[@]} -ne 1 ]]; then
+            echo "Expected exactly one checkpoint archive, found ${#archives[@]}." >&2
+            exit 1
+          fi
+          archive="${archives[0]}"
+          work="$(mktemp -d)"
+          tar --extract --gzip --file "$archive" --directory "$work" --no-same-owner
+          test -d "$work/files"
+          test -f "$work/manifest/message.txt"
+          message="$(cat "$work/manifest/message.txt")"
+          test -n "$message"
+          cp -a "$work/files/." .
+          if [[ -s "$work/manifest/delete.txt" ]]; then
+            while IFS= read -r path; do
+              [[ -z "$path" ]] && continue
+              [[ "$path" != /* && "$path" != *'..'* ]] || { echo "Unsafe delete path: $path" >&2; exit 1; }
+              rm -rf -- "$path"
+            done < "$work/manifest/delete.txt"
+          fi
+          rm -rf .phase09-bootstrap
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "Checkpoint produced no repository changes."
+            exit 0
+          fi
+          git commit -m "$message"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
