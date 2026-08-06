@@ -1,6 +1,6 @@
 # POSMAN Decision Register
 
-> Accepted product decisions and product-code implementation through Hotfix 04C baseline `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307`. Live `main` must be resolved from GitHub; planned phase details remain proposals until separately authorized and accepted.
+> Accepted product and implementation decisions through PHASE 08 baseline `5821004c6f3a51b4b0116ec3dbc1b9c2264ccf69`. Live `main` must still be resolved from GitHub; planned PHASE 09/10 details remain proposals until separately authorized and accepted.
 
 ## 1. Product boundary
 
@@ -15,19 +15,23 @@
 | Languages | Arabic `ar-DZ` default/RTL; French `fr-DZ`/LTR |
 | Licensing | No subscription or mandatory activation in v1 |
 | UX | Original Contemporary Operations Ledger; no copied ERP/admin template |
+| Accepted delivery | PHASE 01–08 and Hotfix 04C |
+| Next candidate | PHASE 09, unstarted and unauthorized |
 
-PHASE 01–04 and Hotfix 04C are accepted. PHASE 05–10 remain planned only.
+## 2. Accepted phase coordinates
 
-## 2. Continuity delivery decision
-
-- Continuity Checkpoint 04 is delivered through [PR #5](https://github.com/mohamed09090-xmd/posman-desktop/pull/5); its live state must be verified on GitHub.
-- The Hotfix 04C SHA remains the accepted product-code baseline, not a permanent live-`main` assertion.
-- Before PR #5 is merged, its continuity content remains unaccepted.
-- After PR #5 is merged, live `main` may be a docs-only squash commit ahead of the product-code baseline.
-- That newer `main` is an accepted continuity-checkpoint successor only if PR #5 is verified merged and the baseline comparison is limited to `AGENTS.md`, `docs/continuity/**`, and `docs/execution-packs/archive/**`.
-- A docs-only continuity successor is not PHASE 05 and is not product-code implementation.
-- Any product or out-of-scope drift must be reported and reviewed; it is never accepted automatically.
-- PHASE 05 must start from the live accepted `main` resolved when its execution is authorized, not blindly from the historical product-code baseline.
+| Delivery | Accepted SHA |
+| --- | --- |
+| PHASE 01 | `0c72eb75eb5db916a51d1ee42fec47f21328ad28` |
+| Bootstrap Gate | `a4165e28fb3bf8693d8023742e2ac2e7cc5db7d9` |
+| PHASE 02 | `7112e7f029a6419c7e58f89947f66ccad8bb69e4` |
+| PHASE 03 | `f4cda85b24f9d69ebb0442c02f8a037da8ba9baf` |
+| PHASE 04 | `a86635a8bc7dd8f3b7683f8f2f33d40c454441bb` |
+| Hotfix 04C | `73c3afed19c8bf4841d0c65fc85b7d0c4c3ef307` |
+| PHASE 05 | `ccf2263104455681cc07ecceda2569c4f7ce0de9` |
+| PHASE 06 | `036ac89c07ddee1e26402c1c523529adbba48860` |
+| PHASE 07 | `ae133cea9c3b6760a5fd22b38d3169aa2f976dc6` |
+| PHASE 08 | `5821004c6f3a51b4b0116ec3dbc1b9c2264ccf69` |
 
 ## 3. Technical foundation
 
@@ -37,38 +41,35 @@ PHASE 01–04 and Hotfix 04C are accepted. PHASE 05–10 remain planned only.
 | Frontend | React + TypeScript + Vite | Typed UI and maintainable build |
 | Backend | Rust application services | Safe transactions and business validation |
 | Database access | `rusqlite` with bundled SQLite | Offline and no external database server |
-| ORM | None in accepted foundation | Explicit SQL and invariants |
-| UI/backend boundary | Typed Tauri commands | React never accesses SQL |
+| ORM | None | Explicit SQL and invariants |
+| UI/backend boundary | Typed Tauri commands and gateways | React never accesses SQL |
 | Node | Build-time only | End users do not install Node |
 | Runtime network | None | Offline and privacy guarantee |
 | Data root | Tauri local data directory under `POSMAN` | Stable per-user storage |
-| Connections | Configured connection per operation; no global `Connection` | Safer local concurrency |
+| Connections | Configured connection per operation | Safer local concurrency |
+| SQLite runtime | Foreign keys, bounded busy timeout, requested WAL | Integrity and local responsiveness |
 | Migration control | Ordered embedded migrations with exact ledger hashes | Detect drift and protect data |
 | Automatic reset/downgrade | Rejected | Never destroy customer data silently |
 
-## 4. Accepted frontend/runtime integration decisions
+## 4. Frontend/runtime decisions
 
-- All frontend Tauri access is centralized in a typed gateway under `src/platform/tauri/**`.
-- The accepted frontend invokes only `get_runtime_status`.
-- Runtime payloads are validated before use.
-- Unknown or internal failures are normalized to safe user-facing errors.
-- The UI models initializing, ready, error, and browser preview states.
-- Retry, stale-response suppression, unmount safety, and StrictMode duplicate-invocation protection are required behavior.
-- Arabic RTL and French LTR must cover runtime state and error presentation.
-- A development-only browser seam may support deterministic tests, but production bundles must reject it.
-- No frontend SQL, raw path, SQL text, stack trace, or raw Rust error exposure.
-- No business CRUD or write command was authorized by PHASE 04.
+- All frontend Tauri access is centralized under `src/platform/tauri/**`.
+- Payloads are validated and unknown/internal failures are normalized to safe user-facing errors.
+- React does not execute SQL or receive raw database paths, SQL text, stack traces, or raw Rust errors.
+- Controlled development-only adapters may support deterministic browser tests; production bundles must reject them.
+- Active accepted workspaces exist for PHASE 05–08.
+- Arabic RTL and French LTR cover real business operations, not only fixtures.
 
-## 5. Accepted Integration CI decisions from Hotfix 04C
+## 5. Security and administration decisions
 
-- Ownership guards use the triggering event's change range, not a fixed historical phase SHA.
-- Pull requests compare the target branch through the triggering PR head with ancestry validation.
-- Pushes compare event `before` through event `sha`; all-zero `before` is rejected.
-- Unsupported events are rejected.
-- The unused `workflow_call` trigger was removed because no repository caller used it.
-- Workflow permissions remain `contents: read`.
-- The guard against write-capable workflow permissions remains mandatory.
-- Evidence metadata and final whitespace checks use the same resolved ownership range.
+- Passwords use Argon2id.
+- Authentication is local and session-based with inactivity locking.
+- Recovery uses a controlled one-time recovery-code mechanism.
+- Authorization is enforced in Rust through roles and permissions.
+- Every business mutation is company-scoped.
+- Last-system-administrator protection prevents accidental administrative lockout.
+- Optimistic concurrency protects mutable setup/reference records.
+- Safe audit events are recorded for relevant operations.
 
 ## 6. Numeric and data decisions
 
@@ -79,65 +80,87 @@ PHASE 01–04 and Hotfix 04C are accepted. PHASE 05–10 remain planned only.
 | Quantities | Integer scale 6 |
 | Percentage points | Integer scale 4; `19.0000%` → `190000` |
 | Internal business IDs | Non-null, non-blank text primary keys |
-| Future ID generation | UUIDv7 in Rust |
+| ID generation | UUIDv7 in Rust |
 | Date/time | ISO 8601 text; commercial date distinct from creation timestamp |
 
-Never use binary floating point for business truth. Rust calculation and documented rounding outrank UI display values.
+Never use binary floating point for business truth. Rust calculation and documented rounding outrank submitted UI totals.
 
 ## 7. Inventory decisions
 
 - `stock_movements` is the append-only source of truth.
 - `stock_balances` is a rebuildable projection.
-- Initial costing method is moving average CUMP/CMUP.
-- Negative stock is denied by default; an exception requires permission and audit.
+- Costing uses moving average CUMP/CMUP.
+- Warehouse aggregate and location projection share the accepted CUMP contract.
+- Negative stock is denied by default; controlled override requires permission and audited reason.
 - Posted stock effects are immutable; corrections create compensating movements.
-- Retry or double-click must not duplicate a stock event.
-- Physical, available, reserved, and projected quantities are distinct.
+- Physical, reserved, available, and projected quantities are distinct.
+- Reconciliation and rebuild must derive balances from the movement ledger.
 
-## 8. Commercial document decisions
+## 8. Purchasing decisions
 
-- Shared header/line/totals/status/lineage structure.
-- Core path: order → delivery → invoice, with partial transformation.
-- Direct sale is supported.
-- Invoice quantity follows delivered quantity where transformed.
+- Purchase workflows support orders, partial/full receipts, receipt-backed invoices, direct receive-and-invoice, and returns.
+- Posting uses one SQLite `IMMEDIATE` transaction.
+- Company-scoped idempotency binds a key to a stable request hash.
+- Aggregate source-line transformation limits are checked transactionally.
+- A supplier invoice cannot duplicate receipt stock effects.
+- Purchase returns compensate posted history rather than mutating it.
+
+## 9. Sales decisions
+
+- Core path supports order → delivery → invoice with partial transformation.
+- Direct sale is supported atomically.
+- Sales returns create compensating return/credit records.
+- Delivered quantities drive transformed invoicing.
+- Aggregate transformed quantity is enforced in one Rust transaction.
+- Deterministic fixed-point HT, tax, discount, and TTC calculations are authoritative.
+- Below-cost policy compares net sales price with current warehouse CUMP.
+- Override requires explicit permission and mandatory audited reason.
 - Posted documents and lines are immutable.
-- Corrections use cancellation before posting where allowed, return, credit, reversal, or compensating record.
-- `document_line_links` records quantity lineage.
-- Aggregate transformed quantity enforcement belongs in one Rust transaction.
-- Human document numbers are separate from internal IDs.
 
-## 9. Pricing, tax, and accounting decisions
+## 10. Accounting and payment decisions
 
-- Tax rates, account numbers, and posting mappings are configurable data, not permanent hardcoded constants.
-- Rust recalculates totals; submitted UI totals are not trusted as final truth.
-- Calculation and rounding order must be frozen before write commands.
-- Accounting entries require an open period, at least two lines, and equal debit/credit.
-- Posting is idempotent and traceable to the business document.
-- Posted entries are immutable; correction uses reversal or compensation.
-- Missing posting configuration produces an actionable error with no partial entry.
+- Accounts, journals, semantic account roles, and posting rules are configurable data.
+- Source posting fails closed on missing, inactive, or ambiguous configuration.
+- Required source/stock/journal/audit/idempotency success effects share one atomic transaction.
+- Failed posting stores only safe attempt metadata after rollback.
+- Accounting entries require an open period and balanced debit/credit.
+- Manual journals are editable only before posting.
+- Posted journals are immutable; correction uses a linked reversal.
+- Customer receipts and supplier payments support partial/full allocations.
+- Allocation/payment corrections use compensating reversal.
+- Statements, registers, trial balance, ledgers, and open balances derive from accepted accounting/payment truth.
+- Fiscal period close is enforced; reopen is controlled by permission.
 
-## 10. Documents, backup, and privacy decisions
+## 11. Schema and migration decisions
 
-- Templates use safe internal HTML/CSS; arbitrary template JavaScript is forbidden.
-- Template versions and historical rendered snapshots are immutable.
-- Backup/restore must validate structure/version and protect the current state before replacement.
-- Update or uninstall must not silently delete data.
-- All business data remains local by default.
-- No telemetry by default.
+- Accepted migrations `0001`–`0006` are frozen.
+- `database/schema.sql` is generated and must match ordered migrations exactly.
+- A correction requiring schema change must use an explicitly authorized `0007` or later migration.
+- Application business columns must not use SQLite `REAL`.
+- Posted-history triggers and application-service invariants are not weakened to make tests pass.
 
-## 11. Public repository safety decision
+## 12. Documents, backup, and privacy decisions
 
-The repository is public. Never commit:
+Accepted foundation:
 
-- secrets, credentials, API tokens, passwords, private keys, or certificates;
-- real `.env` files;
-- customer, supplier, employee, or real company data;
-- production or recovered databases, SQLite WAL/SHM/journal files, or backups;
-- private logs, exports, documents, PDFs, screenshots, or diagnostic bundles.
+- templates use safe internal HTML/CSS; arbitrary JavaScript is forbidden;
+- template versions and historical rendered snapshots are immutable;
+- schema tables exist for templates, versions, rendered documents, attachments, audit logs, and backup history;
+- application-owned directories exist for templates, documents, backups, and logs;
+- all business data remains local by default;
+- no telemetry by default.
 
-Synthetic fixtures are required.
+Deferred to PHASE 09:
 
-## 12. UX decisions
+- template management/publishing services;
+- PDF/printing implementation;
+- historical render snapshot generation and reprint;
+- reports/exports and audit presentation;
+- safe manual/automatic backup and validated restore.
+
+Restore must validate compatibility and integrity and protect the current state before replacement.
+
+## 13. UX decisions
 
 - Clear for non-technical merchants.
 - Progressive disclosure for advanced fields.
@@ -145,35 +168,33 @@ Synthetic fixtures are required.
 - Keyboard-visible focus and semantic accessibility.
 - One logical layout supporting Arabic RTL and French LTR.
 - No generic admin sidebar, KPI card wall, glassmorphism, decorative gradients, bento grid, oversized SaaS cards, or meaningless motion.
-- Accepted language includes the numbered Workspace Rail, Command Bar, Document Canvas, Process Strip, Status Stamp, Operational Data Grid, Detail Drawer, and Action Dock.
+- Accepted language includes Workspace Rail, Command Bar, Document Canvas, Process Strip, Status Stamp, Operational Data Grid, Detail Drawer, and Action Dock.
 
-## 13. Delivery decisions
+## 14. CI and delivery decisions
 
+- Workflow permissions remain read-only unless explicitly justified and reviewed.
+- Ownership guards use the triggering event's actual change range.
 - Product Owner accepts phases.
-- Architect/reviewer defines packs and independently reviews evidence.
-- Implementation engineer executes only the active pack.
-- Exact live baseline, bounded branch, and delivery PR are mandatory.
+- Architect/reviewer independently reviews evidence.
+- Implementation engineer executes only the active scope.
 - No force-push, rebase/history rewrite, auto-merge, direct `main` commit, or unapproved merge.
-- Tests cannot be weakened to obtain green CI.
+- Tests and security checks cannot be weakened to obtain green CI.
 - A phase report is an evidence inventory, not self-acceptance.
 
-## 14. Open decisions before PHASE 05 and later
+## 15. Open decisions before PHASE 09 and PHASE 10
 
 | Decision | Resolve before |
 | --- | --- |
-| Password hashing library and account recovery policy | PHASE 05 |
-| Exact Algeria company/legal fields and validation depth | PHASE 05 |
-| Fiscal-year and period creation UX | PHASE 05 |
-| Tax rounding order and price-margin formulas | PHASE 05/07 |
-| Initial human document sequence formats | PHASE 05/07 |
-| Negative-stock exception scope and approval UX | PHASE 06 |
-| Purchase document vocabulary | PHASE 06 |
-| Reservation expiry/release policy | PHASE 07 |
-| Initial chart of accounts and posting-rule seed strategy | PHASE 08 |
+| Final PDF/printing engine and Windows printer strategy | PHASE 09 |
+| Template sanitization and publishing/version contract | PHASE 09 |
 | Initial report list and export formats | PHASE 09 |
-| Backup encryption and retention | PHASE 09 |
-| Final PDF/printing implementation after prototype validation | PHASE 09 |
-| Installer signing and certificate availability | PHASE 10 |
-| Supported Windows/WebView2 packaging matrix | PHASE 10 |
+| Audit detail redaction and export permissions | PHASE 09 |
+| Backup retention and optional encryption policy | PHASE 09 |
+| Safe SQLite WAL backup/restore implementation | PHASE 09 |
+| Tauri dialog/filesystem/printing capability boundary | PHASE 09 |
+| Installer format and WebView2 packaging matrix | PHASE 10 |
+| Signing certificate availability and signing policy | PHASE 10 |
+| Upgrade/uninstall data-preservation matrix | PHASE 10 |
+| Final semantic version and release-channel policy | PHASE 10 |
 
 Do not encode guessed defaults as permanent architecture.
