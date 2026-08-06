@@ -51,10 +51,13 @@ const manualEntry = {
   {accountId:'acc-700',accountCode:'700',description:'Régularisation crédit',debitMinor:0,creditMinor:100000}
  ]
 };
-const queue = () => [
+const queue = () => {
+ const purchaseSucceeded = window.__POSMAN_PHASE08_RULE_FIXED__ && window.__POSMAN_PHASE08_RETRY_COUNT__ > 1;
+ return [
  {id:'attempt-sale',sourceEventType:'SALES_INVOICE',sourceEventId:'invoice-7',attemptNumber:1,status:'SUCCEEDED',startedAt:'2026-08-06T08:00:00Z',completedAt:'2026-08-06T08:00:00Z'},
- {id:'attempt-purchase',sourceEventType:'PURCHASE_INVOICE',sourceEventId:'purchase-4',attemptNumber:1,status:window.__POSMAN_PHASE08_RULE_FIXED__?'SUCCEEDED':'FAILED',errorCode:window.__POSMAN_PHASE08_RULE_FIXED__?undefined:'POSTING_RULE_MISSING',startedAt:'2026-08-06T09:00:00Z',completedAt:'2026-08-06T09:00:00Z'}
-];
+ {id:'attempt-purchase',sourceEventType:'PURCHASE_INVOICE',sourceEventId:'purchase-4',attemptNumber:1,status:purchaseSucceeded?'SUCCEEDED':'FAILED',errorCode:purchaseSucceeded?undefined:'POSTING_RULE_MISSING',startedAt:'2026-08-06T09:00:00Z',completedAt:'2026-08-06T09:00:00Z'}
+ ];
+};
 window.__POSMAN_DEV_PHASE08_INVOKER__ = async (command,args) => {
  window.__POSMAN_PHASE08_CALLS__.push({command,args});
  switch(command) {
