@@ -55,15 +55,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - name: Generate formatter patch without modifying the branch
+      - name: Generate formatted diagnostic files without modifying the branch
         run: |
           cargo fmt --manifest-path src-tauri/Cargo.toml --all
           git diff --binary > rustfmt.patch
           test -s rustfmt.patch
       - uses: actions/upload-artifact@v4
         with:
-          name: phase09-rustfmt-patch
-          path: rustfmt.patch
+          name: phase09-rustfmt-source
+          path: |
+            rustfmt.patch
+            src-tauri/src/commands/phase09.rs
+            src-tauri/src/infrastructure/native_dialog.rs
+            src-tauri/src/phase05/mod.rs
+            src-tauri/src/phase05/state.rs
+            src-tauri/src/phase09
+            src-tauri/src/lib.rs
           retention-days: 1
 
   database:
