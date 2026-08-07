@@ -120,7 +120,14 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci
+      - name: Install Playwright E2E runtime
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.54.0
+          python -m playwright install --with-deps chromium
       - run: npm run typecheck
       - run: npm run build
       - run: npm run test:ui
