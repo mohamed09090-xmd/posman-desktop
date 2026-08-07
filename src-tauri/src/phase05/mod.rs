@@ -103,8 +103,4 @@ impl Phase05Service {
         )?;
         Ok(())
     }
-
-    pub(crate) fn phase09_database_path(&self) -> std::path::PathBuf {
-        self.phase09_database_path()
-    }
 }
