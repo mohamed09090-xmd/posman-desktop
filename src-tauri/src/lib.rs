@@ -6,6 +6,7 @@ mod phase05;
 mod phase06;
 mod phase07;
 mod phase08;
+mod phase09;
 
 use std::{error::Error, path::PathBuf};
 
@@ -16,6 +17,7 @@ use phase05::Phase05Service;
 use phase06::Phase06Service;
 use phase07::Phase07Service;
 use phase08::Phase08Service;
+use phase09::Phase09Service;
 use tauri::{Manager, Runtime};
 
 #[derive(Clone)]
@@ -67,6 +69,7 @@ fn configure_application<R: Runtime>(
             let root = runtime_root
                 .resolve(app.handle())
                 .map_err(boxed_runtime_error)?;
+            let phase09_paths = RuntimePaths::from_root(root.clone());
             let runtime = RuntimeService::initialize(root).map_err(boxed_runtime_error)?;
             let phase05 = Phase05Service::new(runtime.database.path())
                 .map_err(|_| "POSMAN PHASE 05 service could not initialize")?;
@@ -76,6 +79,8 @@ fn configure_application<R: Runtime>(
                 .map_err(|_| "POSMAN PHASE 07 service could not initialize")?;
             let phase08 = Phase08Service::new(phase05.clone())
                 .map_err(|_| "POSMAN PHASE 08 service could not initialize")?;
+            let phase09 = Phase09Service::new(phase05.clone(), phase09_paths)
+                .map_err(|_| "POSMAN PHASE 09 service could not initialize")?;
             if !app.manage(runtime) {
                 return Err("POSMAN runtime state was already managed".into());
             }
@@ -90,6 +95,9 @@ fn configure_application<R: Runtime>(
             }
             if !app.manage(phase08) {
                 return Err("POSMAN PHASE 08 state was already managed".into());
+            }
+            if !app.manage(phase09) {
+                return Err("POSMAN PHASE 09 state was already managed".into());
             }
             Ok(())
         })
@@ -244,7 +252,36 @@ fn configure_application<R: Runtime>(
             commands::phase08::get_open_payables,
             commands::phase08::list_fiscal_periods,
             commands::phase08::close_fiscal_period,
-            commands::phase08::reopen_fiscal_period
+            commands::phase08::reopen_fiscal_period,
+            commands::phase09::phase09_list_templates,
+            commands::phase09::phase09_get_template,
+            commands::phase09::phase09_create_template_draft,
+            commands::phase09::phase09_update_template_draft,
+            commands::phase09::phase09_publish_template,
+            commands::phase09::phase09_retire_template,
+            commands::phase09::phase09_preview_document,
+            commands::phase09::phase09_get_preview_content,
+            commands::phase09::phase09_render_document,
+            commands::phase09::phase09_list_rendered_documents,
+            commands::phase09::phase09_get_rendered_document,
+            commands::phase09::phase09_verify_rendered_document,
+            commands::phase09::phase09_export_rendered_pdf,
+            commands::phase09::phase09_print_rendered_document,
+            commands::phase09::phase09_list_reports,
+            commands::phase09::phase09_run_report,
+            commands::phase09::phase09_export_report_csv,
+            commands::phase09::phase09_export_report_pdf,
+            commands::phase09::phase09_list_audit_events,
+            commands::phase09::phase09_export_audit_csv,
+            commands::phase09::phase09_get_backup_settings,
+            commands::phase09::phase09_update_backup_settings,
+            commands::phase09::phase09_create_backup,
+            commands::phase09::phase09_list_backups,
+            commands::phase09::phase09_verify_backup,
+            commands::phase09::phase09_export_backup,
+            commands::phase09::phase09_import_backup,
+            commands::phase09::phase09_restore_backup,
+            commands::phase09::phase09_delete_backup
         ])
 }
 
