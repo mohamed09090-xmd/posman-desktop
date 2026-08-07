@@ -8,6 +8,7 @@ pub mod permissions;
 pub mod rendering;
 pub mod reports;
 pub mod restore;
+pub mod service;
 pub mod templates;
 
 use std::{
@@ -74,15 +75,22 @@ impl Phase09Service {
         let sha256 = format!("{:x}", sha2::Sha256::digest(&bytes));
         let size_bytes = i64::try_from(bytes.len()).map_err(|_| Phase09Error::internal())?;
         if sha256 != result.sha256 || size_bytes != result.size_bytes {
-            return Err(Phase09Error::integrity("The managed export failed verification."));
+            return Err(Phase09Error::integrity(
+                "The managed export failed verification.",
+            ));
         }
         let parent = destination
             .parent()
             .ok_or_else(|| Phase09Error::validation("Invalid export destination."))?;
         std::fs::create_dir_all(parent)?;
         let temporary = parent.join(format!(".posman-export-{}.tmp", new_id()));
-        let mut input = std::fs::OpenOptions::new().read(true).open(&canonical_source)?;
-        let mut output = std::fs::OpenOptions::new().create_new(true).write(true).open(&temporary)?;
+        let mut input = std::fs::OpenOptions::new()
+            .read(true)
+            .open(&canonical_source)?;
+        let mut output = std::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&temporary)?;
         std::io::copy(&mut input, &mut output)?;
         use std::io::Write as _;
         output.flush()?;
@@ -93,7 +101,11 @@ impl Phase09Service {
         std::fs::rename(&temporary, destination)?;
         let _ = std::fs::remove_file(canonical_source);
         Ok(models::ExportResult {
-            relative_path: destination.file_name().and_then(|name| name.to_str()).unwrap_or("export").to_owned(),
+            relative_path: destination
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("export")
+                .to_owned(),
             sha256,
             size_bytes,
         })
@@ -117,7 +129,10 @@ impl Phase09Service {
         entity_id: &str,
         details: Option<&serde_json::Value>,
     ) -> Phase09Result<()> {
-        let details_json = details.map(serde_json::to_string).transpose().map_err(|_| Phase09Error::internal())?;
+        let details_json = details
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|_| Phase09Error::internal())?;
         transaction.execute(
             r#"INSERT INTO audit_logs(
                    id, company_id, actor_user_id, action_code, entity_type, entity_id,
@@ -178,7 +193,11 @@ pub(crate) fn now_iso() -> Phase09Result<String> {
         .map_err(|_| Phase09Error::internal())
 }
 
-pub(crate) fn checked_page(page: i64, page_size: i64, maximum: i64) -> Phase09Result<(i64, i64)> {
+pub(crate) fn checked_page(
+    page: i64,
+    page_size: i64,
+    maximum: i64,
+) -> Phase09Result<(i64, i64)> {
     if page < 1 || !(1..=maximum).contains(&page_size) {
         return Err(Phase09Error::validation("Invalid page or page size."));
     }
@@ -189,7 +208,9 @@ pub(crate) fn normalize_locale(value: &str) -> Phase09Result<&'static str> {
     match value {
         "ar" | "ar-DZ" => Ok("ar-DZ"),
         "fr" | "fr-DZ" => Ok("fr-DZ"),
-        _ => Err(Phase09Error::validation("Locale must be Arabic or French.")),
+        _ => Err(Phase09Error::validation(
+            "Locale must be Arabic or French.",
+        )),
     }
 }
 
