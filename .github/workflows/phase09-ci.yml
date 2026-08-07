@@ -2,8 +2,7 @@ name: PHASE 09 documents reports audit backup
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
     types: [opened, synchronize, reopened]
     paths:
       - '.github/workflows/phase09-ci.yml'
@@ -11,13 +10,19 @@ on:
       - 'docs/execution/POSMAN-PHASE-09-EXECUTION-PACK.md'
       - 'docs/architecture/phase-09-documents-reports-audit-backup.md'
       - 'docs/PHASE-09-REPORT.md'
+      - 'scripts/verify_schema.py'
+      - 'scripts/verify_phase06.py'
+      - 'scripts/verify_phase07.py'
+      - 'scripts/verify_phase08.py'
       - 'scripts/verify_phase09.py'
       - 'scripts/phase09_policy.py'
       - 'src-tauri/**'
       - 'src/platform/tauri/phase09/**'
       - 'src/features/phase09/**'
       - 'src/app/AppRoot.tsx'
+      - 'src/components/layout.tsx'
       - 'src/i18n/**'
+      - 'src/styles/**'
       - 'tests/**'
       - 'package.json'
       - 'package-lock.json'
@@ -27,8 +32,128 @@ permissions:
   contents: read
 
 jobs:
-  placeholder:
-    name: PHASE 09 implementation pending final CI replacement
+  repository-policy:
+    name: PHASE 09 repository safety policy
     runs-on: ubuntu-latest
     steps:
-      - run: echo 'Temporary bootstrap placeholder; final read-only validation workflow will replace this file.'
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reject recovery archives and write-capable workflows
+        run: python scripts/phase09_policy.py
+      - name: Verify whitespace
+        run: git diff --check origin/main...HEAD
+
+  database:
+    name: Database validation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify generated schema and migrations
+        run: python scripts/verify_schema.py
+      - name: Verify accepted compatibility and PHASE 09 contracts
+        run: |
+          python scripts/verify_phase06.py
+          python scripts/verify_phase07.py
+          python scripts/verify_phase08.py
+          python scripts/verify_phase09.py
+      - name: Run SQL invariants
+        shell: bash
+        run: |
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          root = Path.cwd()
+          db = sqlite3.connect(':memory:')
+          db.execute('PRAGMA foreign_keys=ON')
+          for migration in sorted((root / 'database/migrations').glob('*.sql')):
+              db.executescript(migration.read_text(encoding='utf-8'))
+          db.executescript((root / 'database/tests/invariants.sql').read_text(encoding='utf-8'))
+          assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+          print('foreign keys and SQL invariants passed')
+          PY
+
+  frontend:
+    name: Frontend Node 24
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:ui
+      - run: npm run test:integration
+      - run: npm run test:e2e
+
+  rust:
+    name: Rust validation (${{ matrix.os }}, ${{ matrix.toolchain }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        toolchain: ['1.85.0', stable]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --format-version 1
+      - run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture
+      - run: npm run desktop:check
+
+  windows-native-evidence:
+    name: Windows WebView2 PDF, print, backup and restore evidence
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Build native Tauri application
+        run: npm run desktop:check
+      - name: Execute PHASE 09 Windows-native and backup/restore tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked phase09 -- --nocapture
+      - name: Collect synthetic evidence only
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force phase09-evidence | Out-Null
+          Get-ChildItem -Recurse -File src-tauri/target -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match 'phase09.*(json|txt)$' } |
+            Copy-Item -Destination phase09-evidence -Force
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase09-windows-synthetic-evidence
+          path: phase09-evidence
+          retention-days: 30
+          if-no-files-found: warn
