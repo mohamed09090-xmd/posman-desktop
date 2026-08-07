@@ -86,7 +86,6 @@ def main() -> int:
         if relative.startswith("src-tauri/src/phase09/") and re.search(r"(?:todo!|unimplemented!)\s*\(", text):
             fail(f"unfinished Rust implementation: {relative}")
         if relative.startswith(("src-tauri/src/phase09/", "src/features/phase09/")) and re.search(r"<script|javascript:", text, re.IGNORECASE):
-            # Rejection markers in Rust are allowed only when clearly part of a deny-list.
             if "forbidden" not in text.lower() and "reject" not in text.lower():
                 fail(f"raw JavaScript template support: {relative}")
 
