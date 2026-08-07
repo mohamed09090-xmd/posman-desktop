@@ -117,13 +117,14 @@ mod platform {
 
     impl ComApartment {
         fn enter() -> Phase09Result<Self> {
-            let result = unsafe {
-                CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)
-            };
-            match result {
-                Ok(()) => Ok(Self { owned: true }),
-                Err(error) if error.code() == RPC_E_CHANGED_MODE => Ok(Self { owned: false }),
-                Err(_) => Err(dialog_failure()),
+            let result =
+                unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) };
+            if result.is_ok() {
+                Ok(Self { owned: true })
+            } else if result == RPC_E_CHANGED_MODE {
+                Ok(Self { owned: false })
+            } else {
+                Err(dialog_failure())
             }
         }
     }
