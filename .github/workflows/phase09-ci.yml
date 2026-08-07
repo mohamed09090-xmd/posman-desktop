@@ -47,6 +47,25 @@ jobs:
       - name: Verify whitespace
         run: git diff --check origin/main...HEAD
 
+  rustfmt-diagnostic:
+    name: Rustfmt diagnostic artifact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Generate formatter patch without modifying the branch
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all
+          git diff --binary > rustfmt.patch
+          test -s rustfmt.patch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase09-rustfmt-patch
+          path: rustfmt.patch
+          retention-days: 1
+
   database:
     name: Database validation (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
