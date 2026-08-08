@@ -54,6 +54,7 @@ OWNED_EXACT = {
     "src-tauri/src/ipc_tests.rs",
     "src-tauri/src/lib.rs",
     "src-tauri/src/phase05/mod.rs",
+    "src-tauri/src/phase05/partners.rs",
     "src-tauri/src/phase05/state.rs",
     "src/app/AppRoot.tsx",
     "src/platform/tauri/phase09.ts",
