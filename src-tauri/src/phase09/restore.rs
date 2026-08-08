@@ -10,9 +10,7 @@ use rusqlite::{params, Connection};
 // Contract marker: rusqlite::backup::Backup
 
 use super::{
-    backup::{
-        managed_backup_path, verify_database_file, BackupRecord, ExpectedArtifact,
-    },
+    backup::{managed_backup_path, verify_database_file, BackupRecord, ExpectedArtifact},
     error::{Phase09Error, Phase09Result},
     models::RestoreBackupRequest,
     new_id, now_iso, safe_component, Phase09Service,

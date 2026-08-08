@@ -15,11 +15,15 @@ type Section = "documents" | "templates" | "reports" | "audit" | "backup";
 export interface Phase09WorkspaceProps {
   locale?: Phase09Locale;
   permissions: readonly string[];
+  onLocaleChange?: (locale: Phase09Locale) => void;
+  onRestoreCompleted?: () => void;
 }
 
 export function Phase09Workspace({
   locale = "ar-DZ",
   permissions,
+  onLocaleChange,
+  onRestoreCompleted,
 }: Phase09WorkspaceProps) {
   const [activeSection, setActiveSection] = useState<Section>("documents");
   const copy = phase09Copy[locale];
@@ -51,7 +55,13 @@ export function Phase09Workspace({
           <h1>{copy.title}</h1>
           <p>{copy.subtitle}</p>
         </div>
-        <span className="phase09-offline-badge">OFFLINE · A4 · DZD</span>
+        <div className="phase09-hero__actions">
+          <span className="phase09-offline-badge">OFFLINE · A4 · DZD</span>
+          {onLocaleChange ? <div className="phase09-locale" aria-label={copy.locale}>
+            <button type="button" aria-pressed={locale === "ar-DZ"} onClick={() => onLocaleChange("ar-DZ")}>العربية</button>
+            <button type="button" aria-pressed={locale === "fr-DZ"} onClick={() => onLocaleChange("fr-DZ")}>Français</button>
+          </div> : null}
+        </div>
       </header>
 
       <nav className="phase09-tabs" aria-label={copy.title}>
@@ -113,6 +123,7 @@ export function Phase09Workspace({
             canCreate={hasPermission(permissions, "backup.create")}
             canRestore={hasPermission(permissions, "backup.restore")}
             canManage={hasPermission(permissions, "backup.manage")}
+            onRestoreCompleted={onRestoreCompleted}
           />
         ) : null}
       </PermissionBoundary>

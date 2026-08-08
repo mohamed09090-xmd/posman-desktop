@@ -1,4 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import type { InvokeFunction } from "./runtime-status";
 
 export type Phase09Locale = "ar-DZ" | "fr-DZ";
 export type TemplateState = "DRAFT" | "PUBLISHED" | "RETIRED";
@@ -325,6 +326,30 @@ export interface RestoreBackupRequest {
 
 type JsonRecord = Record<string, unknown>;
 
+declare global {
+  interface Window {
+    __POSMAN_DEV_PHASE09_INVOKER__?: InvokeFunction;
+  }
+}
+
+function resolvePhase09Invoker(): InvokeFunction {
+  if (
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    typeof window.__POSMAN_DEV_PHASE09_INVOKER__ === "function"
+  ) {
+    return window.__POSMAN_DEV_PHASE09_INVOKER__;
+  }
+  if (isTauri()) {
+    return invoke;
+  }
+  throw new Phase09GatewayError({
+    code: "RUNTIME_UNAVAILABLE",
+    message: "The POSMAN local runtime is unavailable.",
+    retryable: true,
+  });
+}
+
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -360,7 +385,7 @@ export async function invokePhase09<T>(
   payload?: JsonRecord,
 ): Promise<T> {
   try {
-    return await invoke<T>(command, payload);
+    return await resolvePhase09Invoker()(command, payload) as T;
   } catch (error: unknown) {
     throw normalizePhase09Error(error);
   }

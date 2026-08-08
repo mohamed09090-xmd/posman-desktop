@@ -16,6 +16,8 @@ const templates = source("src/features/phase09/TemplatesPanel.tsx");
 const reports = source("src/features/phase09/ReportsPanel.tsx");
 const audit = source("src/features/phase09/AuditPanel.tsx");
 const backup = source("src/features/phase09/BackupPanel.tsx");
+const appRoot = source("src/app/AppRoot.tsx");
+const shared = source("src/features/phase09/shared.tsx");
 const all = [workspace, copy, styles, documents, templates, reports, audit, backup].join("\n");
 
 test("Arabic is the default locale and uses RTL", () => {
@@ -98,4 +100,11 @@ test("responsive layouts cover desktop and constrained viewports", () => {
 test("frontend remains offline and does not gain filesystem authority", () => {
   assert.doesNotMatch(all, /\bfetch\s*\(|XMLHttpRequest|WebSocket|https?:\/\//);
   assert.doesNotMatch(all, /@tauri-apps\/plugin-fs|readFile|writeFile/);
+});
+
+test("AppRoot exposes PHASE 09 through the authenticated session permission set", () => {
+  assert.match(appRoot, /#phase09/);
+  assert.match(appRoot, /getCurrentSession\(\)/);
+  assert.match(appRoot, /permissions=\{session\.permissions\}/);
+  assert.match(shared, /permissions\.includes\("\*"\)/);
 });

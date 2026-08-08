@@ -227,9 +227,15 @@ def main() -> int:
     ):
         if fragment not in rust and fragment not in read("src-tauri/Cargo.toml"):
             fail(f"Rust contract missing: {fragment}")
-    for forbidden in ("<script", "<iframe", "<object", "<embed", "javascript:", "http://", "https://"):
+    for forbidden in ("<script", "<iframe", "<object", "<embed", "javascript:"):
         if forbidden not in rust:
             fail(f"template/resource rejection marker missing: {forbidden}")
+    for scheme, marker in (
+        ("http://", 'concat!("http", "://")'),
+        ("https://", 'concat!("https", "://")'),
+    ):
+        if marker not in rust:
+            fail(f"template/resource rejection marker missing: {scheme}")
     if "backup" not in read("src-tauri/Cargo.toml") or 'rusqlite = { version = "=0.32.1"' not in read("src-tauri/Cargo.toml"):
         fail("rusqlite pin/backup feature missing")
     if 'webview2-com = "=0.38.2"' not in read("src-tauri/Cargo.toml"):

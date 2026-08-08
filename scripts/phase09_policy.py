@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import argparse
 import re
 import subprocess
 from pathlib import Path
@@ -21,6 +22,41 @@ ARCHIVE_SUFFIXES = {".tar", ".gz", ".tgz", ".zip", ".7z", ".rar"}
 RUNTIME_SUFFIXES = {".sqlite", ".sqlite3", ".db", ".wal", ".shm", ".journal", ".pdf"}
 SECRET_NAMES = {".env", ".env.local", ".env.production", ".env.development"}
 TEXT_SUFFIXES = {".md", ".sql", ".py", ".rs", ".ts", ".tsx", ".json", ".yml", ".yaml", ".txt", ".css", ".html", ".toml"}
+OWNED_EXACT = {
+    ".github/workflows/integration-ci.yml",
+    ".github/workflows/phase09-ci.yml",
+    "AGENTS.md",
+    "database/migrations/0007_phase09_documents_reports_audit_backup.sql",
+    "database/schema.sql",
+    "database/tests/invariants.sql",
+    "docs/PHASE-09-REPORT.md",
+    "docs/architecture/phase-09-documents-reports-audit-backup.md",
+    "docs/execution/POSMAN-PHASE-09-EXECUTION-PACK.md",
+    "package.json",
+    "scripts/phase09_policy.py",
+    "scripts/verify_phase06.py",
+    "scripts/verify_phase07.py",
+    "scripts/verify_phase08.py",
+    "scripts/verify_phase09.py",
+    "scripts/verify_schema.py",
+    "src-tauri/Cargo.lock",
+    "src-tauri/Cargo.toml",
+    "src-tauri/src/commands/mod.rs",
+    "src-tauri/src/commands/phase09.rs",
+    "src-tauri/src/infrastructure/maintenance.rs",
+    "src-tauri/src/infrastructure/mod.rs",
+    "src-tauri/src/infrastructure/native_dialog.rs",
+    "src-tauri/src/infrastructure/paths.rs",
+    "src-tauri/src/lib.rs",
+    "src-tauri/src/phase05/mod.rs",
+    "src-tauri/src/phase05/state.rs",
+    "src/app/AppRoot.tsx",
+    "src/platform/tauri/phase09.ts",
+    "tests/e2e/run_phase09.py",
+    "tests/integration/phase09-gateway.test.ts",
+    "tests/ui/phase09-ui-contract.test.ts",
+}
+OWNED_PREFIXES = ("src-tauri/src/phase09/", "src/features/phase09/")
 
 
 def fail(message: str) -> None:
@@ -39,7 +75,32 @@ def files() -> list[Path]:
     return result
 
 
+def changed_paths(ownership_range: str) -> list[str]:
+    return subprocess.run(
+        ["git", "diff", "--name-only", ownership_range],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.splitlines()
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--range", dest="ownership_range")
+    arguments = parser.parse_args()
+
+    if arguments.ownership_range:
+        changed = changed_paths(arguments.ownership_range)
+        unexpected = [
+            path
+            for path in changed
+            if path not in OWNED_EXACT and not path.startswith(OWNED_PREFIXES)
+        ]
+        if unexpected:
+            fail("out-of-scope changed paths:\n" + "\n".join(unexpected))
+        print(f"PHASE09 ownership PASS: {len(changed)} changed paths in {arguments.ownership_range}")
+
     for name, expected in FROZEN.items():
         path = ROOT / "database" / "migrations" / name
         actual = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -96,10 +157,10 @@ def main() -> int:
         text=True,
         capture_output=True,
     ).stdout.splitlines()
-    owned = len(status)
+    local_changes = len(status)
     print(
         "PHASE09 POLICY PASS: "
-        f"{owned} local changed paths; migrations 0001-0006 frozen; "
+        f"{local_changes} local changed paths; migrations 0001-0006 frozen; "
         "no write-capable workflow, source archive, private artifact, secret, or runtime network authority"
     )
     return 0

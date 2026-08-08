@@ -565,8 +565,8 @@ mod native {
                         let callback_sender = sender.clone();
                         let handler = PrintToPdfCompletedHandler::create(Box::new(
                             move |result: windows::core::Result<()>, successful: bool| {
-                                let completed = result.map_err(|_| Phase09Error::internal()).and_then(
-                                    |_| {
+                                let completed =
+                                    result.map_err(|_| Phase09Error::internal()).and_then(|_| {
                                         if successful {
                                             Ok(())
                                         } else {
@@ -576,8 +576,7 @@ mod native {
                                                 true,
                                             ))
                                         }
-                                    },
-                                );
+                                    });
                                 let _ = callback_sender.send(completed);
                                 Ok(())
                             },

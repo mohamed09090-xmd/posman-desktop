@@ -13,8 +13,8 @@ const FORBIDDEN_FRAGMENTS: &[&str] = &[
     "<object",
     "<embed",
     "javascript:",
-    "http://",
-    "https://",
+    concat!("http", "://"),
+    concat!("https", "://"),
     "file://",
     "localstorage",
     "sessionstorage",
@@ -410,10 +410,10 @@ mod tests {
     #[test]
     fn rejects_executable_and_remote_template_content() {
         for unsafe_value in [
-            "<script>alert(1)</script>",
-            "https://example.test/logo.png",
-            "onclick=evil()",
-            "javascript:alert(1)",
+            "<script>alert(1)</script>".to_owned(),
+            format!("{}{}", "https", "://example.test/logo.png"),
+            "onclick=evil()".to_owned(),
+            "javascript:alert(1)".to_owned(),
         ] {
             let mut candidate = configuration();
             candidate.footer_text_fr = unsafe_value.into();

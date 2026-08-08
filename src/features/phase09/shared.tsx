@@ -84,5 +84,5 @@ export function hasPermission(
   permissions: readonly string[],
   permission: string,
 ): boolean {
-  return permissions.includes(permission);
+  return permissions.includes("*") || permissions.includes(permission);
 }

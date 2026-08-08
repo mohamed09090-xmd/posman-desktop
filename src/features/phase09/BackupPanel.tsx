@@ -21,12 +21,14 @@ export function BackupPanel({
   canCreate,
   canRestore,
   canManage,
+  onRestoreCompleted,
 }: {
   locale: Phase09Locale;
   copy: Phase09Copy;
   canCreate: boolean;
   canRestore: boolean;
   canManage: boolean;
+  onRestoreCompleted?: () => void;
 }) {
   const [settings, setSettings] = useState<BackupSettingsView | null>(null);
   const [backups, setBackups] = useState<BackupView[]>([]);
@@ -147,6 +149,7 @@ export function BackupPanel({
       setPassword("");
       setConfirmationText("");
       setStatus({ kind: "success", message: copy.restore });
+      onRestoreCompleted?.();
     } catch (error: unknown) {
       const safe = normalizePhase09Error(error);
       setStatus({ kind: "error", message: safe.message, code: safe.code });

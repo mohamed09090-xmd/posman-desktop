@@ -102,3 +102,11 @@ test("payloads remain wrapped in typed request objects", () => {
     assert.doesNotMatch(gateway, /companyId\s*:/);
   }
 });
+
+test("browser test injection is development-only and production calls stay on Tauri", () => {
+  const gateway = source("src/platform/tauri/phase09.ts");
+  assert.match(gateway, /import\.meta\.env\.DEV/);
+  assert.match(gateway, /__POSMAN_DEV_PHASE09_INVOKER__/);
+  assert.match(gateway, /isTauri\(\)/);
+  assert.match(gateway, /return invoke/);
+});
