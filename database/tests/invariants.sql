@@ -10,15 +10,15 @@ INSERT INTO invariant_assertions
 SELECT 'foreign keys enabled', (SELECT foreign_keys FROM pragma_foreign_keys);
 
 INSERT INTO invariant_assertions
-SELECT 'six migrations recorded', COUNT(*) = 6
+SELECT 'seven migrations recorded', COUNT(*) = 7
 FROM app_migrations;
 
 INSERT INTO invariant_assertions
-SELECT 'schema version 0006', MAX(version) = '0006'
+SELECT 'schema version 0007', MAX(version) = '0007'
 FROM app_migrations;
 
 INSERT INTO invariant_assertions
-SELECT 'expected application table count', COUNT(*) = 57
+SELECT 'expected application table count', COUNT(*) = 64
 FROM sqlite_schema
 WHERE type = 'table' AND name NOT LIKE 'sqlite_%';
 
@@ -32,8 +32,8 @@ WHERE schema_object.type = 'table'
 
 INSERT INTO invariant_assertions
 SELECT 'all text business primary keys explicitly not null',
-       COUNT(*) = 55
-       AND SUM(CASE WHEN column_info."notnull" = 1 THEN 1 ELSE 0 END) = 55
+       COUNT(*) = 61
+       AND SUM(CASE WHEN column_info."notnull" = 1 THEN 1 ELSE 0 END) = 61
 FROM sqlite_schema AS schema_object,
      pragma_table_info(schema_object.name) AS column_info
 WHERE schema_object.type = 'table'
@@ -102,7 +102,7 @@ FROM roles
 WHERE company_id IS NULL AND is_system = 1;
 
 INSERT INTO invariant_assertions
-SELECT 'safe permissions seeded', COUNT(*) = 28
+SELECT 'safe permissions seeded', COUNT(*) = 39
 FROM permissions;
 
 INSERT INTO invariant_assertions

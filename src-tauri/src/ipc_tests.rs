@@ -1,4 +1,4 @@
-use super::{configure_application, RuntimeRoot, RuntimeService};
+use super::{configure_test_application, RuntimeRoot, RuntimeService};
 use crate::infrastructure::database::open_configured_connection;
 use std::{
     fs,
@@ -46,7 +46,7 @@ fn execute_setup_once(application: &mut tauri::App<tauri::test::MockRuntime>) {
 }
 
 fn build_test_application(directory: &TestDirectory) -> tauri::App<tauri::test::MockRuntime> {
-    configure_application(
+    configure_test_application(
         tauri::test::mock_builder(),
         RuntimeRoot::Explicit(directory.path().to_path_buf()),
     )
@@ -63,8 +63,8 @@ fn application_setup_builds_with_mock_runtime() {
 
     let status = application.state::<RuntimeService>().status();
     assert!(status.database_ready);
-    assert_eq!(status.schema_version, "0006");
-    assert_eq!(status.migration_count, 6);
+    assert_eq!(status.schema_version, "0007");
+    assert_eq!(status.migration_count, 7);
 
     let database_path = directory.path().join("data").join("posman.sqlite3");
     assert!(database_path.is_file());
@@ -73,7 +73,7 @@ fn application_setup_builds_with_mock_runtime() {
     let migration_count: i64 = connection
         .query_row("SELECT COUNT(*) FROM app_migrations", [], |row| row.get(0))
         .expect("failed to count mock runtime migrations");
-    assert_eq!(migration_count, 6);
+    assert_eq!(migration_count, 7);
     assert!(contract.foreign_keys_enabled);
 }
 
@@ -182,6 +182,40 @@ fn phase08_command_executes_through_tauri_ipc_and_requires_session() {
 }
 
 #[test]
+fn phase09_command_executes_through_tauri_ipc_and_requires_session() {
+    let directory = TestDirectory::new();
+    let mut application = build_test_application(&directory);
+    execute_setup_once(&mut application);
+
+    let webview = tauri::WebviewWindowBuilder::new(&application, "phase09", Default::default())
+        .build()
+        .expect("failed to build mock webview for PHASE 09 IPC test");
+    let ipc_url = if cfg!(any(windows, target_os = "android")) {
+        let mut url = String::from("http");
+        url.push_str("://tauri.localhost");
+        url
+    } else {
+        String::from("tauri://localhost")
+    };
+    let response = tauri::test::get_ipc_response(
+        &webview,
+        tauri::webview::InvokeRequest {
+            cmd: "phase09_list_templates".into(),
+            callback: tauri::ipc::CallbackFn(0),
+            error: tauri::ipc::CallbackFn(1),
+            url: ipc_url.parse().expect("local Tauri IPC URL should parse"),
+            body: tauri::ipc::InvokeBody::default(),
+            headers: Default::default(),
+            invoke_key: tauri::test::INVOKE_KEY.to_string(),
+        },
+    );
+    assert!(
+        response.is_err(),
+        "PHASE 09 IPC must reject an unauthenticated caller"
+    );
+}
+
+#[test]
 fn get_runtime_status_executes_through_tauri_ipc() {
     let directory = TestDirectory::new();
     let mut application = build_test_application(&directory);
@@ -217,8 +251,8 @@ fn get_runtime_status_executes_through_tauri_ipc() {
         .expect("runtime status IPC response should be valid JSON");
 
     assert_eq!(payload["databaseReady"], true);
-    assert_eq!(payload["schemaVersion"], "0006");
-    assert_eq!(payload["migrationCount"], 6);
+    assert_eq!(payload["schemaVersion"], "0007");
+    assert_eq!(payload["migrationCount"], 7);
     assert_eq!(payload["foreignKeysEnabled"], true);
     assert!(payload["journalMode"]
         .as_str()

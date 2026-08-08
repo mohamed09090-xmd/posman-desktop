@@ -27,6 +27,10 @@ const MIGRATION_0006_SQL: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../database/migrations/0006_accounting_payments_hardening.sql"
 ));
+const MIGRATION_0007_SQL: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../database/migrations/0007_phase09_documents_reports_audit_backup.sql"
+));
 
 #[derive(Clone, Copy, Debug)]
 pub struct Migration {
@@ -42,7 +46,7 @@ impl Migration {
     }
 }
 
-pub const MIGRATIONS: [Migration; 6] = [
+pub const MIGRATIONS: [Migration; 7] = [
     Migration {
         id: 1,
         version: "0001",
@@ -78,6 +82,12 @@ pub const MIGRATIONS: [Migration; 6] = [
         version: "0006",
         name: "accounting_payments_hardening",
         sql: MIGRATION_0006_SQL,
+    },
+    Migration {
+        id: 7,
+        version: "0007",
+        name: "phase09_documents_reports_audit_backup",
+        sql: MIGRATION_0007_SQL,
     },
 ];
 

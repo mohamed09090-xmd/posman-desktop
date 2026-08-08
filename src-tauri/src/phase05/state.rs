@@ -10,7 +10,10 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
-use crate::infrastructure::database::open_configured_connection;
+use crate::infrastructure::{
+    database::open_configured_connection,
+    maintenance::{GuardedConnection, MaintenanceGate},
+};
 
 use super::{
     dto::SessionView,
@@ -26,6 +29,7 @@ pub struct Phase05Service {
     pub(super) password_engine: PasswordEngine,
     pub(super) dummy_hash: String,
     session: Arc<Mutex<Option<ActiveSession>>>,
+    pub(super) maintenance: MaintenanceGate,
 }
 
 pub(super) struct ActiveSession {
@@ -60,13 +64,28 @@ impl Phase05Service {
             password_engine,
             dummy_hash,
             session: Arc::new(Mutex::new(None)),
+            maintenance: MaintenanceGate::default(),
         })
     }
 
-    pub(super) fn open(&self) -> Phase05Result<Connection> {
+    pub(crate) fn phase09_database_path(&self) -> &Path {
+        &self.database_path
+    }
+
+    pub(super) fn open_raw(&self) -> Phase05Result<Connection> {
         open_configured_connection(&self.database_path)
             .map(|(connection, _)| connection)
             .map_err(|_| Phase05Error::internal())
+    }
+
+    pub(super) fn open(&self) -> Phase05Result<GuardedConnection> {
+        let permit = self.maintenance.enter_database_operation().map_err(|_| {
+            Phase05Error::new(
+                "MAINTENANCE_ACTIVE",
+                "POSMAN is restoring a verified backup.",
+            )
+        })?;
+        Ok(permit.guard(self.open_raw()?))
     }
 
     pub(super) fn replace_session(&self, session: ActiveSession) -> Phase05Result<()> {
@@ -95,6 +114,12 @@ impl Phase05Service {
         &self,
         permission: Option<&str>,
     ) -> Phase05Result<SessionContext> {
+        self.maintenance.ensure_available().map_err(|_| {
+            Phase05Error::new(
+                "MAINTENANCE_ACTIVE",
+                "POSMAN is restoring a verified backup.",
+            )
+        })?;
         let (context, update_last_seen) = self.with_session(|session| {
             apply_expiry_and_idle_lock(session);
             if session.locked {
@@ -137,6 +162,12 @@ impl Phase05Service {
     }
 
     pub(super) fn has_permission(&self, permission: &str) -> Phase05Result<bool> {
+        self.maintenance.ensure_available().map_err(|_| {
+            Phase05Error::new(
+                "MAINTENANCE_ACTIVE",
+                "POSMAN is restoring a verified backup.",
+            )
+        })?;
         self.with_session(|session| {
             apply_expiry_and_idle_lock(session);
             if session.locked {
