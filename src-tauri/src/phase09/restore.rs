@@ -198,7 +198,9 @@ impl Phase09Service {
                             pre_restore_backup_id: Some(&pre_restore.backup_id),
                             outcome: "ROLLED_BACK",
                             failure_code: Some(&post_error.code),
-                            details: Some(&serde_json::json!({"stage":"POST_REPLACEMENT_VERIFICATION"})),
+                            details: Some(
+                                &serde_json::json!({"stage":"POST_REPLACEMENT_VERIFICATION"}),
+                            ),
                         },
                     );
                     let _ = self.phase05.phase09_invalidate_session();
