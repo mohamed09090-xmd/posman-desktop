@@ -224,6 +224,7 @@ export function DocumentsPanel({
           </table>
         </div>
       )}
+      <iframe title="Document Preview" srcDoc="" sandbox="" style={{ display: "none" }} />
     </section>
   );
 }

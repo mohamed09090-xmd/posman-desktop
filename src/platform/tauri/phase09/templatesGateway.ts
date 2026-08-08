@@ -8,12 +8,12 @@ import type {
   TemplateSummary,
   TemplateVersionView,
   UpdateTemplateDraftRequest,
-} from "./contracts";
+} from "./contracts.ts";
 import {
   invokePhase09,
   requireArray,
   requireObject,
-} from "./invokePhase09";
+} from "./invokePhase09.ts";
 
 export const templatesGateway = {
   async list(): Promise<TemplateSummary[]> {

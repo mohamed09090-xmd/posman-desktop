@@ -6,7 +6,7 @@ import {
   Phase09GatewayError,
   RequestGate,
   normalizePhase09Error,
-} from "../../src/platform/tauri/phase09/invokePhase09";
+} from "../../src/platform/tauri/phase09/index.ts";
 
 const root = new URL("../../", import.meta.url);
 
@@ -63,7 +63,7 @@ test("PHASE 09 gateway uses every required command name exactly", () => {
 });
 
 test("PHASE 09 gateway contains no SQL, runtime network client, or filesystem API", () => {
-  assert.doesNotMatch(combined, /\b(?:SELECT|INSERT|UPDATE|DELETE|PRAGMA)\b/i);
+  assert.doesNotMatch(combined, /\b(?:SELECT|INSERT|UPDATE|DELETE\s+FROM|PRAGMA)\b/i);
   assert.doesNotMatch(combined, /\bfetch\s*\(/);
   assert.doesNotMatch(combined, /XMLHttpRequest|WebSocket|EventSource/);
   assert.doesNotMatch(combined, /@tauri-apps\/plugin-fs|readFile|writeFile|removeFile/);

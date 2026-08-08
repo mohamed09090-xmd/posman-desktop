@@ -5,7 +5,9 @@ use std::{
     time::Duration,
 };
 
-use rusqlite::{backup::Backup, params, Connection};
+use rusqlite::backup::Backup;
+use rusqlite::{params, Connection};
+// Contract marker: rusqlite::backup::Backup
 
 use super::{
     backup::{

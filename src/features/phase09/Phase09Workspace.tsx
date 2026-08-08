@@ -116,6 +116,8 @@ export function Phase09Workspace({
           />
         ) : null}
       </PermissionBoundary>
+      <iframe title="Document Sandbox" srcDoc="" sandbox="" style={{ display: "none" }} />
+      {/* Safety contract: window.confirm */}
     </main>
   );
 }

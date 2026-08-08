@@ -3,12 +3,12 @@ import type {
   ReportDescriptor,
   ReportPage,
   ReportRequest,
-} from "./contracts";
+} from "./contracts.ts";
 import {
   invokePhase09,
   requireArray,
   requireObject,
-} from "./invokePhase09";
+} from "./invokePhase09.ts";
 
 export const reportsGateway = {
   async list(): Promise<ReportDescriptor[]> {

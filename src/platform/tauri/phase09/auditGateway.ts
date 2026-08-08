@@ -3,8 +3,8 @@ import type {
   AuditRequest,
   ExportResult,
   Page,
-} from "./contracts";
-import { invokePhase09, requireObject } from "./invokePhase09";
+} from "./contracts.ts";
+import { invokePhase09, requireObject } from "./invokePhase09.ts";
 
 export const auditGateway = {
   async list(request: AuditRequest): Promise<Page<AuditEventView>> {

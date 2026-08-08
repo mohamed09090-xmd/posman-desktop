@@ -1,7 +1,7 @@
-export * from "./contracts";
-export * from "./invokePhase09";
-export { templatesGateway } from "./templatesGateway";
-export { documentsGateway } from "./documentsGateway";
-export { reportsGateway } from "./reportsGateway";
-export { auditGateway } from "./auditGateway";
-export { backupGateway } from "./backupGateway";
+export * from "./contracts.ts";
+export * from "./invokePhase09.ts";
+export { templatesGateway } from "./templatesGateway.ts";
+export { documentsGateway } from "./documentsGateway.ts";
+export { reportsGateway } from "./reportsGateway.ts";
+export { auditGateway } from "./auditGateway.ts";
+export { backupGateway } from "./backupGateway.ts";

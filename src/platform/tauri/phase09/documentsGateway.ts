@@ -7,8 +7,8 @@ import type {
   RenderedDocumentKeyRequest,
   RenderedDocumentsRequest,
   RenderedDocumentView,
-} from "./contracts";
-import { invokePhase09, requireObject } from "./invokePhase09";
+} from "./contracts.ts";
+import { invokePhase09, requireObject } from "./invokePhase09.ts";
 
 export const documentsGateway = {
   async preview(request: DocumentRequest): Promise<PreviewResult> {

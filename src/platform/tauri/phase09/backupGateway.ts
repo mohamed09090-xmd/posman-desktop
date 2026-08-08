@@ -8,8 +8,8 @@ import type {
   Page,
   RestoreBackupRequest,
   UpdateBackupSettingsRequest,
-} from "./contracts";
-import { invokePhase09, requireObject } from "./invokePhase09";
+} from "./contracts.ts";
+import { invokePhase09, requireObject } from "./invokePhase09.ts";
 
 export const backupGateway = {
   async getSettings(): Promise<BackupSettingsView> {

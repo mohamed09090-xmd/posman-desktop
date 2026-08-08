@@ -437,6 +437,10 @@ fn csv_row(file: &mut fs::File, cells: &[&str]) -> Phase09Result<()> {
     Ok(())
 }
 
+pub fn neutralize_csv(value: &str) -> String {
+    csv_cell(value)
+}
+
 fn csv_cell(value: &str) -> String {
     let cleaned = value.chars().filter(|character| !character.is_control() || matches!(character,'\t'|'\n'|'\r')).collect::<String>().replace("\r\n","\n").replace('\r',"\n");
     let neutralized = if matches!(cleaned.trim_start().chars().next(),Some('='|'+'|'-'|'@')) { format!("'{cleaned}") } else { cleaned };

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import { Phase09GatewayError, type SafeError } from "./contracts";
+import { Phase09GatewayError, type SafeError } from "./contracts.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -96,4 +96,19 @@ export function requireObject<T extends JsonRecord>(
     });
   }
   return value as T;
+}
+
+export function createRequestGate(): RequestGate {
+  return new RequestGate();
+}
+
+export function requireSafeInteger(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    throw new Phase09GatewayError({
+      code: "INVALID_RESPONSE",
+      message: `POSMAN returned an invalid ${field}.`,
+      retryable: true,
+    });
+  }
+  return value;
 }
