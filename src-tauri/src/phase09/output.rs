@@ -537,7 +537,7 @@ mod native {
         let full = html.replace("</head>", &format!("<style>{css}</style></head>"));
         let serialized = serde_json::to_string(&full).map_err(|_| Phase09Error::internal())?;
         window
-            .eval(&format!(
+            .eval(format!(
                 "document.open();document.write({serialized});document.close();"
             ))
             .map_err(|_| Phase09Error::internal())?;
@@ -566,10 +566,10 @@ mod native {
                             .CreatePrintSettings()
                             .map_err(|_| Phase09Error::internal())?;
                         settings
-                            .SetShouldPrintHeaderAndFooter(false.into())
+                            .SetShouldPrintHeaderAndFooter(false)
                             .map_err(|_| Phase09Error::internal())?;
                         settings
-                            .SetShouldPrintBackgrounds(true.into())
+                            .SetShouldPrintBackgrounds(true)
                             .map_err(|_| Phase09Error::internal())?;
                         settings
                             .SetOrientation(if landscape {
