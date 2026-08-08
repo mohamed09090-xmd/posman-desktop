@@ -257,7 +257,7 @@ fn ledger_gap_is_rejected_before_seed_or_migration_work() {
         open_configured_connection(&paths.database).expect("gap fixture should remain inspectable");
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM app_migrations"),
-        5
+        MIGRATIONS.len() as i64 - 1
     );
     assert_eq!(
         scalar_i64(&connection, "SELECT COUNT(*) FROM role_permissions"),
@@ -357,20 +357,25 @@ fn seed_is_idempotent_and_failure_rolls_back_all_seed_writes() {
     let (mut connection, _) =
         open_configured_connection(&database_path).expect("seed fixture connection should open");
     apply_migrations(&mut connection, &MIGRATIONS).expect("production migrations should apply");
+    let counts_before_seed = (
+        scalar_i64(&connection, "SELECT COUNT(*) FROM roles"),
+        scalar_i64(&connection, "SELECT COUNT(*) FROM permissions"),
+        scalar_i64(&connection, "SELECT COUNT(*) FROM role_permissions"),
+    );
 
     let failing_seed =
         format!("{REFERENCE_SEED_SQL}\nINSERT INTO missing_seed_target (id) VALUES (1);");
     let error = apply_seed(&mut connection, &failing_seed)
         .expect_err("the injected seed must fail atomically");
     assert!(matches!(&error, RuntimeError::SeedExecution { .. }));
-    assert_eq!(scalar_i64(&connection, "SELECT COUNT(*) FROM roles"), 0);
     assert_eq!(
-        scalar_i64(&connection, "SELECT COUNT(*) FROM permissions"),
-        0
-    );
-    assert_eq!(
-        scalar_i64(&connection, "SELECT COUNT(*) FROM role_permissions"),
-        0
+        (
+            scalar_i64(&connection, "SELECT COUNT(*) FROM roles"),
+            scalar_i64(&connection, "SELECT COUNT(*) FROM permissions"),
+            scalar_i64(&connection, "SELECT COUNT(*) FROM role_permissions"),
+        ),
+        counts_before_seed,
+        "a failed seed must roll back only its own writes",
     );
 
     apply_seed(&mut connection, REFERENCE_SEED_SQL).expect("first seed application should pass");

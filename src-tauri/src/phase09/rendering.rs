@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use sha2::{Digest, Sha256};
 
 use super::{
@@ -223,11 +225,11 @@ pub fn render_document(
         .any(|s| s == "REFERENCES")
         && !payload.references.is_empty()
     {
-        let items = payload
-            .references
-            .iter()
-            .map(|value| format!("<li>{}</li>", escape_html(value)))
-            .collect::<String>();
+        let mut items = String::new();
+        for value in &payload.references {
+            write!(&mut items, "<li>{}</li>", escape_html(value))
+                .map_err(|_| Phase09Error::internal())?;
+        }
         format!("<section class=\"references\"><ul>{items}</ul></section>")
     } else {
         String::new()
