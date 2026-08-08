@@ -1,4 +1,4 @@
-use super::{configure_application, RuntimeRoot, RuntimeService};
+use super::{configure_test_application, RuntimeRoot, RuntimeService};
 use crate::infrastructure::database::open_configured_connection;
 use std::{
     fs,
@@ -46,7 +46,7 @@ fn execute_setup_once(application: &mut tauri::App<tauri::test::MockRuntime>) {
 }
 
 fn build_test_application(directory: &TestDirectory) -> tauri::App<tauri::test::MockRuntime> {
-    configure_application(
+    configure_test_application(
         tauri::test::mock_builder(),
         RuntimeRoot::Explicit(directory.path().to_path_buf()),
     )

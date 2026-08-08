@@ -60,7 +60,7 @@ impl RuntimeRoot {
     }
 }
 
-fn configure_application<R: Runtime>(
+fn configure_runtime<R: Runtime>(
     builder: tauri::Builder<R>,
     runtime_root: RuntimeRoot,
 ) -> tauri::Builder<R> {
@@ -101,6 +101,13 @@ fn configure_application<R: Runtime>(
             }
             Ok(())
         })
+}
+
+fn configure_application(
+    builder: tauri::Builder<tauri::Wry>,
+    runtime_root: RuntimeRoot,
+) -> tauri::Builder<tauri::Wry> {
+    configure_runtime(builder, runtime_root)
         .invoke_handler(tauri::generate_handler![
             commands::runtime::get_runtime_status,
             commands::phase05::get_setup_status,
@@ -282,6 +289,21 @@ fn configure_application<R: Runtime>(
             commands::phase09::phase09_import_backup,
             commands::phase09::phase09_restore_backup,
             commands::phase09::phase09_delete_backup
+        ])
+}
+
+#[cfg(test)]
+fn configure_test_application(
+    builder: tauri::Builder<tauri::test::MockRuntime>,
+    runtime_root: RuntimeRoot,
+) -> tauri::Builder<tauri::test::MockRuntime> {
+    configure_runtime(builder, runtime_root)
+        .invoke_handler(tauri::generate_handler![
+            commands::runtime::get_runtime_status,
+            commands::phase06::list_stock_balances,
+            commands::phase07::get_sales_summary,
+            commands::phase08::list_accounts,
+            commands::phase09::phase09_list_templates
         ])
 }
 

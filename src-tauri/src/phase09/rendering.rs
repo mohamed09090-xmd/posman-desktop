@@ -416,7 +416,7 @@ mod tests {
             "javascript:alert(1)".to_owned(),
         ] {
             let mut candidate = configuration();
-            candidate.footer_text_fr = unsafe_value.into();
+            candidate.footer_text_fr = unsafe_value.clone();
             assert!(
                 validate_template_configuration(&candidate).is_err(),
                 "{unsafe_value}"
