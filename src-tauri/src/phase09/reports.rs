@@ -167,6 +167,34 @@ struct ReportSpec {
     default_sort: &'static str,
 }
 
+#[derive(Clone, Copy)]
+struct ReportFilters {
+    date: Option<&'static str>,
+    warehouse: Option<&'static str>,
+    partner: Option<&'static str>,
+    product: Option<&'static str>,
+    status: Option<&'static str>,
+}
+
+macro_rules! spec {
+    ($id:expr,$ar:expr,$fr:expr,$select:expr,$suffix:expr,$date:expr,$warehouse:expr,$partner:expr,$product:expr,$status:expr,$columns:expr,$default_sort:expr) => {
+        build_spec(
+            $id,
+            ($ar, $fr),
+            ($select, $suffix),
+            ReportFilters {
+                date: $date,
+                warehouse: $warehouse,
+                partner: $partner,
+                product: $product,
+                status: $status,
+            },
+            $columns,
+            $default_sort,
+        )
+    };
+}
+
 fn run_report_query(
     service: &Phase09Service,
     request: ReportRequest,
@@ -265,7 +293,7 @@ fn run_report_query(
 
 fn report_spec(id: &str) -> ReportSpec {
     match id {
-        "SALES_SUMMARY" => spec(
+        "SALES_SUMMARY" => spec!(
             id,
             "ملخص المبيعات",
             "Synthèse des ventes",
@@ -275,13 +303,13 @@ fn report_spec(id: &str) -> ReportSpec {
             &[c("businessDate","التاريخ","Date","date"),c("documentCount","عدد المستندات","Documents","integer"),c("totalHtMinor","دون رسم","HT","moneyMinor"),c("totalTaxMinor","الرسم","TVA","moneyMinor"),c("totalTtcMinor","مع الرسم","TTC","moneyMinor")],
             "businessDate",
         ),
-        "SALES_BY_PRODUCT" => spec(
+        "SALES_BY_PRODUCT" => spec!(
             id,"المبيعات حسب المنتج","Ventes par produit",
             "SELECT l.product_id AS productId,l.product_code_snapshot AS productCode,l.description_snapshot AS productName,SUM(CASE WHEN d.document_type='SALES_CREDIT_NOTE' THEN -l.quantity_scaled ELSE l.quantity_scaled END) AS quantityScaled,SUM(CASE WHEN d.document_type='SALES_CREDIT_NOTE' THEN -l.line_ht_minor ELSE l.line_ht_minor END) AS totalHtMinor,SUM(CASE WHEN d.document_type='SALES_CREDIT_NOTE' THEN -l.line_ttc_minor ELSE l.line_ttc_minor END) AS totalTtcMinor FROM commercial_documents d JOIN commercial_document_lines l ON l.document_id=d.id AND l.company_id=d.company_id WHERE d.company_id=? AND d.document_type IN ('SALES_INVOICE','SALES_CREDIT_NOTE') AND d.posting_status='POSTED'",
             " GROUP BY l.product_id,l.product_code_snapshot,l.description_snapshot",Some("d.commercial_date"),Some("l.warehouse_id"),Some("d.partner_id"),Some("l.product_id"),Some("d.workflow_status"),
             &[c("productCode","رمز المنتج","Code","text"),c("productName","المنتج","Produit","text"),c("quantityScaled","الكمية","Quantité","quantityScaled"),c("totalHtMinor","دون رسم","HT","moneyMinor"),c("totalTtcMinor","مع الرسم","TTC","moneyMinor")],"productCode"),
         "SALES_BY_CUSTOMER" => partner_spec(id,true),
-        "PURCHASES_SUMMARY" => spec(
+        "PURCHASES_SUMMARY" => spec!(
             id,"ملخص المشتريات","Synthèse des achats",
             "SELECT d.commercial_date AS businessDate,COUNT(*) AS documentCount,SUM(CASE WHEN d.document_type='PURCHASE_RETURN' THEN -d.total_ht_minor ELSE d.total_ht_minor END) AS totalHtMinor,SUM(CASE WHEN d.document_type='PURCHASE_RETURN' THEN -d.total_tax_minor ELSE d.total_tax_minor END) AS totalTaxMinor,SUM(CASE WHEN d.document_type='PURCHASE_RETURN' THEN -d.total_ttc_minor ELSE d.total_ttc_minor END) AS totalTtcMinor FROM commercial_documents d WHERE d.company_id=? AND d.document_type IN ('PURCHASE_INVOICE','PURCHASE_RETURN') AND d.posting_status='POSTED'",
             " GROUP BY d.commercial_date",Some("d.commercial_date"),Some("d.warehouse_id"),Some("d.partner_id"),None,Some("d.workflow_status"),
@@ -290,19 +318,19 @@ fn report_spec(id: &str) -> ReportSpec {
         "STOCK_ON_HAND" => stock_spec(id,false,false),
         "STOCK_VALUATION" => stock_spec(id,true,false),
         "LOW_STOCK" => stock_spec(id,false,true),
-        "STOCK_MOVEMENTS" => spec(
+        "STOCK_MOVEMENTS" => spec!(
             id,"حركات المخزون","Mouvements de stock",
             "SELECT m.occurred_at AS occurredAt,m.business_date AS businessDate,p.code AS productCode,p.name_ar AS productAr,p.name_fr AS productFr,w.code AS warehouseCode,m.movement_type AS movementType,m.quantity_delta_scaled AS quantityDeltaScaled,m.quantity_after_scaled AS quantityAfterScaled,m.extended_cost_minor AS extendedCostMinor FROM stock_movements m JOIN products p ON p.id=m.product_id AND p.company_id=m.company_id JOIN warehouses w ON w.id=m.warehouse_id AND w.company_id=m.company_id WHERE m.company_id=?",
             "",Some("m.business_date"),Some("m.warehouse_id"),None,Some("m.product_id"),Some("m.movement_type"),
             &[c("businessDate","التاريخ","Date","date"),c("productCode","رمز المنتج","Code","text"),c("productAr","المنتج","Produit AR","text"),c("productFr","المنتج بالفرنسية","Produit","text"),c("warehouseCode","المخزن","Dépôt","text"),c("movementType","الحركة","Mouvement","text"),c("quantityDeltaScaled","التغير","Variation","quantityScaled"),c("quantityAfterScaled","الرصيد","Solde","quantityScaled"),c("extendedCostMinor","القيمة","Valeur","moneyMinor")],"occurredAt"),
         "OPEN_RECEIVABLES" => open_balance_spec(id,true),
         "OPEN_PAYABLES" => open_balance_spec(id,false),
-        "CASH_BANK_REGISTER" => spec(
+        "CASH_BANK_REGISTER" => spec!(
             id,"سجل الصندوق والبنك","Registre caisse et banque",
             "SELECT pay.commercial_date AS businessDate,pay.payment_number AS paymentNumber,pay.payment_kind AS paymentKind,pm.name_ar AS methodAr,pm.name_fr AS methodFr,pay.external_reference AS externalReference,CASE WHEN pay.payment_kind='RECEIPT' THEN pay.amount_minor ELSE -pay.amount_minor END AS signedAmountMinor,pay.status AS status FROM payments pay JOIN payment_methods pm ON pm.id=pay.payment_method_id AND pm.company_id=pay.company_id WHERE pay.company_id=? AND pay.status NOT IN ('DRAFT','CANCELLED')",
             "",Some("pay.commercial_date"),None,Some("pay.partner_id"),None,Some("pay.status"),
             &[c("businessDate","التاريخ","Date","date"),c("paymentNumber","رقم الدفع","Paiement","text"),c("paymentKind","النوع","Type","text"),c("methodAr","الطريقة","Mode AR","text"),c("methodFr","الطريقة بالفرنسية","Mode","text"),c("externalReference","المرجع","Référence","text"),c("signedAmountMinor","المبلغ","Montant","moneyMinor"),c("status","الحالة","Statut","text")],"businessDate"),
-        "TRIAL_BALANCE" => spec(
+        "TRIAL_BALANCE" => spec!(
             id,"ميزان المراجعة","Balance générale",
             "SELECT a.id AS accountId,a.code AS accountCode,a.name_ar AS accountAr,a.name_fr AS accountFr,a.account_type AS accountType,COALESCE(SUM(CASE WHEN e.status='POSTED' THEN l.debit_minor ELSE 0 END),0) AS debitMinor,COALESCE(SUM(CASE WHEN e.status='POSTED' THEN l.credit_minor ELSE 0 END),0) AS creditMinor,COALESCE(SUM(CASE WHEN e.status='POSTED' THEN l.debit_minor-l.credit_minor ELSE 0 END),0) AS balanceMinor FROM accounts a LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id LEFT JOIN journal_entries e ON e.id=l.journal_entry_id AND e.company_id=a.company_id WHERE a.company_id=?",
             " GROUP BY a.id,a.code,a.name_ar,a.name_fr,a.account_type",Some("e.entry_date"),None,Some("l.partner_id"),Some("l.product_id"),Some("a.account_type"),
@@ -311,17 +339,11 @@ fn report_spec(id: &str) -> ReportSpec {
     }
 }
 
-fn spec(
+fn build_spec(
     id: &str,
-    ar: &str,
-    fr: &str,
-    select_sql: &'static str,
-    suffix_sql: &'static str,
-    date_column: Option<&'static str>,
-    warehouse_column: Option<&'static str>,
-    partner_column: Option<&'static str>,
-    product_column: Option<&'static str>,
-    status_column: Option<&'static str>,
+    names: (&str, &str),
+    sql: (&'static str, &'static str),
+    filters: ReportFilters,
     columns: &[ReportColumn],
     default_sort: &'static str,
 ) -> ReportSpec {
@@ -333,21 +355,21 @@ fn spec(
     ReportSpec {
         descriptor: ReportDescriptor {
             report_id: id.to_owned(),
-            name_ar: ar.to_owned(),
-            name_fr: fr.to_owned(),
-            supports_date_range: date_column.is_some(),
-            supports_warehouse: warehouse_column.is_some(),
-            supports_partner: partner_column.is_some(),
-            supports_product: product_column.is_some(),
-            supports_status: status_column.is_some(),
+            name_ar: names.0.to_owned(),
+            name_fr: names.1.to_owned(),
+            supports_date_range: filters.date.is_some(),
+            supports_warehouse: filters.warehouse.is_some(),
+            supports_partner: filters.partner.is_some(),
+            supports_product: filters.product.is_some(),
+            supports_status: filters.status.is_some(),
         },
-        select_sql,
-        suffix_sql,
-        date_column,
-        warehouse_column,
-        partner_column,
-        product_column,
-        status_column,
+        select_sql: sql.0,
+        suffix_sql: sql.1,
+        date_column: filters.date,
+        warehouse_column: filters.warehouse,
+        partner_column: filters.partner,
+        product_column: filters.product,
+        status_column: filters.status,
         columns: columns.to_vec(),
         sort_fields,
         default_sort,
@@ -370,7 +392,7 @@ fn partner_spec(id: &str, sales: bool) -> ReportSpec {
     };
     let sql = format!("SELECT d.partner_id AS partnerId,COALESCE(p.display_name_ar,p.legal_name,'—') AS partnerAr,COALESCE(p.display_name_fr,p.legal_name,'—') AS partnerFr,COUNT(*) AS documentCount,SUM(CASE WHEN d.document_type IN ('SALES_CREDIT_NOTE','PURCHASE_RETURN') THEN -d.total_ht_minor ELSE d.total_ht_minor END) AS totalHtMinor,SUM(CASE WHEN d.document_type IN ('SALES_CREDIT_NOTE','PURCHASE_RETURN') THEN -d.total_ttc_minor ELSE d.total_ttc_minor END) AS totalTtcMinor FROM commercial_documents d LEFT JOIN partners p ON p.id=d.partner_id AND p.company_id=d.company_id WHERE d.company_id=? AND d.document_type IN {types} AND d.posting_status='POSTED'");
     let leaked: &'static str = Box::leak(sql.into_boxed_str());
-    spec(
+    spec!(
         id,
         ar,
         fr,
@@ -434,7 +456,7 @@ fn stock_spec(id: &str, valuation: bool, low_only: bool) -> ReportSpec {
         ));
         columns.push(c("valueMinor", "القيمة", "Valeur", "moneyMinor"));
     }
-    spec(
+    spec!(
         id,
         ar,
         fr,
@@ -458,11 +480,11 @@ fn open_balance_spec(id: &str, receivable: bool) -> ReportSpec {
     };
     let sql = format!("SELECT d.id AS documentId,d.document_number AS documentNumber,d.commercial_date AS documentDate,d.due_date AS dueDate,d.partner_id AS partnerId,COALESCE(p.display_name_ar,p.legal_name,'—') AS partnerAr,COALESCE(p.display_name_fr,p.legal_name,'—') AS partnerFr,d.total_ttc_minor AS originalMinor,COALESCE(SUM(CASE WHEN pa.allocation_status='ACTIVE' THEN pa.allocated_amount_minor ELSE 0 END),0) AS allocatedMinor,d.total_ttc_minor-COALESCE(SUM(CASE WHEN pa.allocation_status='ACTIVE' THEN pa.allocated_amount_minor ELSE 0 END),0) AS openMinor FROM commercial_documents d LEFT JOIN partners p ON p.id=d.partner_id AND p.company_id=d.company_id LEFT JOIN payment_allocations pa ON pa.document_id=d.id AND pa.company_id=d.company_id WHERE d.company_id=? AND d.document_type='{document_type}' AND d.posting_status='POSTED'");
     let leaked: &'static str = Box::leak(sql.into_boxed_str());
-    spec(id,ar,fr,leaked," GROUP BY d.id,d.document_number,d.commercial_date,d.due_date,d.partner_id,p.display_name_ar,p.display_name_fr,p.legal_name HAVING openMinor>0",Some("d.commercial_date"),Some("d.warehouse_id"),Some("d.partner_id"),None,Some("d.workflow_status"),&[c("documentNumber","رقم المستند","Document","text"),c("documentDate","التاريخ","Date","date"),c("dueDate","الاستحقاق","Échéance","date"),c("partnerAr","الشريك","Partenaire AR","text"),c("partnerFr","الشريك بالفرنسية","Partenaire","text"),c("originalMinor","الأصل","Montant","moneyMinor"),c("allocatedMinor","مسدد","Réglé","moneyMinor"),c("openMinor","المتبقي","Ouvert","moneyMinor")],"dueDate")
+    spec!(id,ar,fr,leaked," GROUP BY d.id,d.document_number,d.commercial_date,d.due_date,d.partner_id,p.display_name_ar,p.display_name_fr,p.legal_name HAVING openMinor>0",Some("d.commercial_date"),Some("d.warehouse_id"),Some("d.partner_id"),None,Some("d.workflow_status"),&[c("documentNumber","رقم المستند","Document","text"),c("documentDate","التاريخ","Date","date"),c("dueDate","الاستحقاق","Échéance","date"),c("partnerAr","الشريك","Partenaire AR","text"),c("partnerFr","الشريك بالفرنسية","Partenaire","text"),c("originalMinor","الأصل","Montant","moneyMinor"),c("allocatedMinor","مسدد","Réglé","moneyMinor"),c("openMinor","المتبقي","Ouvert","moneyMinor")],"dueDate")
 }
 
 fn invalid_spec(id: &str) -> ReportSpec {
-    spec(
+    spec!(
         id,
         "غير مدعوم",
         "Non pris en charge",
@@ -552,7 +574,7 @@ fn csv_row(file: &mut fs::File, cells: &[&str]) -> Phase09Result<()> {
         if index > 0 {
             file.write_all(b";")?;
         }
-        file.write_all(csv_cell(cell).as_bytes())?;
+        file.write_all(neutralize_csv(cell).as_bytes())?;
     }
     file.write_all(b"\r\n")?;
     Ok(())

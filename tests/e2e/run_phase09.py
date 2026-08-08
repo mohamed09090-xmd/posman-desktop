@@ -151,7 +151,7 @@ def run_named_workflow(page: Page, name: str, locale: str) -> None:
         page.get_by_role("button", name="Aperçu", exact=True).click()
         page.locator(".phase09-integrity").filter(has_text="VERIFIED").first.wait_for()
         page.get_by_role("button", name="Créer le PDF historique", exact=True).click()
-        page.get_by_text("6" * 12, exact=False).wait_for()
+        page.locator(f'code[title="{"6" * 64}"]').wait_for()
         assert_called(page, "phase09_preview_document")
         assert_called(page, "phase09_render_document")
     elif name == "phase09_ar_reports_csv_and_pdf":

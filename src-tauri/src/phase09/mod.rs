@@ -113,12 +113,12 @@ impl Phase09Service {
 
     pub(crate) fn authorize(&self, permission: &str) -> Phase09Result<Phase06AuthContext> {
         self.phase05
-            .phase06_authorize(Some(permission))
+            .phase09_authorize(Some(permission))
             .map_err(Phase09Error::from)
     }
 
     pub(crate) fn database_path(&self) -> &Path {
-        self.phase05.database_path()
+        self.phase05.phase09_database_path()
     }
 
     pub(crate) fn audit_success(

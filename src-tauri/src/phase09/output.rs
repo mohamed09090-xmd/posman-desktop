@@ -321,6 +321,23 @@ impl Phase09Service {
     }
 
     fn verify_record(&self, record: &RenderedRecord) -> Phase09Result<()> {
+        let expected_prefix = format!("{}/", safe_component(&record.company_id)?);
+        if !record.pdf_relative_path.starts_with(&expected_prefix) {
+            return Err(Phase09Error::integrity(
+                "The historical PDF path does not match its recorded company scope.",
+            ));
+        }
+        let mut content_hasher = Sha256::new();
+        content_hasher.update(record.canonical_payload_json.as_bytes());
+        content_hasher.update([0]);
+        content_hasher.update(record.rendered_html.as_bytes());
+        content_hasher.update([0]);
+        content_hasher.update(record.rendered_css.as_bytes());
+        if format!("{:x}", content_hasher.finalize()) != record.content_sha256 {
+            return Err(Phase09Error::integrity(
+                "The immutable document snapshot no longer matches its recorded digest.",
+            ));
+        }
         let path = managed_path(&self.paths.documents, &record.pdf_relative_path)?;
         let artifact = verify_pdf(&path).map_err(|_| {
             Phase09Error::integrity(
@@ -625,19 +642,21 @@ mod native {
         window
             .as_ref()
             .with_webview(move |platform| {
-                let result = unsafe {
-                    let core = platform
-                        .controller()
-                        .CoreWebView2()
-                        .map_err(|_| Phase09Error::internal())?;
-                    let core16: ICoreWebView2_16 = core
-                        .cast()
-                        .map_err(|_| Phase09Error::platform_unsupported())?;
-                    core16
-                        .ShowPrintUI(COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM)
-                        .map_err(|_| Phase09Error::internal())?;
+                let result = (|| -> Phase09Result<()> {
+                    unsafe {
+                        let core = platform
+                            .controller()
+                            .CoreWebView2()
+                            .map_err(|_| Phase09Error::internal())?;
+                        let core16: ICoreWebView2_16 = core
+                            .cast()
+                            .map_err(|_| Phase09Error::platform_unsupported())?;
+                        core16
+                            .ShowPrintUI(COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM)
+                            .map_err(|_| Phase09Error::internal())?;
+                    }
                     Ok(())
-                };
+                })();
                 let _ = sender.send(result);
             })
             .map_err(|_| Phase09Error::internal())?;

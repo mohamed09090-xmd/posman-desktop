@@ -69,8 +69,8 @@ impl Phase05Service {
         &self.database_path
     }
 
-    pub(crate) fn phase09_database_path(&self) -> PathBuf {
-        self.database_path.clone()
+    pub(crate) fn phase09_database_path(&self) -> &Path {
+        &self.database_path
     }
 
     pub(super) fn open(&self) -> Phase05Result<Connection> {

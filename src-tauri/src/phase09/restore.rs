@@ -16,6 +16,15 @@ use super::{
     new_id, now_iso, safe_component, Phase09Service,
 };
 
+struct RestoreAttempt<'a> {
+    attempt_id: &'a str,
+    backup_id: &'a str,
+    pre_restore_backup_id: Option<&'a str>,
+    outcome: &'a str,
+    failure_code: Option<&'a str>,
+    details: Option<&'a serde_json::Value>,
+}
+
 impl Phase09Service {
     pub fn restore_backup(&self, request: RestoreBackupRequest) -> Phase09Result<()> {
         if !request.confirmed || request.confirmation_text != "RESTORE" {
@@ -92,15 +101,17 @@ impl Phase09Service {
         )?;
         self.insert_restore_attempt(
             context,
-            &attempt_id,
-            &selected.backup_id,
-            None,
-            "STARTED",
-            None,
-            Some(&serde_json::json!({
+            RestoreAttempt {
+                attempt_id: &attempt_id,
+                backup_id: &selected.backup_id,
+                pre_restore_backup_id: None,
+                outcome: "STARTED",
+                failure_code: None,
+                details: Some(&serde_json::json!({
                 "stagedSha256": staged_verified.sha256,
                 "schemaVersion": staged_verified.schema_version,
-            })),
+                })),
+            },
         )?;
 
         let pre_restore = match self.create_pre_restore_backup_exclusive(context) {
@@ -109,12 +120,14 @@ impl Phase09Service {
                 remove_if_exists(&staged_path);
                 let _ = self.insert_restore_attempt(
                     context,
-                    &new_id(),
-                    &selected.backup_id,
-                    None,
-                    "FAILED",
-                    Some(&error.code),
-                    Some(&serde_json::json!({"stage":"PRE_RESTORE_BACKUP"})),
+                    RestoreAttempt {
+                        attempt_id: &new_id(),
+                        backup_id: &selected.backup_id,
+                        pre_restore_backup_id: None,
+                        outcome: "FAILED",
+                        failure_code: Some(&error.code),
+                        details: Some(&serde_json::json!({"stage":"PRE_RESTORE_BACKUP"})),
+                    },
                 );
                 return Err(Phase09Error::new(
                     "PRE_RESTORE_BACKUP_FAILED",
@@ -179,12 +192,14 @@ impl Phase09Service {
                 Ok(()) => {
                     let _ = self.insert_restore_attempt(
                         context,
-                        &new_id(),
-                        &selected.backup_id,
-                        Some(&pre_restore.backup_id),
-                        "ROLLED_BACK",
-                        Some(&post_error.code),
-                        Some(&serde_json::json!({"stage":"POST_REPLACEMENT_VERIFICATION"})),
+                        RestoreAttempt {
+                            attempt_id: &new_id(),
+                            backup_id: &selected.backup_id,
+                            pre_restore_backup_id: Some(&pre_restore.backup_id),
+                            outcome: "ROLLED_BACK",
+                            failure_code: Some(&post_error.code),
+                            details: Some(&serde_json::json!({"stage":"POST_REPLACEMENT_VERIFICATION"})),
+                        },
                     );
                     let _ = self.phase05.phase09_invalidate_session();
                     return Err(Phase09Error::new(
@@ -215,15 +230,17 @@ impl Phase09Service {
         insert_restore_attempt_on(
             &restored,
             context,
-            &new_id(),
-            &selected.backup_id,
-            Some(&pre_restore.backup_id),
-            "SUCCESS",
-            None,
-            Some(&serde_json::json!({
-                "restoredSha256": selected.sha256,
-                "schemaVersion": selected.schema_version,
-            })),
+            RestoreAttempt {
+                attempt_id: &new_id(),
+                backup_id: &selected.backup_id,
+                pre_restore_backup_id: Some(&pre_restore.backup_id),
+                outcome: "SUCCESS",
+                failure_code: None,
+                details: Some(&serde_json::json!({
+                    "restoredSha256": selected.sha256,
+                    "schemaVersion": selected.schema_version,
+                })),
+            },
         )?;
         restored.execute(
             r#"INSERT INTO audit_logs(
@@ -346,44 +363,26 @@ impl Phase09Service {
     fn insert_restore_attempt(
         &self,
         context: &crate::phase05::Phase06AuthContext,
-        attempt_id: &str,
-        backup_id: &str,
-        pre_restore_backup_id: Option<&str>,
-        outcome: &str,
-        failure_code: Option<&str>,
-        details: Option<&serde_json::Value>,
+        attempt: RestoreAttempt<'_>,
     ) -> Phase09Result<()> {
         let connection = self.phase05.phase09_open()?;
-        insert_restore_attempt_on(
-            &connection,
-            context,
-            attempt_id,
-            backup_id,
-            pre_restore_backup_id,
-            outcome,
-            failure_code,
-            details,
-        )
+        insert_restore_attempt_on(&connection, context, attempt)
     }
 }
 
 fn insert_restore_attempt_on(
     connection: &Connection,
     context: &crate::phase05::Phase06AuthContext,
-    attempt_id: &str,
-    backup_id: &str,
-    pre_restore_backup_id: Option<&str>,
-    outcome: &str,
-    failure_code: Option<&str>,
-    details: Option<&serde_json::Value>,
+    attempt: RestoreAttempt<'_>,
 ) -> Phase09Result<()> {
     let now = now_iso()?;
-    let completed_at = if outcome == "STARTED" {
+    let completed_at = if attempt.outcome == "STARTED" {
         None
     } else {
         Some(now.as_str())
     };
-    let details_json = details
+    let details_json = attempt
+        .details
         .map(serde_json::to_string)
         .transpose()
         .map_err(|_| Phase09Error::internal())?;
@@ -393,15 +392,15 @@ fn insert_restore_attempt_on(
                completed_at,outcome,failure_code,details_json
            ) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)"#,
         params![
-            attempt_id,
+            attempt.attempt_id,
             context.company_id,
-            backup_id,
-            pre_restore_backup_id,
+            attempt.backup_id,
+            attempt.pre_restore_backup_id,
             now,
             context.user_id,
             completed_at,
-            outcome,
-            failure_code,
+            attempt.outcome,
+            attempt.failure_code,
             details_json,
         ],
     )?;

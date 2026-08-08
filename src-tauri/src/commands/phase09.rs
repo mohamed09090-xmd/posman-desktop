@@ -3,14 +3,15 @@ use crate::{
     phase09::{
         error::{Phase09Error, Phase09Result},
         models::*,
+        service::Phase09CommandService,
         Phase09Service,
     },
 };
 use tauri::State;
 
 async fn run<T: Send + 'static>(
-    service: Phase09Service,
-    operation: impl FnOnce(Phase09Service) -> Phase09Result<T> + Send + 'static,
+    service: Phase09CommandService,
+    operation: impl FnOnce(Phase09CommandService) -> Phase09Result<T> + Send + 'static,
 ) -> Phase09Result<T> {
     tauri::async_runtime::spawn_blocking(move || operation(service))
         .await
@@ -21,7 +22,7 @@ macro_rules! command {
     ($name:ident,$request:ty,$result:ty,$method:ident) => {
         #[tauri::command]
         pub async fn $name(
-            state: State<'_, Phase09Service>,
+            state: State<'_, Phase09CommandService>,
             request: $request,
         ) -> Phase09Result<$result> {
             run(state.inner().clone(), move |service| {
@@ -35,7 +36,7 @@ macro_rules! command {
 macro_rules! query {
     ($name:ident,$result:ty,$method:ident) => {
         #[tauri::command]
-        pub async fn $name(state: State<'_, Phase09Service>) -> Phase09Result<$result> {
+        pub async fn $name(state: State<'_, Phase09CommandService>) -> Phase09Result<$result> {
             run(state.inner().clone(), move |service| service.$method(())).await
         }
     };

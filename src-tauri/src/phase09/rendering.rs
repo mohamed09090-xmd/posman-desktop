@@ -130,12 +130,10 @@ pub fn render_document(
     } else {
         &configuration.footer_text_fr
     };
-    let company_name = if locale == "ar-DZ" {
-        &payload.company_name
-    } else if payload.company_legal_name.trim().is_empty() {
-        &payload.company_name
-    } else {
+    let company_name = if locale != "ar-DZ" && !payload.company_legal_name.trim().is_empty() {
         &payload.company_legal_name
+    } else {
+        &payload.company_name
     };
     let partner_label = if locale == "ar-DZ" {
         "الطرف"
@@ -352,10 +350,6 @@ pub fn format_quantity(value_scaled: i64) -> String {
     trim_scaled(format_scaled(value_scaled, 6))
 }
 
-pub fn format_rate(value_scaled: i64) -> String {
-    trim_scaled(format_scaled(value_scaled, 4))
-}
-
 pub fn format_scaled(value: i64, scale: u32) -> String {
     let negative = value < 0;
     let absolute = i128::from(value).abs();
@@ -429,7 +423,6 @@ mod tests {
         assert_eq!(format_money(12345), "123.45");
         assert_eq!(format_quantity(1_500_000), "1.5");
         assert_eq!(format_scaled(12345, 4), "1.2345");
-        assert_eq!(format_rate(190000), "19");
     }
 
     #[test]

@@ -398,12 +398,6 @@ pub struct BackupView {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct ImportBackupRequest {
-    pub staged_file_name: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
 pub struct RestoreBackupRequest {
     pub backup_id: String,
     pub current_password: String,
