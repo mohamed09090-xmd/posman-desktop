@@ -72,10 +72,14 @@ impl Phase09Service {
             .begin_restore()
             .map_err(|_| Phase09Error::maintenance())?;
         let result = self.restore_exclusive(&context, &selected, &selected_path);
-        if result.is_err() {
-            let _ = self.phase05.phase09_invalidate_session();
+        let invalidation = self.phase05.phase09_invalidate_session_exclusive();
+        match result {
+            Ok(()) => invalidation.map_err(Phase09Error::from),
+            Err(error) => {
+                let _ = invalidation;
+                Err(error)
+            }
         }
-        result
     }
 
     fn restore_exclusive(
@@ -203,7 +207,6 @@ impl Phase09Service {
                             ),
                         },
                     );
-                    let _ = self.phase05.phase09_invalidate_session();
                     return Err(Phase09Error::new(
                         "RESTORE_ROLLED_BACK",
                         "Post-restore verification failed. POSMAN restored the verified safety backup.",
@@ -222,7 +225,7 @@ impl Phase09Service {
 
         remove_if_exists(&previous_path);
         remove_if_exists(&staged_path);
-        let restored = self.phase05.phase09_open()?;
+        let restored = self.phase05.phase09_open_exclusive()?;
         insert_backup_metadata_if_missing(&restored, &context.company_id, selected)?;
         insert_backup_metadata_if_missing(&restored, &context.company_id, &pre_restore)?;
         restored.execute(
@@ -262,7 +265,6 @@ impl Phase09Service {
             ],
         )?;
         drop(restored);
-        self.phase05.phase09_invalidate_session()?;
         Ok(())
     }
 
@@ -284,7 +286,7 @@ impl Phase09Service {
             .staging
             .join(format!("phase09-pre-restore-{backup_id}.sqlite3.tmp"));
         remove_if_exists(&temporary_path);
-        let source = self.phase05.phase09_open()?;
+        let source = self.phase05.phase09_open_exclusive()?;
         let mut destination = Connection::open(&temporary_path)?;
         {
             let backup = Backup::new(&source, &mut destination)?;
@@ -310,7 +312,7 @@ impl Phase09Service {
             failure_reason: None,
             protected_for_restore: true,
         };
-        let connection = self.phase05.phase09_open()?;
+        let connection = self.phase05.phase09_open_exclusive()?;
         insert_backup_metadata_if_missing(&connection, &context.company_id, &record)?;
         connection.execute(
             "UPDATE phase09_backups SET protected_for_restore=1 WHERE id=?1 AND company_id=?2",
@@ -367,7 +369,7 @@ impl Phase09Service {
         context: &crate::phase05::Phase06AuthContext,
         attempt: RestoreAttempt<'_>,
     ) -> Phase09Result<()> {
-        let connection = self.phase05.phase09_open()?;
+        let connection = self.phase05.phase09_open_exclusive()?;
         insert_restore_attempt_on(&connection, context, attempt)
     }
 }

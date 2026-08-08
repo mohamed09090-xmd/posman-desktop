@@ -202,6 +202,7 @@ def main() -> int:
     recovery_tests = read("src-tauri/src/phase09/backup.rs") + read(
         "src-tauri/src/phase09/output.rs"
     )
+    login_command = read("src-tauri/src/commands/phase05.rs")
     phase09_workflow = read(".github/workflows/phase09-ci.yml")
     gateway_file = ROOT / "src/platform/tauri/phase09.ts"
     if gateway_file.is_file():
@@ -271,12 +272,21 @@ def main() -> int:
         if fragment not in runtime_tests:
             fail(f"runtime/IPC schema 0007 evidence missing: {fragment}")
     for fragment in (
+        "authenticated_startup_creates_at_most_one_daily_automatic_backup",
+        "backup_verification_requires_the_exact_embedded_migration_ledger",
         "online_backup_verification_corruption_retention_and_delete_guards_are_real",
         "restore_replaces_the_database_records_safety_backup_and_invalidates_session",
         "phase09_pdf_integrity_hashes_a_complete_pdf_and_rejects_a_truncated_copy",
     ):
         if fragment not in recovery_tests:
             fail(f"real PHASE 09 recovery/output evidence missing: {fragment}")
+    for fragment in (
+        "Phase09Service",
+        "attempt_automatic_backup_after_login",
+        "spawn_blocking",
+    ):
+        if fragment not in login_command:
+            fail(f"authenticated automatic-backup trigger missing: {fragment}")
     for fragment in (
         "phase-09-ui-evidence",
         "phase-09-windows-native-evidence",

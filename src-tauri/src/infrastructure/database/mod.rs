@@ -1,5 +1,5 @@
 mod connection;
-mod migrations;
+pub(crate) mod migrations;
 
 #[cfg(test)]
 mod tests;

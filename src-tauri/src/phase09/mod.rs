@@ -37,6 +37,7 @@ pub struct Phase09Service {
     pub(crate) phase05: Phase05Service,
     pub(crate) paths: RuntimePaths,
     pub(crate) output_lock: Arc<Mutex<()>>,
+    pub(crate) automatic_backup_lock: Arc<Mutex<()>>,
     pub(crate) previews: Arc<Mutex<HashMap<String, PreviewContent>>>,
 }
 
@@ -46,6 +47,7 @@ impl Phase09Service {
             phase05,
             paths,
             output_lock: Arc::new(Mutex::new(())),
+            automatic_backup_lock: Arc::new(Mutex::new(())),
             previews: Arc::new(Mutex::new(HashMap::new())),
         };
         service.provision_permissions()?;

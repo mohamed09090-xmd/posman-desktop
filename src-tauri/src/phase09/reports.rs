@@ -155,16 +155,16 @@ const REPORT_IDS: &[&str] = &[
 #[derive(Clone)]
 struct ReportSpec {
     descriptor: ReportDescriptor,
-    select_sql: &'static str,
-    suffix_sql: &'static str,
+    select_sql: String,
+    suffix_sql: String,
     date_column: Option<&'static str>,
     warehouse_column: Option<&'static str>,
     partner_column: Option<&'static str>,
     product_column: Option<&'static str>,
     status_column: Option<&'static str>,
     columns: Vec<ReportColumn>,
-    sort_fields: BTreeMap<&'static str, &'static str>,
-    default_sort: &'static str,
+    sort_fields: BTreeMap<String, String>,
+    default_sort: String,
 }
 
 #[derive(Clone, Copy)]
@@ -201,11 +201,14 @@ fn run_report_query(
     maximum_page_size: i64,
 ) -> Phase09Result<ReportPage> {
     normalize_locale(&request.locale)?;
+    if !REPORT_IDS.contains(&request.report_id.as_str()) {
+        return Err(Phase09Error::validation("Unsupported report identifier."));
+    }
     let (page, page_size) = checked_page(request.page, request.page_size, maximum_page_size)?;
     validate_date_range(request.start_date.as_deref(), request.end_date.as_deref())?;
     let context = service.authorize("reports.view")?;
     let spec = report_spec(&request.report_id);
-    let mut sql = spec.select_sql.to_owned();
+    let mut sql = spec.select_sql.clone();
     let mut values = vec![SqlValue::Text(context.company_id.clone())];
     append_filter(
         &mut sql,
@@ -249,13 +252,16 @@ fn run_report_query(
         "=",
         request.status.as_deref(),
     );
-    sql.push_str(spec.suffix_sql);
+    sql.push_str(&spec.suffix_sql);
     let count_sql = format!("SELECT COUNT(*) FROM ({sql}) phase09_report_rows");
     let connection = service.phase05.phase09_open_maintenance()?;
     let total_rows = connection.query_row(&count_sql, params_from_iter(values.iter()), |row| {
         row.get(0)
     })?;
-    let sort_field = request.sort_field.as_deref().unwrap_or(spec.default_sort);
+    let sort_field = request
+        .sort_field
+        .as_deref()
+        .unwrap_or(spec.default_sort.as_str());
     let sort_sql = spec
         .sort_fields
         .get(sort_field)
@@ -342,15 +348,14 @@ fn report_spec(id: &str) -> ReportSpec {
 fn build_spec(
     id: &str,
     names: (&str, &str),
-    sql: (&'static str, &'static str),
+    sql: (&str, &str),
     filters: ReportFilters,
     columns: &[ReportColumn],
-    default_sort: &'static str,
+    default_sort: &str,
 ) -> ReportSpec {
     let mut sort_fields = BTreeMap::new();
     for column in columns {
-        let key: &'static str = Box::leak(column.key.clone().into_boxed_str());
-        sort_fields.insert(key, key);
+        sort_fields.insert(column.key.clone(), column.key.clone());
     }
     ReportSpec {
         descriptor: ReportDescriptor {
@@ -363,8 +368,8 @@ fn build_spec(
             supports_product: filters.product.is_some(),
             supports_status: filters.status.is_some(),
         },
-        select_sql: sql.0,
-        suffix_sql: sql.1,
+        select_sql: sql.0.to_owned(),
+        suffix_sql: sql.1.to_owned(),
         date_column: filters.date,
         warehouse_column: filters.warehouse,
         partner_column: filters.partner,
@@ -372,7 +377,7 @@ fn build_spec(
         status_column: filters.status,
         columns: columns.to_vec(),
         sort_fields,
-        default_sort,
+        default_sort: default_sort.to_owned(),
     }
 }
 
@@ -391,12 +396,11 @@ fn partner_spec(id: &str, sales: bool) -> ReportSpec {
         )
     };
     let sql = format!("SELECT d.partner_id AS partnerId,COALESCE(p.display_name_ar,p.legal_name,'—') AS partnerAr,COALESCE(p.display_name_fr,p.legal_name,'—') AS partnerFr,COUNT(*) AS documentCount,SUM(CASE WHEN d.document_type IN ('SALES_CREDIT_NOTE','PURCHASE_RETURN') THEN -d.total_ht_minor ELSE d.total_ht_minor END) AS totalHtMinor,SUM(CASE WHEN d.document_type IN ('SALES_CREDIT_NOTE','PURCHASE_RETURN') THEN -d.total_ttc_minor ELSE d.total_ttc_minor END) AS totalTtcMinor FROM commercial_documents d LEFT JOIN partners p ON p.id=d.partner_id AND p.company_id=d.company_id WHERE d.company_id=? AND d.document_type IN {types} AND d.posting_status='POSTED'");
-    let leaked: &'static str = Box::leak(sql.into_boxed_str());
     spec!(
         id,
         ar,
         fr,
-        leaked,
+        sql.as_str(),
         " GROUP BY d.partner_id,p.display_name_ar,p.display_name_fr,p.legal_name",
         Some("d.commercial_date"),
         Some("d.warehouse_id"),
@@ -431,7 +435,6 @@ fn stock_spec(id: &str, valuation: bool, low_only: bool) -> ReportSpec {
         ""
     };
     let sql = format!("SELECT b.product_id AS productId,p.code AS productCode,p.name_ar AS productAr,p.name_fr AS productFr,w.code AS warehouseCode,b.on_hand_scaled AS onHandScaled,b.reserved_scaled AS reservedScaled,b.available_scaled AS availableScaled,p.minimum_stock_scaled AS minimumStockScaled{valuation_columns} FROM stock_balances b JOIN products p ON p.id=b.product_id AND p.company_id=b.company_id JOIN warehouses w ON w.id=b.warehouse_id AND w.company_id=b.company_id WHERE b.company_id=?{low}");
-    let leaked: &'static str = Box::leak(sql.into_boxed_str());
     let mut columns = vec![
         c("productCode", "رمز المنتج", "Code", "text"),
         c("productAr", "المنتج", "Produit AR", "text"),
@@ -460,7 +463,7 @@ fn stock_spec(id: &str, valuation: bool, low_only: bool) -> ReportSpec {
         id,
         ar,
         fr,
-        leaked,
+        sql.as_str(),
         "",
         None,
         Some("b.warehouse_id"),
@@ -479,8 +482,7 @@ fn open_balance_spec(id: &str, receivable: bool) -> ReportSpec {
         ("الذمم الدائنة", "Dettes ouvertes", "PURCHASE_INVOICE")
     };
     let sql = format!("SELECT d.id AS documentId,d.document_number AS documentNumber,d.commercial_date AS documentDate,d.due_date AS dueDate,d.partner_id AS partnerId,COALESCE(p.display_name_ar,p.legal_name,'—') AS partnerAr,COALESCE(p.display_name_fr,p.legal_name,'—') AS partnerFr,d.total_ttc_minor AS originalMinor,COALESCE(SUM(CASE WHEN pa.allocation_status='ACTIVE' THEN pa.allocated_amount_minor ELSE 0 END),0) AS allocatedMinor,d.total_ttc_minor-COALESCE(SUM(CASE WHEN pa.allocation_status='ACTIVE' THEN pa.allocated_amount_minor ELSE 0 END),0) AS openMinor FROM commercial_documents d LEFT JOIN partners p ON p.id=d.partner_id AND p.company_id=d.company_id LEFT JOIN payment_allocations pa ON pa.document_id=d.id AND pa.company_id=d.company_id WHERE d.company_id=? AND d.document_type='{document_type}' AND d.posting_status='POSTED'");
-    let leaked: &'static str = Box::leak(sql.into_boxed_str());
-    spec!(id,ar,fr,leaked," GROUP BY d.id,d.document_number,d.commercial_date,d.due_date,d.partner_id,p.display_name_ar,p.display_name_fr,p.legal_name HAVING openMinor>0",Some("d.commercial_date"),Some("d.warehouse_id"),Some("d.partner_id"),None,Some("d.workflow_status"),&[c("documentNumber","رقم المستند","Document","text"),c("documentDate","التاريخ","Date","date"),c("dueDate","الاستحقاق","Échéance","date"),c("partnerAr","الشريك","Partenaire AR","text"),c("partnerFr","الشريك بالفرنسية","Partenaire","text"),c("originalMinor","الأصل","Montant","moneyMinor"),c("allocatedMinor","مسدد","Réglé","moneyMinor"),c("openMinor","المتبقي","Ouvert","moneyMinor")],"dueDate")
+    spec!(id,ar,fr,sql.as_str()," GROUP BY d.id,d.document_number,d.commercial_date,d.due_date,d.partner_id,p.display_name_ar,p.display_name_fr,p.legal_name HAVING openMinor>0",Some("d.commercial_date"),Some("d.warehouse_id"),Some("d.partner_id"),None,Some("d.workflow_status"),&[c("documentNumber","رقم المستند","Document","text"),c("documentDate","التاريخ","Date","date"),c("dueDate","الاستحقاق","Échéance","date"),c("partnerAr","الشريك","Partenaire AR","text"),c("partnerFr","الشريك بالفرنسية","Partenaire","text"),c("originalMinor","الأصل","Montant","moneyMinor"),c("allocatedMinor","مسدد","Réglé","moneyMinor"),c("openMinor","المتبقي","Ouvert","moneyMinor")],"dueDate")
 }
 
 fn invalid_spec(id: &str) -> ReportSpec {
@@ -653,5 +655,18 @@ mod tests {
     #[test]
     fn spreadsheet_formula_prefixes_are_neutralized() {
         assert_eq!(csv_cell(" =1+1"), "\"' =1+1\"");
+    }
+
+    #[test]
+    fn dynamic_report_specs_remain_owned_and_complete() {
+        for _ in 0..100 {
+            for id in REPORT_IDS {
+                let specification = report_spec(id);
+                assert!(!specification.select_sql.is_empty());
+                assert!(specification
+                    .sort_fields
+                    .contains_key(specification.default_sort.as_str()));
+            }
+        }
     }
 }

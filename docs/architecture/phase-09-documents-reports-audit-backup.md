@@ -101,12 +101,14 @@ A backup is successful only after:
 - `PRAGMA integrity_check` returns `ok`;
 - `PRAGMA foreign_key_check` is empty;
 - required POSMAN tables exist;
-- the migration ledger is present, continuous, and checksum-shaped;
+- every migration ID, version, name, and SHA-256 matches the embedded `0001`–`0007` catalog exactly;
 - the schema is supported and not newer than the running application.
 
 History records include kind, application/schema versions, migration digest, size, SHA-256, relative path, verification states, and failure information. Import stages a user-selected file inside an application-owned directory before verification. Export and import dialogs are Rust-owned; React receives only operation results, not general path authority.
 
 Retention preserves seven successful daily automatic backups, four weekly backups, all manual backups, and the latest three pre-restore backups. Failed backups are not candidates. The last valid backup and a backup protected for restore cannot be deleted. File deletion occurs before history deletion; failure is recorded without losing the history row.
+
+After a successful login, a detached bounded task checks the company-local calendar date (`Africa/Algiers`). It creates at most one verified daily backup per company/day and, on the configured weekday, at most one verified weekly backup. An in-process mutex prevents duplicate concurrent startup attempts. The login response is not blocked by backup I/O; failures are audited and persisted as a warning in backup settings. Interactive backup creation is restricted to `MANUAL`, so callers cannot forge scheduler-owned history kinds.
 
 Backups are local and unencrypted. This is an explicit PHASE 09 security limitation; homemade encryption is prohibited.
 
@@ -134,7 +136,7 @@ The active database is never replaced before selection verification, maintenance
 
 ## Maintenance gate
 
-The Rust-owned maintenance gate tracks ordinary database operations and restore exclusivity. Normal operations can proceed under existing transaction rules. Backup uses ordinary guarded access compatible with SQLite Online Backup. Restore rejects new operations, waits for active operations to drain, and releases through RAII on every success/error path. No frontend boolean is authoritative.
+The Rust-owned maintenance gate tracks every ordinary database connection used by PHASE 05–09 and restore exclusivity. Normal operations can proceed under existing transaction rules while their connection-owned permit is alive. Backup uses ordinary guarded access compatible with SQLite Online Backup. Restore rejects new operations, waits for active operations to drain, and uses a narrowly scoped raw connection path only while its exclusive permit is held. Session invalidation occurs inside that exclusive interval. RAII releases every permit on success/error; no frontend boolean is authoritative.
 
 ## Tauri capability and filesystem boundary
 

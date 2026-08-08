@@ -37,7 +37,9 @@ impl Phase05Service {
             })
     }
 
-    pub(crate) fn phase06_open(&self) -> Phase05Result<Connection> {
+    pub(crate) fn phase06_open(
+        &self,
+    ) -> Phase05Result<crate::infrastructure::maintenance::GuardedConnection> {
         self.open()
     }
 
@@ -48,20 +50,20 @@ impl Phase05Service {
         self.phase06_authorize(permission)
     }
 
-    pub(crate) fn phase09_open(&self) -> Phase05Result<Connection> {
+    pub(crate) fn phase09_open(
+        &self,
+    ) -> Phase05Result<crate::infrastructure::maintenance::GuardedConnection> {
         self.phase06_open()
+    }
+
+    pub(crate) fn phase09_open_exclusive(&self) -> Phase05Result<Connection> {
+        self.open_raw()
     }
 
     pub(crate) fn phase09_open_maintenance(
         &self,
     ) -> Phase05Result<crate::infrastructure::maintenance::GuardedConnection> {
-        let permit = self.maintenance.enter_database_operation().map_err(|_| {
-            error::Phase05Error::new(
-                "MAINTENANCE_ACTIVE",
-                "POSMAN is restoring a verified backup.",
-            )
-        })?;
-        Ok(permit.guard(self.open()?))
+        self.open()
     }
 
     pub(crate) fn phase09_reauthenticate(
@@ -89,12 +91,11 @@ impl Phase05Service {
         self.maintenance.clone()
     }
 
-    pub(crate) fn phase09_invalidate_session(&self) -> Phase05Result<()> {
+    pub(crate) fn phase09_invalidate_session_exclusive(&self) -> Phase05Result<()> {
         let Some(session) = self.take_session()? else {
             return Ok(());
         };
-        let connection = self.open()?;
-        connection.execute(
+        self.open_raw()?.execute(
             "UPDATE sessions SET revoked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND company_id=?2 AND user_id=?3 AND revoked_at IS NULL",
             rusqlite::params![session.session_id, session.company_id, session.user_id],
         )?;

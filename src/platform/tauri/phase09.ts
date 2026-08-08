@@ -286,7 +286,7 @@ export interface UpdateBackupSettingsRequest {
 }
 
 export interface CreateBackupRequest {
-  backupKind: Exclude<BackupKind, "PRE_RESTORE">;
+  backupKind: "MANUAL";
 }
 
 export interface BackupListRequest {

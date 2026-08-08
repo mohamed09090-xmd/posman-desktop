@@ -9,8 +9,12 @@ use rusqlite::{
     backup::Backup, params, Connection, OpenFlags, OptionalExtension, Row, TransactionBehavior,
 };
 use sha2::{Digest, Sha256};
+use time::{macros::format_description, UtcOffset};
 
-use crate::phase05::Phase06AuthContext;
+use crate::{
+    infrastructure::database::migrations::MIGRATIONS,
+    phase05::Phase06AuthContext,
+};
 
 use super::{
     checked_page,
@@ -39,6 +43,142 @@ const REQUIRED_TABLES: &[&str] = &[
 ];
 
 impl Phase09Service {
+    pub(crate) fn attempt_automatic_backup_after_login(&self) -> Phase09Result<()> {
+        let _automatic_guard = self
+            .automatic_backup_lock
+            .lock()
+            .map_err(|_| Phase09Error::internal())?;
+        let context = self.phase05.phase09_authorize(None)?;
+        let mut connection = self.phase05.phase09_open_maintenance()?;
+        ensure_settings(&mut connection, &context)?;
+        let settings = connection.query_row(
+            r#"SELECT s.automatic_enabled,s.daily_enabled,s.weekly_enabled,s.weekly_day,
+                      s.last_daily_local_date,s.last_weekly_local_date,c.timezone_name
+               FROM phase09_backup_settings s
+               JOIN companies c ON c.id=s.company_id
+               WHERE s.company_id=?1"#,
+            [context.company_id.as_str()],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)? == 1,
+                    row.get::<_, i64>(1)? == 1,
+                    row.get::<_, i64>(2)? == 1,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                    row.get::<_, String>(6)?,
+                ))
+            },
+        )?;
+        if !settings.0 {
+            return Ok(());
+        }
+        let local_now = match settings.6.as_str() {
+            "Africa/Algiers" => time::OffsetDateTime::now_utc().to_offset(
+                UtcOffset::from_hms(1, 0, 0).map_err(|_| Phase09Error::internal())?,
+            ),
+            _ => {
+                connection.execute(
+                    "UPDATE phase09_backup_settings SET last_attempt_at=?1,last_warning_code='BACKUP_TIMEZONE_UNSUPPORTED' WHERE company_id=?2",
+                    params![now_iso()?, context.company_id],
+                )?;
+                let _ = self.audit_failure(
+                    &context,
+                    "AUTOMATIC_BACKUP_FAILED",
+                    "PHASE09_BACKUP_SETTINGS",
+                    &context.company_id,
+                    "BACKUP_TIMEZONE_UNSUPPORTED",
+                );
+                return Err(Phase09Error::new(
+                    "BACKUP_TIMEZONE_UNSUPPORTED",
+                    "Automatic backup requires the supported company timezone.",
+                    false,
+                ));
+            }
+        };
+        let local_date = local_now
+            .format(format_description!("[year]-[month]-[day]"))
+            .map_err(|_| Phase09Error::internal())?;
+        connection.execute(
+            "UPDATE phase09_backup_settings SET last_attempt_at=?1 WHERE company_id=?2",
+            params![now_iso()?, context.company_id],
+        )?;
+        drop(connection);
+
+        if settings.1 && settings.4.as_deref() != Some(local_date.as_str()) {
+            match self.create_verified_backup_for_context(
+                &context,
+                "AUTOMATIC_DAILY",
+                false,
+            ) {
+                Ok(_) => self.record_automatic_backup_success(
+                    &context.company_id,
+                    "last_daily_local_date",
+                    &local_date,
+                )?,
+                Err(error) => {
+                    self.record_automatic_backup_warning(&context.company_id, &error.code)?;
+                    return Err(error);
+                }
+            }
+        }
+
+        if settings.2
+            && i64::from(local_now.weekday().number_from_monday()) == settings.3
+            && settings.5.as_deref() != Some(local_date.as_str())
+        {
+            match self.create_verified_backup_for_context(
+                &context,
+                "AUTOMATIC_WEEKLY",
+                false,
+            ) {
+                Ok(_) => self.record_automatic_backup_success(
+                    &context.company_id,
+                    "last_weekly_local_date",
+                    &local_date,
+                )?,
+                Err(error) => {
+                    self.record_automatic_backup_warning(&context.company_id, &error.code)?;
+                    return Err(error);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn record_automatic_backup_success(
+        &self,
+        company_id: &str,
+        date_column: &str,
+        local_date: &str,
+    ) -> Phase09Result<()> {
+        let sql = match date_column {
+            "last_daily_local_date" => {
+                "UPDATE phase09_backup_settings SET last_daily_local_date=?1,last_warning_code=NULL WHERE company_id=?2"
+            }
+            "last_weekly_local_date" => {
+                "UPDATE phase09_backup_settings SET last_weekly_local_date=?1,last_warning_code=NULL WHERE company_id=?2"
+            }
+            _ => return Err(Phase09Error::internal()),
+        };
+        self.phase05
+            .phase09_open_maintenance()?
+            .execute(sql, params![local_date, company_id])?;
+        Ok(())
+    }
+
+    fn record_automatic_backup_warning(
+        &self,
+        company_id: &str,
+        code: &str,
+    ) -> Phase09Result<()> {
+        self.phase05.phase09_open_maintenance()?.execute(
+            "UPDATE phase09_backup_settings SET last_warning_code=?1 WHERE company_id=?2",
+            params![code, company_id],
+        )?;
+        Ok(())
+    }
+
     pub fn get_backup_settings(&self, _: ()) -> Phase09Result<BackupSettingsView> {
         let context = self.authorize("backup.view")?;
         let mut connection = self.phase05.phase09_open_maintenance()?;
@@ -87,7 +227,11 @@ impl Phase09Service {
     }
 
     pub fn create_backup(&self, request: CreateBackupRequest) -> Phase09Result<BackupView> {
-        validate_backup_kind(&request.backup_kind, false)?;
+        if request.backup_kind != "MANUAL" {
+            return Err(Phase09Error::validation(
+                "Interactive backup creation supports the MANUAL kind only.",
+            ));
+        }
         let context = self.authorize("backup.create")?;
         self.create_verified_backup_for_context(&context, &request.backup_kind, false)
     }
@@ -626,11 +770,17 @@ pub(crate) fn verify_database_file(
             ));
         }
     }
-    let mut statement = connection
-        .prepare("SELECT version,checksum_sha256 FROM app_migrations ORDER BY version")?;
+    let mut statement = connection.prepare(
+        "SELECT id,version,name,checksum_sha256 FROM app_migrations ORDER BY id",
+    )?;
     let ledger = statement
         .query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
         })?
         .collect::<Result<Vec<_>, _>>()?;
     if ledger.is_empty() {
@@ -642,7 +792,7 @@ pub(crate) fn verify_database_file(
     }
     let schema_version = ledger
         .last()
-        .map(|entry| entry.0.clone())
+        .map(|entry| entry.1.clone())
         .unwrap_or_default();
     if schema_version.as_str() > SUPPORTED_SCHEMA_VERSION {
         return Err(Phase09Error::new(
@@ -651,7 +801,7 @@ pub(crate) fn verify_database_file(
             false,
         ));
     }
-    if schema_version != SUPPORTED_SCHEMA_VERSION || ledger.len() != 7 {
+    if schema_version != SUPPORTED_SCHEMA_VERSION || ledger.len() != MIGRATIONS.len() {
         return Err(Phase09Error::new(
             "BACKUP_MIGRATION_MISSING",
             "The selected backup does not contain the complete supported migration ledger.",
@@ -659,15 +809,18 @@ pub(crate) fn verify_database_file(
         ));
     }
     let mut digest = Sha256::new();
-    for (version, checksum) in &ledger {
-        if checksum.len() != 64
-            || !checksum
-                .chars()
-                .all(|character| character.is_ascii_hexdigit())
-        {
+    for ((id, version, name, checksum), expected) in ledger.iter().zip(MIGRATIONS.iter()) {
+        if *id != expected.id || version != expected.version || name != expected.name {
+            return Err(Phase09Error::new(
+                "BACKUP_MIGRATION_MISSING",
+                "The selected backup migration ledger is not the supported contiguous POSMAN ledger.",
+                false,
+            ));
+        }
+        if checksum != &expected.checksum_sha256() {
             return Err(Phase09Error::new(
                 "BACKUP_MIGRATION_CHECKSUM_INVALID",
-                "The selected backup contains an invalid migration checksum.",
+                "The selected backup migration checksums do not match this POSMAN build.",
                 false,
             ));
         }
@@ -948,6 +1101,85 @@ mod tests {
         assert!(validate_backup_kind("MANUAL", false).is_ok());
         assert!(validate_backup_kind("PRE_RESTORE", false).is_err());
         assert!(validate_backup_kind("PRE_RESTORE", true).is_ok());
+    }
+
+    #[test]
+    fn authenticated_startup_creates_at_most_one_daily_automatic_backup() {
+        let (_directory, service, _phase05, _company_id) = service_fixture();
+        service
+            .attempt_automatic_backup_after_login()
+            .expect("the first authenticated startup should create its daily backup");
+        service
+            .attempt_automatic_backup_after_login()
+            .expect("a repeated startup on the same local day should be idempotent");
+        let daily = service
+            .list_backups(BackupListRequest {
+                backup_kind: Some("AUTOMATIC_DAILY".to_owned()),
+                page: 1,
+                page_size: 20,
+            })
+            .expect("daily backups should list");
+        assert_eq!(daily.total, 1);
+        let settings = service
+            .get_backup_settings(())
+            .expect("backup settings should load");
+        assert!(settings.last_success_local_date.is_some());
+        assert_eq!(settings.last_warning_code, None);
+    }
+
+    #[test]
+    fn automatic_backup_kinds_cannot_be_forged_through_the_interactive_command() {
+        let (_directory, service, _phase05, _company_id) = service_fixture();
+        let error = service
+            .create_backup(CreateBackupRequest {
+                backup_kind: "AUTOMATIC_DAILY".to_owned(),
+            })
+            .expect_err("automatic kinds are owned by the authenticated startup scheduler");
+        assert_eq!(error.code, "PHASE09_VALIDATION");
+    }
+
+    #[test]
+    fn backup_verification_requires_the_exact_embedded_migration_ledger() {
+        let (directory, service, _phase05, company_id) = service_fixture();
+        let backup = service
+            .create_backup(CreateBackupRequest {
+                backup_kind: "MANUAL".to_owned(),
+            })
+            .expect("online manual backup should be created and verified");
+        let record = service
+            .load_backup_record(&company_id, &backup.backup_id)
+            .expect("backup record should exist");
+        let source = managed_backup_path(&service.paths.backups, &record.relative_path)
+            .expect("managed backup path should resolve");
+
+        let checksum_mismatch = directory.path.join("checksum-mismatch.sqlite3");
+        fs::copy(&source, &checksum_mismatch).expect("checksum fixture should copy");
+        Connection::open(&checksum_mismatch)
+            .expect("checksum fixture should open")
+            .execute(
+                "UPDATE app_migrations SET checksum_sha256=?1 WHERE id=3",
+                ["0".repeat(64)],
+            )
+            .expect("checksum fixture should mutate");
+        let checksum_error = verify_database_file(
+            &checksum_mismatch,
+            ExpectedArtifact::default(),
+        )
+        .expect_err("a syntactically valid but incorrect checksum must be rejected");
+        assert_eq!(checksum_error.code, "BACKUP_MIGRATION_CHECKSUM_INVALID");
+
+        let name_mismatch = directory.path.join("name-mismatch.sqlite3");
+        fs::copy(&source, &name_mismatch).expect("name fixture should copy");
+        Connection::open(&name_mismatch)
+            .expect("name fixture should open")
+            .execute(
+                "UPDATE app_migrations SET name='renamed_migration' WHERE id=2",
+                [],
+            )
+            .expect("name fixture should mutate");
+        let name_error = verify_database_file(&name_mismatch, ExpectedArtifact::default())
+            .expect_err("a renamed migration must be rejected");
+        assert_eq!(name_error.code, "BACKUP_MIGRATION_MISSING");
     }
 
     #[test]

@@ -10,7 +10,10 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
-use crate::infrastructure::{database::open_configured_connection, maintenance::MaintenanceGate};
+use crate::infrastructure::{
+    database::open_configured_connection,
+    maintenance::{GuardedConnection, MaintenanceGate},
+};
 
 use super::{
     dto::SessionView,
@@ -69,10 +72,20 @@ impl Phase05Service {
         &self.database_path
     }
 
-    pub(super) fn open(&self) -> Phase05Result<Connection> {
+    pub(super) fn open_raw(&self) -> Phase05Result<Connection> {
         open_configured_connection(&self.database_path)
             .map(|(connection, _)| connection)
             .map_err(|_| Phase05Error::internal())
+    }
+
+    pub(super) fn open(&self) -> Phase05Result<GuardedConnection> {
+        let permit = self.maintenance.enter_database_operation().map_err(|_| {
+            Phase05Error::new(
+                "MAINTENANCE_ACTIVE",
+                "POSMAN is restoring a verified backup.",
+            )
+        })?;
+        Ok(permit.guard(self.open_raw()?))
     }
 
     pub(super) fn replace_session(&self, session: ActiveSession) -> Phase05Result<()> {

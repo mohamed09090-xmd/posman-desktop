@@ -5,6 +5,7 @@ use crate::phase05::{
     error::{Phase05Error, Phase05Result},
     Phase05Service,
 };
+use crate::phase09::Phase09Service;
 
 async fn run_blocking<T: Send + 'static>(
     service: Phase05Service,
@@ -118,9 +119,15 @@ pub async fn complete_initial_setup(
 #[tauri::command]
 pub async fn login(
     state: State<'_, Phase05Service>,
+    phase09_state: State<'_, Phase09Service>,
     request: LoginRequest,
 ) -> Phase05Result<SessionView> {
-    run_blocking(state.inner().clone(), move |service| service.login(request)).await
+    let session = run_blocking(state.inner().clone(), move |service| service.login(request)).await?;
+    let phase09 = phase09_state.inner().clone();
+    drop(tauri::async_runtime::spawn_blocking(move || {
+        let _ = phase09.attempt_automatic_backup_after_login();
+    }));
+    Ok(session)
 }
 
 #[tauri::command]
