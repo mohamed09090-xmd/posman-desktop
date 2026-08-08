@@ -216,10 +216,12 @@ impl AuditQuery {
             self.where_sql
         );
         let mut statement = connection.prepare(&sql)?;
-        statement
-            .query_map(params_from_iter(self.values.iter()), map_audit_event)?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(Phase09Error::from)
+        let rows = statement.query_map(params_from_iter(self.values.iter()), map_audit_event)?;
+        let mut items = Vec::new();
+        for row in rows {
+            items.push(row?);
+        }
+        Ok(items)
     }
 }
 

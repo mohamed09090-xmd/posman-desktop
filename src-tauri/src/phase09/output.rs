@@ -172,6 +172,55 @@ impl Phase09Service {
         }
     }
 
+    pub fn generate_managed_pdf_export(
+        &self,
+        app: &AppHandle<Wry>,
+        html: &str,
+        css: &str,
+        relative_path: &str,
+    ) -> Phase09Result<ExportResult> {
+        let _output_guard = self
+            .output_lock
+            .try_lock()
+            .map_err(|_| Phase09Error::output_busy())?;
+        let final_path = managed_path(&self.paths.documents, relative_path)?;
+        let parent = final_path
+            .parent()
+            .ok_or_else(|| Phase09Error::validation("Invalid report output path."))?;
+        fs::create_dir_all(parent)?;
+        fs::create_dir_all(&self.paths.staging)?;
+        let render_id = new_id();
+        let temporary_path = self
+            .paths
+            .staging
+            .join(format!("phase09-report-{render_id}.pdf.tmp"));
+        remove_if_exists(&temporary_path);
+
+        let artifact = match PlatformOutputEngine.generate_pdf(
+            app,
+            PdfOutputRequest {
+                html,
+                css,
+                destination: &temporary_path,
+            },
+        ) {
+            Ok(artifact) => artifact,
+            Err(error) => {
+                remove_if_exists(&temporary_path);
+                return Err(error);
+            }
+        };
+        if let Err(error) = fs::rename(&temporary_path, &final_path) {
+            remove_if_exists(&temporary_path);
+            return Err(Phase09Error::from(error));
+        }
+        Ok(ExportResult {
+            relative_path: relative_path.to_owned(),
+            sha256: artifact.sha256,
+            size_bytes: artifact.size_bytes,
+        })
+    }
+
     pub fn export_rendered_pdf_to(
         &self,
         request: RenderedDocumentKeyRequest,

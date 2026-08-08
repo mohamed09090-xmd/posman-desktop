@@ -1,5 +1,5 @@
 use rusqlite::{params, OptionalExtension, Row};
-use tauri::{AppHandle, WebviewUrl, WebviewWindowBuilder, Wry};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, Wry};
 
 use super::{
     checked_page,
