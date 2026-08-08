@@ -73,7 +73,6 @@ export function IntegrityBadge({ state }: { state: string }) {
   return (
     <span
       className={`phase09-integrity phase09-integrity--${safe ? "safe" : "warning"}`}
-      aria-label={state}
     >
       {state}
     </span>

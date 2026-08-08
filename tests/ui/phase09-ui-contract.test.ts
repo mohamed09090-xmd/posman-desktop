@@ -73,6 +73,7 @@ test("loading, empty, error, integrity, and destructive states are present", () 
   assert.match(backup, /RESTORE/);
   assert.match(backup, /current-password/);
   assert.match(backup, /window\.confirm/);
+  assert.doesNotMatch(shared, /aria-label=\{state\}/);
 });
 
 test("template editing is structured and never exposes raw HTML or CSS", () => {
