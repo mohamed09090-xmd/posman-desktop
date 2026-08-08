@@ -39,3 +39,9 @@ Before planning, reviewing, or implementing project work:
 13. Rust services own validation, authorization, company scope, idempotency, fixed-point calculations, audit, and transactions.
 14. PHASE 09 work must preserve historical render reproducibility, validate backup/restore before replacement, and keep private data local.
 15. PHASE 10 distribution work must preserve user data across upgrade/uninstall and must not commit signing material.
+
+## Workflow & CI Integration Protocol
+
+1. Upon completing and locally verifying any modifications, push the branch directly to GitHub (`git push origin <branch>`).
+2. Monitor GitHub Actions CI status for the branch until all build/test jobs complete successfully with 0 errors (green status).
+3. Once GitHub Actions CI completes successfully without errors, proceed to merge the changes into `main`.

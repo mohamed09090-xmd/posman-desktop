@@ -6,7 +6,7 @@ import {
   Phase09GatewayError,
   RequestGate,
   normalizePhase09Error,
-} from "../../src/platform/tauri/phase09/index.ts";
+} from "../../src/platform/tauri/phase09.ts";
 
 const root = new URL("../../", import.meta.url);
 
@@ -14,14 +14,7 @@ function source(path: string): string {
   return readFileSync(new URL(path, root), "utf8");
 }
 
-const gatewaySources = [
-  "src/platform/tauri/phase09/invokePhase09.ts",
-  "src/platform/tauri/phase09/templatesGateway.ts",
-  "src/platform/tauri/phase09/documentsGateway.ts",
-  "src/platform/tauri/phase09/reportsGateway.ts",
-  "src/platform/tauri/phase09/auditGateway.ts",
-  "src/platform/tauri/phase09/backupGateway.ts",
-].map(source);
+const gatewaySources = ["src/platform/tauri/phase09.ts"].map(source);
 
 const combined = gatewaySources.join("\n");
 
@@ -96,14 +89,14 @@ test("safe errors are normalized without leaking arbitrary objects", () => {
 });
 
 test("restore gateway requires exact RESTORE confirmation", () => {
-  const backup = source("src/platform/tauri/phase09/backupGateway.ts");
+  const backup = source("src/platform/tauri/phase09.ts");
   assert.match(backup, /confirmationText !== "RESTORE"/);
   assert.match(backup, /currentPassword\.length === 0/);
   assert.match(backup, /confirmed !== true/);
 });
 
 test("payloads remain wrapped in typed request objects", () => {
-  for (const gateway of gatewaySources.slice(1)) {
+  for (const gateway of gatewaySources) {
     const invocations = gateway.match(/invokePhase09<[^>]+>\([\s\S]*?\);/g) ?? [];
     assert.ok(invocations.length > 0);
     assert.doesNotMatch(gateway, /companyId\s*:/);
