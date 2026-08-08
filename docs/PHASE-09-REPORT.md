@@ -8,7 +8,7 @@
 - Branch: `phase/09-documents-reports-audit-backup`
 - Draft Pull Request: `https://github.com/mohamed09090-xmd/posman-desktop/pull/14`
 - Accepted baseline: `0abaff289758fd2e5597faef834f9b70156d54e1`
-- Validated implementation head: `81b504ea3f060242b8e1a1e7693729239487195c`
+- Validated implementation head: `da16aaeea57fd4bfafc9ebf2f802a38183c387f7`
 - Migration: `database/migrations/0007_phase09_documents_reports_audit_backup.sql`
 - Migration SHA-256: `f22f220ccf6ae2f85f0be85ae018b9f5760e725e9e88c6b2b87c37598424eb90`
 
@@ -57,7 +57,7 @@ The candidate includes typed implementations for:
 - `CASH_BANK_REGISTER`
 - `TRIAL_BALANCE`
 
-The report boundary uses fixed identifiers, company scope from the session, typed filters, allowlisted sorting, integer/text report values, UI pagination caps, CSV/PDF row limits, UTF-8 BOM CSV, semicolon delimiters, normalized line endings, and spreadsheet-formula neutralization.
+The report boundary uses fixed identifiers, company scope from the session, typed filters, allowlisted sorting, owned dynamic specifications without per-request memory leaks, explicit rejection of unknown report identifiers, integer/text report values, UI pagination caps, CSV/PDF row limits, UTF-8 BOM CSV, semicolon delimiters, normalized line endings, and spreadsheet-formula neutralization.
 
 ### Audit workspace
 
@@ -65,7 +65,9 @@ The candidate includes read-only company-scoped pagination and filtering, `audit
 
 ### Backup and restore
 
-The candidate includes SQLite Online Backup, WAL-safe creation, reopen verification, integrity and foreign-key checks, migration/table/schema/digest checks, manual/automatic/pre-restore kinds, bounded daily/weekly/pre-restore retention, protected deletion rules, Rust-owned import/export dialogs, current-password re-authentication, exact `RESTORE` confirmation, an exclusive maintenance gate, a verified `PRE_RESTORE` safety backup, same-filesystem replacement, post-reopen verification, rollback, audit, and session invalidation.
+The candidate includes SQLite Online Backup, WAL-safe creation, reopen verification, integrity and foreign-key checks, exact embedded migration-ledger identity/version/name/SHA-256 checks, required table/schema/digest checks, manual/automatic/pre-restore kinds, bounded daily/weekly/pre-restore retention, protected deletion rules, Rust-owned import/export dialogs, current-password re-authentication, exact `RESTORE` confirmation, an exclusive maintenance gate covering database operations from PHASE 05 through PHASE 09, a verified `PRE_RESTORE` safety backup, same-filesystem replacement, post-reopen verification, rollback, audit, and session invalidation.
+
+Automatic daily and weekly backup evaluation now runs in a detached task after successful login, uses the supported company timezone and local date, records one successful run per configured day, and preserves a safe warning without delaying login when backup creation fails. Interactive backup creation accepts `MANUAL` only, so callers cannot forge automatic history kinds.
 
 Real isolated-database tests prove corruption rejection, exact retention, last-valid-backup protection, successful replacement, safety-backup recording, and session invalidation. Backups remain local and unencrypted as explicitly bounded by PHASE 09.
 
@@ -104,19 +106,19 @@ The command surface registers 28 typed PHASE 09 commands through `src-tauri/src/
 
 ## Exact-head validation
 
-All required workflows completed successfully on implementation head `81b504ea3f060242b8e1a1e7693729239487195c`:
+All required workflows completed successfully on implementation head `da16aaeea57fd4bfafc9ebf2f802a38183c387f7`:
 
 | Workflow | Run | Result |
 | --- | --- | --- |
-| PHASE 09 documents reports audit backup | `31274080615` | Success — all 9 jobs |
-| Frontend Runtime Integration | `31274080600` | Success |
-| Runtime CI | `31274080605` | Success |
-| Desktop bootstrap CI | `31274080627` | Success |
-| SQLite schema verification | `31274080604` | Success |
-| PHASE 05 validation | `31274080618` | Success |
-| PHASE 06 inventory and purchasing | `31274080641` | Success |
-| PHASE 07 sales cycle | `31274080601` | Success |
-| PHASE 08 accounting and payments | `31274080610` | Success |
+| PHASE 09 documents reports audit backup | `31275935836` | Success — all 9 jobs |
+| Frontend Runtime Integration | `31275935890` | Success |
+| Runtime CI | `31275935845` | Success |
+| Desktop bootstrap CI | `31275935816` | Success |
+| SQLite schema verification | `31275935869` | Success |
+| PHASE 05 validation | `31275935846` | Success |
+| PHASE 06 inventory and purchasing | `31275935861` | Success |
+| PHASE 07 sales cycle | `31275935848` | Success |
+| PHASE 08 accounting and payments | `31275935870` | Success |
 
 The PHASE 09 matrix passed on Ubuntu and Windows stable and Rust `1.85.0`, including:
 
@@ -129,7 +131,7 @@ The PHASE 09 matrix passed on Ubuntu and Windows stable and Rust `1.85.0`, inclu
 - database/schema/invariant verification;
 - read-only repository policy and frozen-migration guards.
 
-The dedicated Windows job passed all 20 selected PHASE 09 tests with zero failures, including real backup/restore and Tauri IPC tests.
+The dedicated Windows job passed all selected PHASE 09 tests with zero failures, including real backup/restore and Tauri IPC tests. The full Rust matrix passed 90 tests with zero failures on Ubuntu and Windows stable and Rust `1.85.0`.
 
 ## Browser and accessibility evidence
 
@@ -158,9 +160,9 @@ The screenshots and JSON reports were downloaded and reviewed visually. Arabic R
 
 | Artifact | ID | Size | SHA-256 digest | Expiry |
 | --- | ---: | ---: | --- | --- |
-| `phase-09-ui-evidence` | `9026502607` | 622,493 bytes | `dc4fd8490c27fe438155dd9267ff6c00319ab8c5f1de6166ae5c523e5676f795` | 2026-09-07 |
-| `phase-09-windows-native-evidence` | `9026544238` | 5,836 bytes | `1c0f1f9afd080b4266c2c691c4dd504dcc869c98a8be5a765285123f47182afb` | 2026-09-07 |
-| `phase-09-integration-evidence` | `9026575134` | 3,317,731 bytes | `de917b91ee9d12ac1ed4b0bc685d1313ae4ff941d41394eb8b348aad097fe0ae` | 2026-09-07 |
+| `phase-09-ui-evidence` | `9027004755` | 622,489 bytes | `1f613cc4c0a70def9606b5687a43ba0459714a223e9244037e13e6e0085c85e5` | 2026-09-07 |
+| `phase-09-windows-native-evidence` | `9027051691` | 6,002 bytes | `4a01b21eb322ca4b70415f1c11c162b6dd1170f57bcbd94b7c0fc9bff3d74295` | 2026-09-07 |
+| `phase-09-integration-evidence` | `9027055284` | 3,317,841 bytes | `df94edb23e0178c847ebb77813bba3766aee0707478fd039604a98c55b2600fa` | 2026-09-07 |
 
 The UI artifact contains eight screenshots, eight full Axe JSON files, the scenario manifest, and the Vite log. The Windows artifact contains native-build metadata, application SHA-256 evidence, and the successful PHASE 09 test log. The integration artifact contains schema, compatibility, frontend, E2E, Rust, native desktop, ownership, policy, whitespace, worktree, and compatibility evidence.
 
@@ -173,6 +175,8 @@ The UI artifact contains eight screenshots, eight full Axe JSON files, the scena
 5. Native PDF generation and print integration are Windows-only in this delivery.
 6. Backups are local and unencrypted; OS/device protection remains an operational responsibility.
 7. Installer, signing, updater, cloud synchronization, telemetry, and PHASE 10 deployment scope remain outside PHASE 09.
+
+The report commit is a documentation-only successor of the validated implementation head. The exact final Draft PR head and its final compatibility run set are recorded in the Pull Request description after that successor is validated.
 
 ## Pull Request and phase boundary
 
