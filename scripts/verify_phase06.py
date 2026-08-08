@@ -47,10 +47,12 @@ def digest(path: Path) -> str:
 def main() -> int:
     migrations = sorted((ROOT / "database/migrations").glob("*.sql"))
     names = [path.name for path in migrations]
-    if names[:5] != list(FROZEN_MIGRATIONS) or len(names) not in {5, 6}:
+    if names[:5] != list(FROZEN_MIGRATIONS) or len(names) not in {5, 6, 7}:
         fail("accepted migrations 0001-0005 must remain ordered and frozen")
-    if len(names) == 6 and not names[5].startswith("0006_"):
-        fail(f"the only authorized additive migration is 0006: {names[5]}")
+    if len(names) >= 6 and not names[5].startswith("0006_"):
+        fail(f"expected the accepted additive migration 0006: {names[5]}")
+    if len(names) == 7 and not names[6].startswith("0007_"):
+        fail(f"expected the authorized PHASE 09 migration 0007: {names[6]}")
     for name, expected in FROZEN_MIGRATIONS.items():
         actual = digest(ROOT / "database/migrations" / name)
         if actual != expected:

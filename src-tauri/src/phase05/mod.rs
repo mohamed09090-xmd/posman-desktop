@@ -37,7 +37,62 @@ impl Phase05Service {
             })
     }
 
-    pub(crate) fn phase06_open(&self) -> Phase05Result<Connection> {
+    pub(crate) fn phase06_open(
+        &self,
+    ) -> Phase05Result<crate::infrastructure::maintenance::GuardedConnection> {
         self.open()
+    }
+
+    pub(crate) fn phase09_authorize(
+        &self,
+        permission: Option<&str>,
+    ) -> Phase05Result<Phase06AuthContext> {
+        self.phase06_authorize(permission)
+    }
+
+    pub(crate) fn phase09_open_exclusive(&self) -> Phase05Result<Connection> {
+        self.open_raw()
+    }
+
+    pub(crate) fn phase09_open_maintenance(
+        &self,
+    ) -> Phase05Result<crate::infrastructure::maintenance::GuardedConnection> {
+        self.open()
+    }
+
+    pub(crate) fn phase09_reauthenticate(
+        &self,
+        password: &str,
+    ) -> Phase05Result<Phase06AuthContext> {
+        let context = self.phase06_authorize(None)?;
+        let hash: String = self.open()?.query_row(
+            "SELECT password_hash FROM users WHERE id=?1 AND company_id=?2 AND is_active=1",
+            rusqlite::params![context.user_id, context.company_id],
+            |row| row.get(0),
+        )?;
+        if !self.password_engine.verify(password, &hash) {
+            return Err(error::Phase05Error::new(
+                "AUTHENTICATION_FAILED",
+                "The current password is incorrect.",
+            ));
+        }
+        Ok(context)
+    }
+
+    pub(crate) fn phase09_maintenance_gate(
+        &self,
+    ) -> crate::infrastructure::maintenance::MaintenanceGate {
+        self.maintenance.clone()
+    }
+
+    pub(crate) fn phase09_invalidate_session_exclusive(&self) -> Phase05Result<()> {
+        let Some(session) = self.take_session()? else {
+            return Ok(());
+        };
+        self.open_raw()?.execute(
+            "UPDATE sessions SET revoked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND company_id=?2 AND user_id=?3 AND revoked_at IS NULL",
+            rusqlite::params![session.session_id, session.company_id, session.user_id],
+        )?;
+        Ok(())
     }
 }

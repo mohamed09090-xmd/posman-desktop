@@ -159,8 +159,8 @@ impl Phase05Service {
         partner_id: String,
     ) -> Phase05Result<Vec<PartnerAddressView>> {
         let context = self.require_session(Some("partners.view"))?;
-        ensure_partner(&self.open()?, &context.company_id, &partner_id)?;
         let connection = self.open()?;
+        ensure_partner(&connection, &context.company_id, &partner_id)?;
         let mut statement = connection.prepare(
             "SELECT id,partner_id,address_kind,label,address_line_1,address_line_2,city,province,postal_code,is_default,is_active,row_version FROM partner_addresses WHERE company_id=?1 AND partner_id=?2 ORDER BY is_default DESC,address_kind,id",
         )?;

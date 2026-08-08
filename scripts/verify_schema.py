@@ -29,6 +29,7 @@ ACCEPTED_MIGRATION_HASHES = {
     "0003_commerce_inventory.sql": "093aa71fe7e8ba58b6b487a7c578cd39c353b3225783ce87cabf6a2e8a111d39",
     "0004_accounting_documents_audit.sql": "c7d9ac5e194f1c1f47cd4d37f691218635fc6a98b23dd9afbb5a541538f7d99e",
     "0005_setup_security_reference_data.sql": "10eab9cadd76adbefa60ad9891b737549948d06d5fb8ea8437ac160f7d91127f",
+    "0006_accounting_payments_hardening.sql": "08763076ce7cbd77e585bf06b10bc856e7b8f02193484b1db974db95143cebd0",
 }
 
 EXPECTED_TABLES = {
@@ -89,9 +90,16 @@ EXPECTED_TABLES = {
     "posting_rule_lines",
     "payment_method_accounting",
     "fiscal_period_events",
+    "phase09_template_drafts",
+    "phase09_template_version_configs",
+    "phase09_template_retirements",
+    "phase09_rendered_documents",
+    "phase09_backup_settings",
+    "phase09_backups",
+    "phase09_restore_attempts",
 }
-EXPECTED_TEXT_PRIMARY_KEYS = 55
-EXPECTED_TRIGGER_COUNT = 47
+EXPECTED_TEXT_PRIMARY_KEYS = 61
+EXPECTED_TRIGGER_COUNT = 63
 
 
 class VerificationError(RuntimeError):
@@ -119,9 +127,9 @@ def migration_files(evidence: Evidence) -> list[Path]:
     expected_versions = [f"{index:04d}" for index in range(1, len(files) + 1)]
     actual_versions = [path.name[:4] for path in files]
     evidence.require(
-        actual_versions == expected_versions == ["0001", "0002", "0003", "0004", "0005", "0006"],
-        "six contiguous ordered migrations through 0006",
-        f"migration versions must be contiguous through 0006: got {actual_versions}",
+        actual_versions == expected_versions == ["0001", "0002", "0003", "0004", "0005", "0006", "0007"],
+        "seven contiguous ordered migrations through 0007",
+        f"migration versions must be contiguous through 0007: got {actual_versions}",
     )
     for name, expected_hash in ACCEPTED_MIGRATION_HASHES.items():
         actual_hash = hashlib.sha256((MIGRATIONS_DIR / name).read_bytes()).hexdigest()
@@ -350,8 +358,8 @@ def assert_core_schema(connection: sqlite3.Connection, evidence: Evidence) -> No
         "SELECT id, version, name, checksum_sha256 FROM app_migrations ORDER BY id"
     ).fetchall()
     evidence.require(
-        [row[1] for row in ledger] == ["0001", "0002", "0003", "0004", "0005", "0006"],
-        "migration ledger reaches schema version 0006",
+        [row[1] for row in ledger] == ["0001", "0002", "0003", "0004", "0005", "0006", "0007"],
+        "migration ledger reaches schema version 0007",
         f"unexpected migration ledger: {ledger}",
     )
 
@@ -1903,8 +1911,8 @@ def verify_upgrade(files: list[Path], evidence: Evidence) -> None:
         connection.execute(
             "SELECT version FROM app_migrations ORDER BY id DESC LIMIT 1"
         ).fetchone()[0]
-        == "0006",
-        "real 0004 database upgraded through schema 0006",
+        == "0007",
+        "real 0004 database upgraded through schema 0007",
     )
     evidence.require(
         connection.execute(
@@ -1917,7 +1925,7 @@ def verify_upgrade(files: list[Path], evidence: Evidence) -> None:
     violations = connection.execute("PRAGMA foreign_key_check").fetchall()
     evidence.require(
         not violations,
-        "real 0004 to 0006 upgrade has no foreign-key violations",
+        "real 0004 to 0007 upgrade has no foreign-key violations",
         f"upgrade foreign-key violations: {violations}",
     )
     connection.close()
@@ -1975,7 +1983,7 @@ def run(write_schema: bool) -> int:
         connection.execute("PRAGMA busy_timeout=5000")
 
         apply_migrations(connection, files)
-        evidence.record("applied 6 ordered migrations to a fresh database")
+        evidence.record(f"applied {len(files)} ordered migrations to a fresh database")
         apply_seed_twice(connection, evidence)
         assert_core_schema(connection, evidence)
         create_positive_fixtures(connection, evidence)

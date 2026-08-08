@@ -1,0 +1,222 @@
+name: PHASE 09 documents reports audit backup
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/phase09-ci.yml'
+      - 'database/**'
+      - 'docs/execution/POSMAN-PHASE-09-EXECUTION-PACK.md'
+      - 'docs/architecture/phase-09-documents-reports-audit-backup.md'
+      - 'docs/PHASE-09-REPORT.md'
+      - 'scripts/verify_schema.py'
+      - 'scripts/verify_phase06.py'
+      - 'scripts/verify_phase07.py'
+      - 'scripts/verify_phase08.py'
+      - 'scripts/verify_phase09.py'
+      - 'scripts/phase09_policy.py'
+      - 'src-tauri/**'
+      - 'src/platform/tauri/phase09.ts'
+      - 'src/features/phase09/**'
+      - 'src/app/AppRoot.tsx'
+      - 'src/components/layout.tsx'
+      - 'src/i18n/**'
+      - 'src/styles/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/phase09-ci.yml'
+      - 'database/**'
+      - 'docs/execution/POSMAN-PHASE-09-EXECUTION-PACK.md'
+      - 'docs/architecture/phase-09-documents-reports-audit-backup.md'
+      - 'docs/PHASE-09-REPORT.md'
+      - 'scripts/verify_schema.py'
+      - 'scripts/verify_phase06.py'
+      - 'scripts/verify_phase07.py'
+      - 'scripts/verify_phase08.py'
+      - 'scripts/verify_phase09.py'
+      - 'scripts/phase09_policy.py'
+      - 'src-tauri/**'
+      - 'src/platform/tauri/phase09.ts'
+      - 'src/features/phase09/**'
+      - 'src/app/AppRoot.tsx'
+      - 'src/components/layout.tsx'
+      - 'src/i18n/**'
+      - 'src/styles/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-policy:
+    name: PHASE 09 repository safety policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Resolve PR ownership range
+        id: ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            head="${{ github.event.pull_request.head.sha }}"
+            base="$(git merge-base "origin/${{ github.base_ref }}" "$head")"
+            range="${base}...${head}"
+          else
+            range="origin/main...HEAD"
+          fi
+          echo "range=$range" >> "$GITHUB_OUTPUT"
+          echo "Ownership range: $range"
+      - name: Reject recovery archives and write-capable workflows
+        run: python scripts/phase09_policy.py --range "${{ steps.ownership.outputs.range }}"
+      - name: Verify whitespace
+        run: git diff --check origin/main...HEAD
+
+  database:
+    name: Database validation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify generated schema and migrations
+        run: python scripts/verify_schema.py
+      - name: Verify accepted compatibility and PHASE 09 contracts
+        run: |
+          python scripts/verify_phase06.py
+          python scripts/verify_phase07.py
+          python scripts/verify_phase08.py
+          python scripts/verify_phase09.py
+      - name: Run seeded SQL invariant harness
+        run: python scripts/verify_schema.py
+
+  frontend:
+    name: Frontend Node 24
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - name: Install Playwright E2E runtime
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+          npm install --no-save --package-lock=false axe-core@4.10.3
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:ui
+      - run: npm run test:integration
+      - name: Run browser, Axe and screenshot evidence
+        env:
+          POSMAN_PHASE09_ARTIFACT_DIR: ${{ runner.temp }}/phase-09-ui-evidence
+        run: npm run test:e2e
+      - name: Upload PHASE 09 UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-09-ui-evidence
+          path: ${{ runner.temp }}/phase-09-ui-evidence
+          retention-days: 30
+          if-no-files-found: error
+
+  rust:
+    name: Rust validation (${{ matrix.os }}, ${{ matrix.toolchain }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        toolchain: ['1.85.0', stable]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
+      - name: Install official Tauri Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --format-version 1
+      - run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture
+      - run: npm run desktop:check
+
+  windows-native-evidence:
+    name: Windows WebView2 PDF, print, backup and restore evidence
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Build native Tauri application
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force phase09-evidence | Out-Null
+          npm run desktop:check 2>&1 | Tee-Object -FilePath phase09-evidence/windows-native-build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Execute PHASE 09 Windows-native and backup/restore tests
+        shell: pwsh
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml --locked phase09 -- --nocapture 2>&1 |
+            Tee-Object -FilePath phase09-evidence/windows-phase09-tests.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Collect Windows-native evidence metadata
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force phase09-evidence | Out-Null
+          @(
+            "repository=${{ github.repository }}"
+            "sha=${{ github.sha }}"
+            "runner=$env:RUNNER_OS"
+            "rustc=$(rustc --version)"
+            "node=$(node --version)"
+          ) | Set-Content -Encoding utf8 phase09-evidence/metadata.txt
+          Get-FileHash src-tauri/target/debug/posman-desktop.exe -Algorithm SHA256 |
+            Format-List | Out-File -Encoding utf8 phase09-evidence/application-sha256.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase-09-windows-native-evidence
+          path: phase09-evidence
+          retention-days: 30
+          if-no-files-found: error

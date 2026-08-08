@@ -10,6 +10,8 @@ pub struct RuntimePaths {
     pub documents: PathBuf,
     pub templates: PathBuf,
     pub logs: PathBuf,
+    pub staging: PathBuf,
+    pub exports: PathBuf,
     pub database: PathBuf,
 }
 
@@ -21,6 +23,8 @@ impl RuntimePaths {
             documents: root.join("documents"),
             templates: root.join("templates"),
             logs: root.join("logs"),
+            staging: root.join("staging"),
+            exports: root.join("exports"),
             database: data.join("posman.sqlite3"),
             root,
             data,
@@ -38,7 +42,7 @@ impl RuntimePaths {
         Ok(paths)
     }
 
-    fn directories(&self) -> [&PathBuf; 6] {
+    fn directories(&self) -> [&PathBuf; 8] {
         [
             &self.root,
             &self.data,
@@ -46,6 +50,8 @@ impl RuntimePaths {
             &self.documents,
             &self.templates,
             &self.logs,
+            &self.staging,
+            &self.exports,
         ]
     }
 }

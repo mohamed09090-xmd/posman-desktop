@@ -2282,6 +2282,8 @@ dependencies = [
  "tauri-build",
  "time",
  "uuid",
+ "webview2-com",
+ "windows",
  "zeroize",
 ]
 

@@ -74,8 +74,10 @@ def read(path: str) -> str:
 def main() -> int:
     migrations = sorted((ROOT / "database/migrations").glob("*.sql"))
     names = [path.name for path in migrations]
-    if names[:5] != list(FROZEN_MIGRATIONS) or len(names) != 6 or not names[5].startswith("0006_"):
-        fail(f"expected frozen 0001-0005 plus exactly one 0006 migration, got {names}")
+    if names[:5] != list(FROZEN_MIGRATIONS) or len(names) not in {6, 7} or not names[5].startswith("0006_"):
+        fail(f"expected frozen 0001-0005 and accepted 0006, got {names}")
+    if len(names) == 7 and not names[6].startswith("0007_"):
+        fail(f"expected the authorized PHASE 09 migration 0007, got {names[6]}")
     for name, expected in FROZEN_MIGRATIONS.items():
         actual = digest(ROOT / "database/migrations" / name)
         if actual != expected:
