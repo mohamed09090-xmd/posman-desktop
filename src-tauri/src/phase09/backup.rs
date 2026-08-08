@@ -1235,7 +1235,7 @@ mod tests {
             .expect("restore source should be created");
 
         phase05
-            .phase09_open()
+            .phase09_open_maintenance()
             .expect("fixture database should open")
             .execute(
                 "UPDATE companies SET legal_name='MUTATED AFTER BACKUP' WHERE id=?1",

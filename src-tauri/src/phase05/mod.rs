@@ -50,12 +50,6 @@ impl Phase05Service {
         self.phase06_authorize(permission)
     }
 
-    pub(crate) fn phase09_open(
-        &self,
-    ) -> Phase05Result<crate::infrastructure::maintenance::GuardedConnection> {
-        self.phase06_open()
-    }
-
     pub(crate) fn phase09_open_exclusive(&self) -> Phase05Result<Connection> {
         self.open_raw()
     }
