@@ -21,12 +21,7 @@ pub const PERMISSIONS: &[(&str, &str, &str, bool)] = &[
         "documents",
         false,
     ),
-    (
-        "perm-p09-doc-print",
-        "documents.print",
-        "documents",
-        false,
-    ),
+    ("perm-p09-doc-print", "documents.print", "documents", false),
     (
         "perm-p09-doc-export",
         "documents.export",
@@ -43,31 +38,15 @@ pub const PERMISSIONS: &[(&str, &str, &str, bool)] = &[
     ("perm-p09-audit-view", "audit.view", "audit", false),
     ("perm-p09-audit-export", "audit.export", "audit", true),
     ("perm-p09-backup-view", "backup.view", "backup", false),
-    (
-        "perm-p09-backup-create",
-        "backup.create",
-        "backup",
-        false,
-    ),
-    (
-        "perm-p09-backup-restore",
-        "backup.restore",
-        "backup",
-        true,
-    ),
-    (
-        "perm-p09-backup-manage",
-        "backup.manage",
-        "backup",
-        true,
-    ),
+    ("perm-p09-backup-create", "backup.create", "backup", false),
+    ("perm-p09-backup-restore", "backup.restore", "backup", true),
+    ("perm-p09-backup-manage", "backup.manage", "backup", true),
 ];
 
 impl Phase09Service {
     pub(crate) fn provision_permissions(&self) -> Phase09Result<()> {
         let mut connection = self.phase05.phase06_open()?;
-        let transaction =
-            connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let now = now_iso()?;
         for (id, code, domain, sensitive) in PERMISSIONS {
             transaction.execute(

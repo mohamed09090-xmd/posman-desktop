@@ -20,7 +20,10 @@ const PDF_ROW_LIMIT: i64 = 5_000;
 impl Phase09Service {
     pub fn list_reports(&self, _: ()) -> Phase09Result<Vec<ReportDescriptor>> {
         self.authorize("reports.view")?;
-        Ok(REPORT_IDS.iter().map(|id| report_spec(id).descriptor).collect())
+        Ok(REPORT_IDS
+            .iter()
+            .map(|id| report_spec(id).descriptor)
+            .collect())
     }
 
     pub fn run_report(&self, request: ReportRequest) -> Phase09Result<ReportPage> {
@@ -176,8 +179,20 @@ fn run_report_query(
     let spec = report_spec(&request.report_id);
     let mut sql = spec.select_sql.to_owned();
     let mut values = vec![SqlValue::Text(context.company_id.clone())];
-    append_filter(&mut sql, &mut values, spec.date_column, ">=", request.start_date.as_deref());
-    append_filter(&mut sql, &mut values, spec.date_column, "<=", request.end_date.as_deref());
+    append_filter(
+        &mut sql,
+        &mut values,
+        spec.date_column,
+        ">=",
+        request.start_date.as_deref(),
+    );
+    append_filter(
+        &mut sql,
+        &mut values,
+        spec.date_column,
+        "<=",
+        request.end_date.as_deref(),
+    );
     append_filter(
         &mut sql,
         &mut values,
@@ -209,11 +224,9 @@ fn run_report_query(
     sql.push_str(spec.suffix_sql);
     let count_sql = format!("SELECT COUNT(*) FROM ({sql}) phase09_report_rows");
     let connection = service.phase05.phase09_open_maintenance()?;
-    let total_rows = connection.query_row(
-        &count_sql,
-        params_from_iter(values.iter()),
-        |row| row.get(0),
-    )?;
+    let total_rows = connection.query_row(&count_sql, params_from_iter(values.iter()), |row| {
+        row.get(0)
+    })?;
     let sort_field = request.sort_field.as_deref().unwrap_or(spec.default_sort);
     let sort_sql = spec
         .sort_fields
@@ -343,13 +356,40 @@ fn spec(
 
 fn partner_spec(id: &str, sales: bool) -> ReportSpec {
     let (ar, fr, types) = if sales {
-        ("المبيعات حسب الزبون", "Ventes par client", "('SALES_INVOICE','SALES_CREDIT_NOTE')")
+        (
+            "المبيعات حسب الزبون",
+            "Ventes par client",
+            "('SALES_INVOICE','SALES_CREDIT_NOTE')",
+        )
     } else {
-        ("المشتريات حسب المورد", "Achats par fournisseur", "('PURCHASE_INVOICE','PURCHASE_RETURN')")
+        (
+            "المشتريات حسب المورد",
+            "Achats par fournisseur",
+            "('PURCHASE_INVOICE','PURCHASE_RETURN')",
+        )
     };
     let sql = format!("SELECT d.partner_id AS partnerId,COALESCE(p.display_name_ar,p.legal_name,'—') AS partnerAr,COALESCE(p.display_name_fr,p.legal_name,'—') AS partnerFr,COUNT(*) AS documentCount,SUM(CASE WHEN d.document_type IN ('SALES_CREDIT_NOTE','PURCHASE_RETURN') THEN -d.total_ht_minor ELSE d.total_ht_minor END) AS totalHtMinor,SUM(CASE WHEN d.document_type IN ('SALES_CREDIT_NOTE','PURCHASE_RETURN') THEN -d.total_ttc_minor ELSE d.total_ttc_minor END) AS totalTtcMinor FROM commercial_documents d LEFT JOIN partners p ON p.id=d.partner_id AND p.company_id=d.company_id WHERE d.company_id=? AND d.document_type IN {types} AND d.posting_status='POSTED'");
     let leaked: &'static str = Box::leak(sql.into_boxed_str());
-    spec(id,ar,fr,leaked," GROUP BY d.partner_id,p.display_name_ar,p.display_name_fr,p.legal_name",Some("d.commercial_date"),Some("d.warehouse_id"),Some("d.partner_id"),None,Some("d.workflow_status"),&[c("partnerAr","الشريك","Partenaire AR","text"),c("partnerFr","الشريك بالفرنسية","Partenaire","text"),c("documentCount","عدد المستندات","Documents","integer"),c("totalHtMinor","دون رسم","HT","moneyMinor"),c("totalTtcMinor","مع الرسم","TTC","moneyMinor")],"partnerAr")
+    spec(
+        id,
+        ar,
+        fr,
+        leaked,
+        " GROUP BY d.partner_id,p.display_name_ar,p.display_name_fr,p.legal_name",
+        Some("d.commercial_date"),
+        Some("d.warehouse_id"),
+        Some("d.partner_id"),
+        None,
+        Some("d.workflow_status"),
+        &[
+            c("partnerAr", "الشريك", "Partenaire AR", "text"),
+            c("partnerFr", "الشريك بالفرنسية", "Partenaire", "text"),
+            c("documentCount", "عدد المستندات", "Documents", "integer"),
+            c("totalHtMinor", "دون رسم", "HT", "moneyMinor"),
+            c("totalTtcMinor", "مع الرسم", "TTC", "moneyMinor"),
+        ],
+        "partnerAr",
+    )
 }
 
 fn stock_spec(id: &str, valuation: bool, low_only: bool) -> ReportSpec {
@@ -360,35 +400,104 @@ fn stock_spec(id: &str, valuation: bool, low_only: bool) -> ReportSpec {
     };
     let valuation_columns = if valuation {
         ",b.average_cost_scaled AS averageCostScaled,CAST((b.on_hand_scaled*b.average_cost_scaled)/100000000 AS INTEGER) AS valueMinor"
-    } else { "" };
-    let low = if low_only { " AND b.available_scaled<p.minimum_stock_scaled" } else { "" };
+    } else {
+        ""
+    };
+    let low = if low_only {
+        " AND b.available_scaled<p.minimum_stock_scaled"
+    } else {
+        ""
+    };
     let sql = format!("SELECT b.product_id AS productId,p.code AS productCode,p.name_ar AS productAr,p.name_fr AS productFr,w.code AS warehouseCode,b.on_hand_scaled AS onHandScaled,b.reserved_scaled AS reservedScaled,b.available_scaled AS availableScaled,p.minimum_stock_scaled AS minimumStockScaled{valuation_columns} FROM stock_balances b JOIN products p ON p.id=b.product_id AND p.company_id=b.company_id JOIN warehouses w ON w.id=b.warehouse_id AND w.company_id=b.company_id WHERE b.company_id=?{low}");
     let leaked: &'static str = Box::leak(sql.into_boxed_str());
-    let mut columns = vec![c("productCode","رمز المنتج","Code","text"),c("productAr","المنتج","Produit AR","text"),c("productFr","المنتج بالفرنسية","Produit","text"),c("warehouseCode","المخزن","Dépôt","text"),c("onHandScaled","المخزون","Stock","quantityScaled"),c("reservedScaled","محجوز","Réservé","quantityScaled"),c("availableScaled","متاح","Disponible","quantityScaled"),c("minimumStockScaled","الحد الأدنى","Minimum","quantityScaled")];
+    let mut columns = vec![
+        c("productCode", "رمز المنتج", "Code", "text"),
+        c("productAr", "المنتج", "Produit AR", "text"),
+        c("productFr", "المنتج بالفرنسية", "Produit", "text"),
+        c("warehouseCode", "المخزن", "Dépôt", "text"),
+        c("onHandScaled", "المخزون", "Stock", "quantityScaled"),
+        c("reservedScaled", "محجوز", "Réservé", "quantityScaled"),
+        c("availableScaled", "متاح", "Disponible", "quantityScaled"),
+        c(
+            "minimumStockScaled",
+            "الحد الأدنى",
+            "Minimum",
+            "quantityScaled",
+        ),
+    ];
     if valuation {
-        columns.push(c("averageCostScaled","متوسط التكلفة","Coût moyen","moneyScaled"));
-        columns.push(c("valueMinor","القيمة","Valeur","moneyMinor"));
+        columns.push(c(
+            "averageCostScaled",
+            "متوسط التكلفة",
+            "Coût moyen",
+            "moneyScaled",
+        ));
+        columns.push(c("valueMinor", "القيمة", "Valeur", "moneyMinor"));
     }
-    spec(id,ar,fr,leaked,"",None,Some("b.warehouse_id"),None,Some("b.product_id"),None,&columns,"productCode")
+    spec(
+        id,
+        ar,
+        fr,
+        leaked,
+        "",
+        None,
+        Some("b.warehouse_id"),
+        None,
+        Some("b.product_id"),
+        None,
+        &columns,
+        "productCode",
+    )
 }
 
 fn open_balance_spec(id: &str, receivable: bool) -> ReportSpec {
-    let (ar,fr,document_type) = if receivable { ("الذمم المدينة","Créances ouvertes","SALES_INVOICE") } else { ("الذمم الدائنة","Dettes ouvertes","PURCHASE_INVOICE") };
+    let (ar, fr, document_type) = if receivable {
+        ("الذمم المدينة", "Créances ouvertes", "SALES_INVOICE")
+    } else {
+        ("الذمم الدائنة", "Dettes ouvertes", "PURCHASE_INVOICE")
+    };
     let sql = format!("SELECT d.id AS documentId,d.document_number AS documentNumber,d.commercial_date AS documentDate,d.due_date AS dueDate,d.partner_id AS partnerId,COALESCE(p.display_name_ar,p.legal_name,'—') AS partnerAr,COALESCE(p.display_name_fr,p.legal_name,'—') AS partnerFr,d.total_ttc_minor AS originalMinor,COALESCE(SUM(CASE WHEN pa.allocation_status='ACTIVE' THEN pa.allocated_amount_minor ELSE 0 END),0) AS allocatedMinor,d.total_ttc_minor-COALESCE(SUM(CASE WHEN pa.allocation_status='ACTIVE' THEN pa.allocated_amount_minor ELSE 0 END),0) AS openMinor FROM commercial_documents d LEFT JOIN partners p ON p.id=d.partner_id AND p.company_id=d.company_id LEFT JOIN payment_allocations pa ON pa.document_id=d.id AND pa.company_id=d.company_id WHERE d.company_id=? AND d.document_type='{document_type}' AND d.posting_status='POSTED'");
     let leaked: &'static str = Box::leak(sql.into_boxed_str());
     spec(id,ar,fr,leaked," GROUP BY d.id,d.document_number,d.commercial_date,d.due_date,d.partner_id,p.display_name_ar,p.display_name_fr,p.legal_name HAVING openMinor>0",Some("d.commercial_date"),Some("d.warehouse_id"),Some("d.partner_id"),None,Some("d.workflow_status"),&[c("documentNumber","رقم المستند","Document","text"),c("documentDate","التاريخ","Date","date"),c("dueDate","الاستحقاق","Échéance","date"),c("partnerAr","الشريك","Partenaire AR","text"),c("partnerFr","الشريك بالفرنسية","Partenaire","text"),c("originalMinor","الأصل","Montant","moneyMinor"),c("allocatedMinor","مسدد","Réglé","moneyMinor"),c("openMinor","المتبقي","Ouvert","moneyMinor")],"dueDate")
 }
 
 fn invalid_spec(id: &str) -> ReportSpec {
-    spec(id,"غير مدعوم","Non pris en charge","SELECT 1 AS invalid WHERE 0","",None,None,None,None,None,&[c("invalid","غير مدعوم","Non pris en charge","text")],"invalid")
+    spec(
+        id,
+        "غير مدعوم",
+        "Non pris en charge",
+        "SELECT 1 AS invalid WHERE 0",
+        "",
+        None,
+        None,
+        None,
+        None,
+        None,
+        &[c("invalid", "غير مدعوم", "Non pris en charge", "text")],
+        "invalid",
+    )
 }
 
 fn c(key: &str, ar: &str, fr: &str, kind: &str) -> ReportColumn {
-    ReportColumn { key: key.to_owned(), label_ar: ar.to_owned(), label_fr: fr.to_owned(), kind: kind.to_owned() }
+    ReportColumn {
+        key: key.to_owned(),
+        label_ar: ar.to_owned(),
+        label_fr: fr.to_owned(),
+        kind: kind.to_owned(),
+    }
 }
 
-fn append_filter(sql: &mut String, values: &mut Vec<SqlValue>, column: Option<&str>, operator: &str, value: Option<&str>) {
-    if let (Some(column), Some(value)) = (column, value.map(str::trim).filter(|value| !value.is_empty())) {
+fn append_filter(
+    sql: &mut String,
+    values: &mut Vec<SqlValue>,
+    column: Option<&str>,
+    operator: &str,
+    value: Option<&str>,
+) {
+    if let (Some(column), Some(value)) = (
+        column,
+        value.map(str::trim).filter(|value| !value.is_empty()),
+    ) {
         sql.push_str(&format!(" AND {column}{operator}?"));
         values.push(SqlValue::Text(value.to_owned()));
     }
@@ -396,7 +505,11 @@ fn append_filter(sql: &mut String, values: &mut Vec<SqlValue>, column: Option<&s
 
 fn validate_date_range(start: Option<&str>, end: Option<&str>) -> Phase09Result<()> {
     if let (Some(start), Some(end)) = (start, end) {
-        if start > end { return Err(Phase09Error::validation("Report start date must not be after end date.")); }
+        if start > end {
+            return Err(Phase09Error::validation(
+                "Report start date must not be after end date.",
+            ));
+        }
     }
     Ok(())
 }
@@ -409,9 +522,15 @@ fn row_to_report(row: &Row<'_>) -> rusqlite::Result<ReportRow> {
         let value = match row.get_ref(index)? {
             rusqlite::types::ValueRef::Null => ReportValue::Null,
             rusqlite::types::ValueRef::Integer(value) => ReportValue::Integer(value),
-            rusqlite::types::ValueRef::Text(value) => ReportValue::Text(String::from_utf8_lossy(value).into_owned()),
+            rusqlite::types::ValueRef::Text(value) => {
+                ReportValue::Text(String::from_utf8_lossy(value).into_owned())
+            }
             rusqlite::types::ValueRef::Real(_) | rusqlite::types::ValueRef::Blob(_) => {
-                return Err(rusqlite::Error::InvalidColumnType(index, key, rusqlite::types::Type::Real));
+                return Err(rusqlite::Error::InvalidColumnType(
+                    index,
+                    key,
+                    rusqlite::types::Type::Real,
+                ));
             }
         };
         values.insert(key, value);
@@ -430,7 +549,9 @@ fn report_value_text(value: Option<&ReportValue>) -> String {
 
 fn csv_row(file: &mut fs::File, cells: &[&str]) -> Phase09Result<()> {
     for (index, cell) in cells.iter().enumerate() {
-        if index > 0 { file.write_all(b";")?; }
+        if index > 0 {
+            file.write_all(b";")?;
+        }
         file.write_all(csv_cell(cell).as_bytes())?;
     }
     file.write_all(b"\r\n")?;
@@ -442,32 +563,73 @@ pub fn neutralize_csv(value: &str) -> String {
 }
 
 fn csv_cell(value: &str) -> String {
-    let cleaned = value.chars().filter(|character| !character.is_control() || matches!(character,'\t'|'\n'|'\r')).collect::<String>().replace("\r\n","\n").replace('\r',"\n");
-    let neutralized = if matches!(cleaned.trim_start().chars().next(),Some('='|'+'|'-'|'@')) { format!("'{cleaned}") } else { cleaned };
-    format!("\"{}\"",neutralized.replace('"',"\"\""))
+    let cleaned = value
+        .chars()
+        .filter(|character| !character.is_control() || matches!(character, '\t' | '\n' | '\r'))
+        .collect::<String>()
+        .replace("\r\n", "\n")
+        .replace('\r', "\n");
+    let neutralized = if matches!(
+        cleaned.trim_start().chars().next(),
+        Some('=' | '+' | '-' | '@')
+    ) {
+        format!("'{cleaned}")
+    } else {
+        cleaned
+    };
+    format!("\"{}\"", neutralized.replace('"', "\"\""))
 }
 
 fn export_result(relative_path: &str, path: &std::path::Path) -> Phase09Result<ExportResult> {
     let bytes = fs::read(path)?;
-    Ok(ExportResult { relative_path: relative_path.to_owned(), sha256: format!("{:x}",Sha256::digest(&bytes)), size_bytes: i64::try_from(bytes.len()).map_err(|_| Phase09Error::internal())? })
+    Ok(ExportResult {
+        relative_path: relative_path.to_owned(),
+        sha256: format!("{:x}", Sha256::digest(&bytes)),
+        size_bytes: i64::try_from(bytes.len()).map_err(|_| Phase09Error::internal())?,
+    })
 }
 
-fn render_report_html(title: &str, locale: &str, page: &ReportPage) -> (String,String) {
-    let direction = if locale=="ar-DZ" {"rtl"} else {"ltr"};
-    let mut headings=String::new();
-    for column in &page.columns { let label=if locale=="ar-DZ"{&column.label_ar}else{&column.label_fr}; headings.push_str(&format!("<th>{}</th>",super::rendering::escape_html(label))); }
-    let mut rows=String::new();
-    for row in &page.rows { rows.push_str("<tr>"); for column in &page.columns { rows.push_str(&format!("<td>{}</td>",super::rendering::escape_html(&report_value_text(row.values.get(&column.key))))); } rows.push_str("</tr>"); }
+fn render_report_html(title: &str, locale: &str, page: &ReportPage) -> (String, String) {
+    let direction = if locale == "ar-DZ" { "rtl" } else { "ltr" };
+    let mut headings = String::new();
+    for column in &page.columns {
+        let label = if locale == "ar-DZ" {
+            &column.label_ar
+        } else {
+            &column.label_fr
+        };
+        headings.push_str(&format!(
+            "<th>{}</th>",
+            super::rendering::escape_html(label)
+        ));
+    }
+    let mut rows = String::new();
+    for row in &page.rows {
+        rows.push_str("<tr>");
+        for column in &page.columns {
+            rows.push_str(&format!(
+                "<td>{}</td>",
+                super::rendering::escape_html(&report_value_text(row.values.get(&column.key)))
+            ));
+        }
+        rows.push_str("</tr>");
+    }
     let html=format!("<!doctype html><html lang=\"{locale}\" dir=\"{direction}\"><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; connect-src 'none'; object-src 'none'; frame-src 'none'\"><title>{}</title></head><body><h1>{}</h1><p>{}</p><table><thead><tr>{headings}</tr></thead><tbody>{rows}</tbody></table></body></html>",super::rendering::escape_html(title),super::rendering::escape_html(title),super::rendering::escape_html(&page.generated_at));
     let css="@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font-family:'Noto Sans Arabic','Segoe UI',sans-serif;font-size:10px;color:#111827}h1{font-size:20px}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}tr{break-inside:avoid}th,td{border:1px solid #d1d5db;padding:5px;overflow-wrap:anywhere}th{background:#f3f4f6}".to_owned();
-    (html,css)
+    (html, css)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn all_required_reports_have_typed_specs() { for id in REPORT_IDS { assert_eq!(report_spec(id).descriptor.report_id,*id); } }
+    fn all_required_reports_have_typed_specs() {
+        for id in REPORT_IDS {
+            assert_eq!(report_spec(id).descriptor.report_id, *id);
+        }
+    }
     #[test]
-    fn spreadsheet_formula_prefixes_are_neutralized() { assert_eq!(csv_cell(" =1+1"),"\"' =1+1\""); }
+    fn spreadsheet_formula_prefixes_are_neutralized() {
+        assert_eq!(csv_cell(" =1+1"), "\"' =1+1\"");
+    }
 }

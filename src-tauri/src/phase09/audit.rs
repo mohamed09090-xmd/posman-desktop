@@ -26,10 +26,7 @@ const SENSITIVE_KEYS: &[&str] = &[
 ];
 
 impl Phase09Service {
-    pub fn list_audit_events(
-        &self,
-        request: AuditRequest,
-    ) -> Phase09Result<Paged<AuditEventView>> {
+    pub fn list_audit_events(&self, request: AuditRequest) -> Phase09Result<Paged<AuditEventView>> {
         let context = self.authorize("audit.view")?;
         let (page, page_size) = checked_page(request.page, request.page_size, AUDIT_PAGE_LIMIT)?;
         let connection = self.phase05.phase09_open_maintenance()?;
@@ -162,7 +159,9 @@ impl AuditQuery {
         }
         if let Some(value) = trimmed(&request.domain) {
             validate_filter_token(&value, "domain")?;
-            query.where_sql.push_str(" AND (a.action_code LIKE ? OR a.action_code LIKE ?)");
+            query
+                .where_sql
+                .push_str(" AND (a.action_code LIKE ? OR a.action_code LIKE ?)");
             query.values.push(SqlValue::Text(format!("{value}.%")));
             query.values.push(SqlValue::Text(format!("{value}_%")));
         }
@@ -275,7 +274,11 @@ fn is_sensitive_key(key: &str) -> bool {
 }
 
 fn is_sensitive(action: &str, details: Option<&str>) -> bool {
-    let text = format!("{} {}", action.to_ascii_lowercase(), details.unwrap_or("").to_ascii_lowercase());
+    let text = format!(
+        "{} {}",
+        action.to_ascii_lowercase(),
+        details.unwrap_or("").to_ascii_lowercase()
+    );
     SENSITIVE_KEYS.iter().any(|key| text.contains(key))
 }
 
@@ -298,11 +301,13 @@ fn trimmed(value: &Option<String>) -> Option<String> {
 
 fn validate_filter_token(value: &str, field: &str) -> Phase09Result<()> {
     if value.len() > 100
-        || !value
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
+        || !value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-')
+        })
     {
-        return Err(Phase09Error::validation(&format!("Invalid audit {field} filter.")));
+        return Err(Phase09Error::validation(&format!(
+            "Invalid audit {field} filter."
+        )));
     }
     Ok(())
 }

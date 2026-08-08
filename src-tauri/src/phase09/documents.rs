@@ -6,12 +6,10 @@ use super::{
     error::{Phase09Error, Phase09Result},
     models::{
         CanonicalDocumentPayload, DocumentLinePayload, DocumentRequest, Paged, PreviewContent,
-        PreviewResult, RenderedDocumentKeyRequest, RenderedDocumentsRequest, RenderedDocumentView,
+        PreviewResult, RenderedDocumentKeyRequest, RenderedDocumentView, RenderedDocumentsRequest,
         TemplateConfiguration,
     },
-    new_id, normalize_locale,
-    rendering,
-    Phase09Service,
+    new_id, normalize_locale, rendering, Phase09Service,
 };
 
 const DOCUMENT_TYPES: &[&str] = &[
@@ -558,7 +556,11 @@ fn load_payment_payload(
         row.16.clone().or(Some(row.15.clone()))
     };
     let description = if payment_kind == "RECEIPT" {
-        if locale == "ar-DZ" { "وصل زبون" } else { "Reçu client" }
+        if locale == "ar-DZ" {
+            "وصل زبون"
+        } else {
+            "Reçu client"
+        }
     } else if locale == "ar-DZ" {
         "دفع مورد"
     } else {
@@ -629,7 +631,9 @@ fn validate_document_request(request: &DocumentRequest) -> Phase09Result<()> {
     validate_document_type(&request.document_type)?;
     normalize_locale(&request.locale)?;
     if request.source_document_id.trim().is_empty() || request.source_document_id.len() > 100 {
-        return Err(Phase09Error::validation("Invalid source document identifier."));
+        return Err(Phase09Error::validation(
+            "Invalid source document identifier.",
+        ));
     }
     Ok(())
 }
@@ -652,7 +656,9 @@ fn storage_document_type(value: &str) -> Phase09Result<&'static str> {
         "GOODS_RECEIPT" => Ok("PURCHASE_RECEIPT"),
         "SUPPLIER_INVOICE" => Ok("PURCHASE_INVOICE"),
         "PURCHASE_RETURN" => Ok("PURCHASE_RETURN"),
-        _ => Err(Phase09Error::validation("Unsupported commercial document type.")),
+        _ => Err(Phase09Error::validation(
+            "Unsupported commercial document type.",
+        )),
     }
 }
 

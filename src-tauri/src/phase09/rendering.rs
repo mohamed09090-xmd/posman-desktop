@@ -86,7 +86,9 @@ fn validate_controlled_text(value: &str, field: &str) -> Phase09Result<()> {
                 let candidate = &tail[..eq];
                 if !candidate.is_empty()
                     && candidate.len() <= 32
-                    && candidate.chars().all(|character| character.is_ascii_alphabetic())
+                    && candidate
+                        .chars()
+                        .all(|character| character.is_ascii_alphabetic())
                 {
                     return Err(Phase09Error::validation(&format!(
                         "{field} contains a forbidden inline event attribute."
@@ -95,9 +97,10 @@ fn validate_controlled_text(value: &str, field: &str) -> Phase09Result<()> {
             }
         }
     }
-    if value.chars().any(|character| {
-        character.is_control() && !matches!(character, '\n' | '\r' | '\t')
-    }) {
+    if value
+        .chars()
+        .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
+    {
         return Err(Phase09Error::validation(&format!(
             "{field} contains unsupported control characters."
         )));
@@ -114,7 +117,8 @@ pub fn render_document(
     if !matches!(locale, "ar-DZ" | "fr-DZ") {
         return Err(Phase09Error::validation("Unsupported locale."));
     }
-    let canonical_payload_json = serde_json::to_string(payload).map_err(|_| Phase09Error::internal())?;
+    let canonical_payload_json =
+        serde_json::to_string(payload).map_err(|_| Phase09Error::internal())?;
     let direction = if locale == "ar-DZ" { "rtl" } else { "ltr" };
     let title = if locale == "ar-DZ" {
         &configuration.document_title_ar
@@ -133,12 +137,36 @@ pub fn render_document(
     } else {
         &payload.company_legal_name
     };
-    let partner_label = if locale == "ar-DZ" { "الطرف" } else { "Partenaire" };
-    let date_label = if locale == "ar-DZ" { "التاريخ" } else { "Date" };
-    let due_label = if locale == "ar-DZ" { "تاريخ الاستحقاق" } else { "Échéance" };
-    let description_label = if locale == "ar-DZ" { "البيان" } else { "Désignation" };
-    let quantity_label = if locale == "ar-DZ" { "الكمية" } else { "Quantité" };
-    let unit_price_label = if locale == "ar-DZ" { "سعر الوحدة" } else { "Prix unitaire" };
+    let partner_label = if locale == "ar-DZ" {
+        "الطرف"
+    } else {
+        "Partenaire"
+    };
+    let date_label = if locale == "ar-DZ" {
+        "التاريخ"
+    } else {
+        "Date"
+    };
+    let due_label = if locale == "ar-DZ" {
+        "تاريخ الاستحقاق"
+    } else {
+        "Échéance"
+    };
+    let description_label = if locale == "ar-DZ" {
+        "البيان"
+    } else {
+        "Désignation"
+    };
+    let quantity_label = if locale == "ar-DZ" {
+        "الكمية"
+    } else {
+        "Quantité"
+    };
+    let unit_price_label = if locale == "ar-DZ" {
+        "سعر الوحدة"
+    } else {
+        "Prix unitaire"
+    };
     let ht_label = "HT";
     let tva_label = "TVA";
     let ttc_label = "TTC";
@@ -191,7 +219,10 @@ pub fn render_document(
     } else {
         String::new()
     };
-    let references = if configuration.enabled_sections.iter().any(|s| s == "REFERENCES")
+    let references = if configuration
+        .enabled_sections
+        .iter()
+        .any(|s| s == "REFERENCES")
         && !payload.references.is_empty()
     {
         let items = payload
@@ -207,7 +238,12 @@ pub fn render_document(
         payload
             .notes
             .as_deref()
-            .map(|value| format!("<section class=\"notes\"><p>{}</p></section>", escape_html(value)))
+            .map(|value| {
+                format!(
+                    "<section class=\"notes\"><p>{}</p></section>",
+                    escape_html(value)
+                )
+            })
             .unwrap_or_default()
     } else {
         String::new()
@@ -224,7 +260,12 @@ pub fn render_document(
     let due = payload
         .due_date
         .as_deref()
-        .map(|value| format!("<div><span>{due_label}</span><strong>{}</strong></div>", escape_html(value)))
+        .map(|value| {
+            format!(
+                "<div><span>{due_label}</span><strong>{}</strong></div>",
+                escape_html(value)
+            )
+        })
         .unwrap_or_default();
 
     let html = format!(
@@ -368,10 +409,18 @@ mod tests {
 
     #[test]
     fn rejects_executable_and_remote_template_content() {
-        for unsafe_value in ["<script>alert(1)</script>", "https://example.test/logo.png", "onclick=evil()", "javascript:alert(1)"] {
+        for unsafe_value in [
+            "<script>alert(1)</script>",
+            "https://example.test/logo.png",
+            "onclick=evil()",
+            "javascript:alert(1)",
+        ] {
             let mut candidate = configuration();
             candidate.footer_text_fr = unsafe_value.into();
-            assert!(validate_template_configuration(&candidate).is_err(), "{unsafe_value}");
+            assert!(
+                validate_template_configuration(&candidate).is_err(),
+                "{unsafe_value}"
+            );
         }
     }
 
@@ -385,6 +434,9 @@ mod tests {
 
     #[test]
     fn html_escapes_user_controlled_text() {
-        assert_eq!(escape_html("<b onclick='x'>"), "&lt;b onclick=&#39;x&#39;&gt;");
+        assert_eq!(
+            escape_html("<b onclick='x'>"),
+            "&lt;b onclick=&#39;x&#39;&gt;"
+        );
     }
 }

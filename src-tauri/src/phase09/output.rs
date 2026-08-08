@@ -11,9 +11,7 @@ use tauri::{AppHandle, Wry};
 use super::{
     documents::{PreparedDocument, RenderedRecord},
     error::{Phase09Error, Phase09Result},
-    models::{
-        DocumentRequest, ExportResult, RenderedDocumentKeyRequest, RenderedDocumentView,
-    },
+    models::{DocumentRequest, ExportResult, RenderedDocumentKeyRequest, RenderedDocumentView},
     new_id, now_iso, safe_component, Phase09Service,
 };
 
@@ -341,9 +339,9 @@ fn managed_path(root: &Path, relative: &str) -> Phase09Result<PathBuf> {
     if relative_path.is_absolute()
         || relative.contains("..")
         || relative.contains('\\')
-        || relative_path.components().any(|component| {
-            !matches!(component, std::path::Component::Normal(_))
-        })
+        || relative_path
+            .components()
+            .any(|component| !matches!(component, std::path::Component::Normal(_)))
     {
         return Err(Phase09Error::validation("Unsafe managed document path."));
     }
@@ -353,7 +351,9 @@ fn managed_path(root: &Path, relative: &str) -> Phase09Result<PathBuf> {
 fn verify_pdf(path: &Path) -> Phase09Result<PdfArtifact> {
     let bytes = fs::read(path)?;
     if bytes.len() < 5 || !bytes.starts_with(b"%PDF-") {
-        return Err(Phase09Error::integrity("The output is not a valid PDF artifact."));
+        return Err(Phase09Error::integrity(
+            "The output is not a valid PDF artifact.",
+        ));
     }
     let size_bytes = i64::try_from(bytes.len()).map_err(|_| Phase09Error::internal())?;
     if size_bytes == 0 {
@@ -422,27 +422,20 @@ mod native {
         Err(Phase09Error::platform_unsupported())
     }
 
-    pub fn show_print_ui(
-        _app: &AppHandle<Wry>,
-        _pdf_path: &Path,
-    ) -> Phase09Result<()> {
+    pub fn show_print_ui(_app: &AppHandle<Wry>, _pdf_path: &Path) -> Phase09Result<()> {
         Err(Phase09Error::platform_unsupported())
     }
 }
 
 #[cfg(windows)]
 mod native {
-    use std::{
-        os::windows::ffi::OsStrExt,
-        sync::mpsc,
-        time::Duration,
-    };
+    use std::{os::windows::ffi::OsStrExt, sync::mpsc, time::Duration};
 
     use tauri::{WebviewUrl, WebviewWindowBuilder};
     use webview2_com::{
         Microsoft::Web::WebView2::Win32::{
-            COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM, COREWEBVIEW2_PRINT_ORIENTATION_LANDSCAPE,
-            COREWEBVIEW2_PRINT_ORIENTATION_PORTRAIT, ICoreWebView2_16, ICoreWebView2_7,
+            ICoreWebView2_16, ICoreWebView2_7, COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM,
+            COREWEBVIEW2_PRINT_ORIENTATION_LANDSCAPE, COREWEBVIEW2_PRINT_ORIENTATION_PORTRAIT,
         },
         PrintToPdfCompletedHandler,
     };
@@ -513,9 +506,8 @@ mod native {
                     let callback_sender = sender.clone();
                     let handler = PrintToPdfCompletedHandler::create(Box::new(
                         move |result: windows::core::Result<()>, successful: bool| {
-                            let completed = result
-                                .map_err(|_| Phase09Error::internal())
-                                .and_then(|_| {
+                            let completed =
+                                result.map_err(|_| Phase09Error::internal()).and_then(|_| {
                                     if successful {
                                         Ok(())
                                     } else {
@@ -540,21 +532,20 @@ mod native {
                 }
             })
             .map_err(|_| Phase09Error::internal())?;
-        let result = receiver.recv_timeout(Duration::from_secs(30)).map_err(|_| {
-            Phase09Error::new(
-                "PDF_OUTPUT_TIMEOUT",
-                "WebView2 PDF generation timed out.",
-                true,
-            )
-        })?;
+        let result = receiver
+            .recv_timeout(Duration::from_secs(30))
+            .map_err(|_| {
+                Phase09Error::new(
+                    "PDF_OUTPUT_TIMEOUT",
+                    "WebView2 PDF generation timed out.",
+                    true,
+                )
+            })?;
         let _ = window.close();
         result
     }
 
-    pub fn show_print_ui(
-        app: &AppHandle<Wry>,
-        pdf_path: &Path,
-    ) -> Phase09Result<()> {
+    pub fn show_print_ui(app: &AppHandle<Wry>, pdf_path: &Path) -> Phase09Result<()> {
         let url = tauri::Url::from_file_path(pdf_path)
             .map_err(|_| Phase09Error::validation("Invalid historical PDF path."))?;
         let label = format!("phase09-print-{}", new_id());
@@ -586,13 +577,15 @@ mod native {
                 let _ = sender.send(result);
             })
             .map_err(|_| Phase09Error::internal())?;
-        receiver.recv_timeout(Duration::from_secs(5)).map_err(|_| {
-            Phase09Error::new(
-                "PRINT_UI_TIMEOUT",
-                "The Windows print UI did not open.",
-                true,
-            )
-        })??;
+        receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|_| {
+                Phase09Error::new(
+                    "PRINT_UI_TIMEOUT",
+                    "The Windows print UI did not open.",
+                    true,
+                )
+            })??;
         Ok(())
     }
 }
@@ -610,10 +603,7 @@ mod tests {
             "render-1",
         )
         .expect("path");
-        assert_eq!(
-            value,
-            "company-1/sales_invoice/2026/08/render-1.pdf"
-        );
+        assert_eq!(value, "company-1/sales_invoice/2026/08/render-1.pdf");
         assert!(document_relative_path("../x", "SALES_INVOICE", "2026-08-07", "r").is_err());
     }
 

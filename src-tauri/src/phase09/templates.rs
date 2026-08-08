@@ -274,17 +274,13 @@ impl Phase09Service {
         let context = self.authorize("documents.templates.manage")?;
         let mut connection = self.phase05.phase09_open_maintenance()?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let draft = load_publishable_draft(
-            &transaction,
-            &context.company_id,
-            &request.draft_id,
-        )?;
+        let draft = load_publishable_draft(&transaction, &context.company_id, &request.draft_id)?;
         if draft.row_version != request.expected_row_version {
             return Err(Phase09Error::concurrency());
         }
         validate_template_configuration(&draft.configuration)?;
-        let config_json = serde_json::to_string(&draft.configuration)
-            .map_err(|_| Phase09Error::internal())?;
+        let config_json =
+            serde_json::to_string(&draft.configuration).map_err(|_| Phase09Error::internal())?;
         let version_id = new_id();
         let published_at = now_iso()?;
         let content_sha256 = template_content_hash(
@@ -462,12 +458,8 @@ impl Phase09Service {
         let mut connection = self.phase05.phase09_open_maintenance()?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         for document_type in DOCUMENT_TYPES {
-            let template_id = ensure_template_master(
-                &transaction,
-                company_id,
-                user_id,
-                document_type,
-            )?;
+            let template_id =
+                ensure_template_master(&transaction, company_id, user_id, document_type)?;
             for storage in STORAGE_LOCALES {
                 let exists: bool = transaction
                     .query_row(
@@ -545,8 +537,8 @@ fn publish_default(
             state: "PUBLISHED",
         },
     )?;
-    let config_json = serde_json::to_string(&configuration)
-        .map_err(|_| Phase09Error::internal())?;
+    let config_json =
+        serde_json::to_string(&configuration).map_err(|_| Phase09Error::internal())?;
     let version_id = new_id();
     let content_sha256 = template_content_hash(
         template_id,
@@ -719,7 +711,13 @@ fn load_summary(
         .as_ref()
         .map(|value| value.2.clone())
         .or_else(|| active.as_ref().map(|value| value.3.clone()))
-        .unwrap_or_else(|| if storage == "ar" { template.1 } else { template.2 });
+        .unwrap_or_else(|| {
+            if storage == "ar" {
+                template.1
+            } else {
+                template.2
+            }
+        });
     Ok(TemplateSummary {
         template_id: template.0,
         document_type: document_type.to_owned(),

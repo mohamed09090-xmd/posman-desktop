@@ -55,15 +55,12 @@ impl Phase05Service {
     pub(crate) fn phase09_open_maintenance(
         &self,
     ) -> Phase05Result<crate::infrastructure::maintenance::GuardedConnection> {
-        let permit = self
-            .maintenance
-            .enter_database_operation()
-            .map_err(|_| {
-                error::Phase05Error::new(
-                    "MAINTENANCE_ACTIVE",
-                    "POSMAN is restoring a verified backup.",
-                )
-            })?;
+        let permit = self.maintenance.enter_database_operation().map_err(|_| {
+            error::Phase05Error::new(
+                "MAINTENANCE_ACTIVE",
+                "POSMAN is restoring a verified backup.",
+            )
+        })?;
         Ok(permit.guard(self.open()?))
     }
 

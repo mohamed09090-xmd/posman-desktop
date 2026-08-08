@@ -75,11 +75,11 @@ def main() -> int:
                 fail(f"workflow has contents: write: {relative}")
             if re.search(r"\bgit\s+(?:push|commit)\b", normalized) or "create-or-update-file-contents" in normalized:
                 fail(f"workflow commits or pushes source: {relative}")
-        if relative.startswith(("src/features/phase09/", "src/platform/tauri/phase09/")):
+        if relative.startswith(("src/features/phase09/", "src/platform/tauri/phase09/", "src/platform/tauri/phase09.ts")):
             for forbidden in ("fetch(", "XMLHttpRequest", "WebSocket(", "http://", "https://"):
                 if forbidden in text:
                     fail(f"frontend runtime network primitive in {relative}: {forbidden}")
-            if re.search(r"\b(?:SELECT|INSERT|UPDATE|DELETE)\s+", text, re.IGNORECASE):
+            if re.search(r"(?<!<)\b(?:SELECT|INSERT|UPDATE|DELETE)\s+", text, re.IGNORECASE):
                 fail(f"frontend SQL found: {relative}")
             if "@tauri-apps/plugin-fs" in text or "@tauri-apps/api/fs" in text:
                 fail(f"unrestricted frontend filesystem access: {relative}")

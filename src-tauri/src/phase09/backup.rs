@@ -6,8 +6,7 @@ use std::{
 };
 
 use rusqlite::{
-    backup::Backup,
-    params, Connection, OpenFlags, OptionalExtension, Row, TransactionBehavior,
+    backup::Backup, params, Connection, OpenFlags, OptionalExtension, Row, TransactionBehavior,
 };
 use sha2::{Digest, Sha256};
 
@@ -17,8 +16,8 @@ use super::{
     checked_page,
     error::{Phase09Error, Phase09Result},
     models::{
-        BackupKeyRequest, BackupListRequest, BackupSettingsView, BackupView,
-        CreateBackupRequest, ExportResult, Paged, UpdateBackupSettingsRequest,
+        BackupKeyRequest, BackupListRequest, BackupSettingsView, BackupView, CreateBackupRequest,
+        ExportResult, Paged, UpdateBackupSettingsRequest,
     },
     new_id, now_iso, safe_component, Phase09Service,
 };
@@ -93,10 +92,7 @@ impl Phase09Service {
         self.create_verified_backup_for_context(&context, &request.backup_kind, false)
     }
 
-    pub fn list_backups(
-        &self,
-        request: BackupListRequest,
-    ) -> Phase09Result<Paged<BackupView>> {
+    pub fn list_backups(&self, request: BackupListRequest) -> Phase09Result<Paged<BackupView>> {
         let context = self.authorize("backup.view")?;
         if let Some(kind) = request.backup_kind.as_deref() {
             validate_backup_kind(kind, true)?;
@@ -199,7 +195,9 @@ impl Phase09Service {
     pub fn import_backup_from(&self, source: &Path) -> Phase09Result<BackupView> {
         let context = self.authorize("backup.create")?;
         if !source.is_file() {
-            return Err(Phase09Error::validation("The selected backup file is invalid."));
+            return Err(Phase09Error::validation(
+                "The selected backup file is invalid.",
+            ));
         }
         fs::create_dir_all(&self.paths.staging)?;
         let backup_id = new_id();
@@ -307,12 +305,8 @@ impl Phase09Service {
         validate_backup_kind(kind, true)?;
         let backup_id = new_id();
         let created_at = now_iso()?;
-        let relative_path = backup_relative_path(
-            &context.company_id,
-            kind,
-            &created_at,
-            &backup_id,
-        )?;
+        let relative_path =
+            backup_relative_path(&context.company_id, kind, &created_at, &backup_id)?;
         let final_path = managed_backup_path(&self.paths.backups, &relative_path)?;
         let parent = final_path
             .parent()
@@ -356,14 +350,9 @@ impl Phase09Service {
             ));
         }
         fs::rename(&temporary_path, &final_path)?;
-        if let Err(error) = self.insert_verified_backup(
-            context,
-            &backup_id,
-            kind,
-            &relative_path,
-            &verified,
-            false,
-        ) {
+        if let Err(error) =
+            self.insert_verified_backup(context, &backup_id, kind, &relative_path, &verified, false)
+        {
             remove_if_exists(&final_path);
             return Err(error);
         }
@@ -435,7 +424,11 @@ impl Phase09Service {
         Self::audit_success(
             &transaction,
             context,
-            if imported { "BACKUP_IMPORTED" } else { "BACKUP_CREATED" },
+            if imported {
+                "BACKUP_IMPORTED"
+            } else {
+                "BACKUP_CREATED"
+            },
             "PHASE09_BACKUP",
             backup_id,
             Some(&serde_json::json!({
@@ -578,7 +571,10 @@ pub(crate) fn verify_database_file(
         ));
     }
     let sha256 = format!("{:x}", Sha256::digest(&bytes));
-    if expected.sha256.as_deref().is_some_and(|value| value != sha256)
+    if expected
+        .sha256
+        .as_deref()
+        .is_some_and(|value| value != sha256)
         || expected.size_bytes.is_some_and(|value| value != size_bytes)
     {
         return Err(Phase09Error::new(
@@ -599,11 +595,10 @@ pub(crate) fn verify_database_file(
             false,
         ));
     }
-    let foreign_key_failures: i64 = connection.query_row(
-        "SELECT COUNT(*) FROM pragma_foreign_key_check",
-        [],
-        |row| row.get(0),
-    )?;
+    let foreign_key_failures: i64 =
+        connection.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+            row.get(0)
+        })?;
     if foreign_key_failures != 0 {
         return Err(Phase09Error::new(
             "BACKUP_FOREIGN_KEY_FAILED",
@@ -627,11 +622,12 @@ pub(crate) fn verify_database_file(
             ));
         }
     }
-    let mut statement = connection.prepare(
-        "SELECT version,checksum_sha256 FROM app_migrations ORDER BY version",
-    )?;
+    let mut statement = connection
+        .prepare("SELECT version,checksum_sha256 FROM app_migrations ORDER BY version")?;
     let ledger = statement
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
         .collect::<Result<Vec<_>, _>>()?;
     if ledger.is_empty() {
         return Err(Phase09Error::new(
@@ -640,7 +636,10 @@ pub(crate) fn verify_database_file(
             false,
         ));
     }
-    let schema_version = ledger.last().map(|entry| entry.0.clone()).unwrap_or_default();
+    let schema_version = ledger
+        .last()
+        .map(|entry| entry.0.clone())
+        .unwrap_or_default();
     if schema_version.as_str() > SUPPORTED_SCHEMA_VERSION {
         return Err(Phase09Error::new(
             "BACKUP_SCHEMA_NEWER",
@@ -657,7 +656,11 @@ pub(crate) fn verify_database_file(
     }
     let mut digest = Sha256::new();
     for (version, checksum) in &ledger {
-        if checksum.len() != 64 || !checksum.chars().all(|character| character.is_ascii_hexdigit()) {
+        if checksum.len() != 64
+            || !checksum
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+        {
             return Err(Phase09Error::new(
                 "BACKUP_MIGRATION_CHECKSUM_INVALID",
                 "The selected backup contains an invalid migration checksum.",

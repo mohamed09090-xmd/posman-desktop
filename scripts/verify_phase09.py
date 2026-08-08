@@ -194,7 +194,11 @@ def main() -> int:
     rust = "\n".join(path.read_text(encoding="utf-8") for path in sorted((ROOT / "src-tauri/src/phase09").glob("*.rs")))
     commands = read("src-tauri/src/commands/phase09.rs")
     lib = read("src-tauri/src/lib.rs")
-    gateway = "\n".join(path.read_text(encoding="utf-8") for path in sorted((ROOT / "src/platform/tauri/phase09").glob("*.ts")))
+    gateway_file = ROOT / "src/platform/tauri/phase09.ts"
+    if gateway_file.is_file():
+        gateway = gateway_file.read_text(encoding="utf-8")
+    else:
+        gateway = "\n".join(path.read_text(encoding="utf-8") for path in sorted((ROOT / "src/platform/tauri/phase09").glob("*.ts")))
     workspace = read("src/features/phase09/Phase09Workspace.tsx")
     css = read("src/features/phase09/phase09.css")
     package = read("package.json")

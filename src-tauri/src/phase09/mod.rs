@@ -193,11 +193,7 @@ pub(crate) fn now_iso() -> Phase09Result<String> {
         .map_err(|_| Phase09Error::internal())
 }
 
-pub(crate) fn checked_page(
-    page: i64,
-    page_size: i64,
-    maximum: i64,
-) -> Phase09Result<(i64, i64)> {
+pub(crate) fn checked_page(page: i64, page_size: i64, maximum: i64) -> Phase09Result<(i64, i64)> {
     if page < 1 || !(1..=maximum).contains(&page_size) {
         return Err(Phase09Error::validation("Invalid page or page size."));
     }
@@ -208,9 +204,7 @@ pub(crate) fn normalize_locale(value: &str) -> Phase09Result<&'static str> {
     match value {
         "ar" | "ar-DZ" => Ok("ar-DZ"),
         "fr" | "fr-DZ" => Ok("fr-DZ"),
-        _ => Err(Phase09Error::validation(
-            "Locale must be Arabic or French.",
-        )),
+        _ => Err(Phase09Error::validation("Locale must be Arabic or French.")),
     }
 }
 

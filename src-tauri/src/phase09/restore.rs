@@ -11,8 +11,7 @@ use rusqlite::{params, Connection};
 
 use super::{
     backup::{
-        managed_backup_path, verify_database_file, BackupRecord, ExpectedArtifact,
-        VerifiedDatabase,
+        managed_backup_path, verify_database_file, BackupRecord, ExpectedArtifact, VerifiedDatabase,
     },
     error::{Phase09Error, Phase09Result},
     models::RestoreBackupRequest,
@@ -62,7 +61,9 @@ impl Phase09Service {
         )?;
 
         let gate = self.phase05.phase09_maintenance_gate();
-        let _maintenance = gate.begin_restore().map_err(|_| Phase09Error::maintenance())?;
+        let _maintenance = gate
+            .begin_restore()
+            .map_err(|_| Phase09Error::maintenance())?;
         let result = self.restore_exclusive(&context, &selected, &selected_path);
         if result.is_err() {
             let _ = self.phase05.phase09_invalidate_session();
@@ -254,11 +255,8 @@ impl Phase09Service {
     ) -> Phase09Result<BackupRecord> {
         let backup_id = new_id();
         let created_at = now_iso()?;
-        let relative_path = pre_restore_relative_path(
-            &context.company_id,
-            &created_at,
-            &backup_id,
-        )?;
+        let relative_path =
+            pre_restore_relative_path(&context.company_id, &created_at, &backup_id)?;
         let final_path = managed_backup_path(&self.paths.backups, &relative_path)?;
         let parent = final_path
             .parent()
@@ -522,12 +520,8 @@ mod tests {
     #[test]
     fn pre_restore_path_is_managed_and_deterministic() {
         assert_eq!(
-            pre_restore_relative_path(
-                "company-1",
-                "2026-08-07T03:00:00Z",
-                "backup-1"
-            )
-            .expect("path"),
+            pre_restore_relative_path("company-1", "2026-08-07T03:00:00Z", "backup-1")
+                .expect("path"),
             "company-1/pre_restore/2026/08/backup-1.sqlite3"
         );
     }

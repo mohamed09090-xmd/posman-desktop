@@ -405,6 +405,13 @@
   }
 }
 
+@media (max-width: 1024px) {
+  .phase09-template-layout,
+  .phase09-backup-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 70rem) {
   .phase09-template-layout,
   .phase09-backup-layout {
