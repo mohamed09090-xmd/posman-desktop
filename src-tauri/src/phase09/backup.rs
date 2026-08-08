@@ -466,9 +466,7 @@ impl Phase09Service {
         let candidates = statement
             .query_map(
                 params![company_id, kind, protected_id, retained_candidates],
-                |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                },
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
             )?
             .collect::<Result<Vec<_>, _>>()?;
         drop(statement);
