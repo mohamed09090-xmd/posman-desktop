@@ -209,18 +209,12 @@ pub(crate) fn normalize_locale(value: &str) -> Phase09Result<&'static str> {
 }
 
 pub(crate) fn safe_component(value: &str) -> Phase09Result<String> {
-    let normalized = value
-        .chars()
-        .map(|character| {
-            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
-                character
-            } else {
-                '_'
-            }
-        })
-        .collect::<String>();
-    if normalized.is_empty() || normalized == "." || normalized == ".." {
+    if value.is_empty()
+        || !value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
+    {
         return Err(Phase09Error::validation("Unsafe local file component."));
     }
-    Ok(normalized)
+    Ok(value.to_owned())
 }

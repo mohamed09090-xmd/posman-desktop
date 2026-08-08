@@ -360,7 +360,10 @@ mod tests {
         let serialized = value.to_string();
         assert!(!serialized.contains("secret"));
         assert!(!serialized.contains("abc"));
-        assert!(!serialized.contains("key\""));
+        assert!(!serialized.contains("\"private_key\":\"key\""));
+        assert_eq!(value["password"], REDACTED);
+        assert_eq!(value["nested"]["tokenHash"], REDACTED);
+        assert_eq!(value["items"][0]["private_key"], REDACTED);
         assert!(serialized.contains("visible"));
         assert!(serialized.contains(REDACTED));
     }

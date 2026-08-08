@@ -447,12 +447,15 @@ impl Phase09Service {
         kind: &str,
         protected_id: Option<&str>,
     ) -> Phase09Result<()> {
-        let keep = match kind {
+        let keep: i64 = match kind {
             "AUTOMATIC_DAILY" => 7,
             "AUTOMATIC_WEEKLY" => 4,
             "PRE_RESTORE" => 3,
             _ => return Ok(()),
         };
+        // The freshly verified backup is excluded from deletion candidates, but it
+        // still consumes one slot in the retention window.
+        let retained_candidates = keep - i64::from(protected_id.is_some());
         let connection = self.phase05.phase09_open_maintenance()?;
         let mut statement = connection.prepare(
             r#"SELECT id,relative_path FROM phase09_backups
@@ -461,9 +464,12 @@ impl Phase09Service {
                ORDER BY created_at DESC,id DESC LIMIT -1 OFFSET ?4"#,
         )?;
         let candidates = statement
-            .query_map(params![company_id, kind, protected_id, keep], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })?
+            .query_map(
+                params![company_id, kind, protected_id, retained_candidates],
+                |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                },
+            )?
             .collect::<Result<Vec<_>, _>>()?;
         drop(statement);
         drop(connection);

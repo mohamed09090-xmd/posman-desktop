@@ -1009,12 +1009,7 @@ fn default_configuration(document_type: &str) -> TemplateConfiguration {
         footer_text_fr: "Document généré localement par POSMAN".to_owned(),
         spacing: "NORMAL".to_owned(),
         orientation: "PORTRAIT".to_owned(),
-        enabled_sections: vec![
-            "PARTNER".to_owned(),
-            "LINES".to_owned(),
-            "TOTALS".to_owned(),
-            "REFERENCES".to_owned(),
-        ],
+        enabled_sections: vec!["TOTALS".to_owned(), "REFERENCES".to_owned()],
     }
 }
 
