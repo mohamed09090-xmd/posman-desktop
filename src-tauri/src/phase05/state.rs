@@ -65,10 +65,6 @@ impl Phase05Service {
         })
     }
 
-    pub(crate) fn database_path(&self) -> &Path {
-        &self.database_path
-    }
-
     pub(crate) fn phase09_database_path(&self) -> &Path {
         &self.database_path
     }
