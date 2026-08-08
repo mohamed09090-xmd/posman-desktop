@@ -1,6 +1,6 @@
 # POSMAN PHASE 09 Delivery Report
 
-**Status: Candidate implementation in Draft Pull Request — not independently accepted**
+**Status: implementation and validation complete in Draft Pull Request — independent acceptance pending**
 
 ## Repository coordinates
 
@@ -8,16 +8,17 @@
 - Branch: `phase/09-documents-reports-audit-backup`
 - Draft Pull Request: `https://github.com/mohamed09090-xmd/posman-desktop/pull/14`
 - Accepted baseline: `0abaff289758fd2e5597faef834f9b70156d54e1`
+- Validated implementation head: `81b504ea3f060242b8e1a1e7693729239487195c`
 - Migration: `database/migrations/0007_phase09_documents_reports_audit_backup.sql`
 - Migration SHA-256: `f22f220ccf6ae2f85f0be85ae018b9f5760e725e9e88c6b2b87c37598424eb90`
 
-This report records candidate delivery state only. It does not approve PHASE 09, advance the continuity checkpoint, mark the Pull Request ready, merge it, or authorize PHASE 10.
+This report records delivery evidence. It does not approve PHASE 09, merge the Pull Request, advance the continuity checkpoint, or authorize PHASE 10.
 
-## Candidate scope delivered
+## Delivered scope
 
 ### Structured document templates
 
-The candidate contains typed Arabic/French template configuration, optimistic draft concurrency, explicit publication confirmation, immutable published versions, SHA-256 content hashes, append-only retirement, and safe defaults for:
+The candidate contains typed Arabic/French template configuration, optimistic draft concurrency, explicit publication confirmation, immutable published versions, SHA-256 content hashes, append-only retirement, and validated safe defaults for:
 
 - `SALES_ORDER`
 - `DELIVERY_NOTE`
@@ -30,13 +31,13 @@ The candidate contains typed Arabic/French template configuration, optimistic dr
 - `CUSTOMER_RECEIPT`
 - `SUPPLIER_PAYMENT`
 
-Raw HTML, CSS, JavaScript, remote assets, event handlers, JavaScript URLs, and arbitrary paths are not user-editable template inputs.
+Raw HTML, CSS, JavaScript, remote assets, inline event handlers, JavaScript URLs, and arbitrary paths are not user-editable template inputs.
 
-### Historical documents and output
+### Historical documents and Windows output
 
-The candidate contains canonical immutable snapshots, deterministic application-owned PDF paths, atomic temporary output, PDF header/size/SHA-256 verification, original-artifact reprint/export, integrity failure auditing, serialized output with `OUTPUT_BUSY`, dedicated local preview state, a Windows WebView2 output boundary, and explicit non-Windows unsupported results.
+The candidate contains canonical immutable snapshots, deterministic application-owned PDF paths, atomic temporary output, PDF header/EOF/size/SHA-256 verification, original-artifact reprint/export, integrity-failure auditing, serialized output with `OUTPUT_BUSY`, a dedicated local preview state, and a Windows WebView2 output boundary.
 
-Windows-native evidence is still required before completion can be reported.
+Native Windows validation built the Tauri application and executed the PHASE 09 PDF, print, backup, restore, traversal, redaction, template, retention, and IPC tests successfully. Non-Windows platforms return an explicit unsupported result for native PDF/print operations.
 
 ### Reports
 
@@ -60,83 +61,123 @@ The report boundary uses fixed identifiers, company scope from the session, type
 
 ### Audit workspace
 
-The candidate includes read-only company-scoped pagination and filtering, `audit.view`/`audit.export` enforcement, recursive Rust-side sensitive-value redaction before serialization, and safe CSV export.
+The candidate includes read-only company-scoped pagination and filtering, `audit.view`/`audit.export` enforcement, recursive Rust-side sensitive-value redaction before serialization, and safe CSV export. Tests prove nested password, token-hash, and private-key values are replaced before serialization while non-sensitive values remain available.
 
 ### Backup and restore
 
-The candidate includes SQLite Online Backup, WAL-safe backup creation, reopen/verification, integrity/foreign-key checks, migration/table/schema/digest checks, manual/automatic/pre-restore kinds, retention and protected deletion rules, Rust-owned import/export dialogs, current-password re-authentication, exact `RESTORE` confirmation, an exclusive maintenance gate, a verified `PRE_RESTORE` safety backup, same-filesystem replacement, post-reopen verification, rollback, audit, and session invalidation.
+The candidate includes SQLite Online Backup, WAL-safe creation, reopen verification, integrity and foreign-key checks, migration/table/schema/digest checks, manual/automatic/pre-restore kinds, bounded daily/weekly/pre-restore retention, protected deletion rules, Rust-owned import/export dialogs, current-password re-authentication, exact `RESTORE` confirmation, an exclusive maintenance gate, a verified `PRE_RESTORE` safety backup, same-filesystem replacement, post-reopen verification, rollback, audit, and session invalidation.
 
-Backups are local and unencrypted as explicitly bounded by PHASE 09.
+Real isolated-database tests prove corruption rejection, exact retention, last-valid-backup protection, successful replacement, safety-backup recording, and session invalidation. Backups remain local and unencrypted as explicitly bounded by PHASE 09.
 
 ### TypeScript and UI
 
-The candidate includes typed gateways under `src/platform/tauri/phase09/` and an Arabic-default/French-capable workspace under `src/features/phase09/` with Documents, Templates, Reports, Audit, and Backup/Restore sections. It includes permission, loading, empty, safe-error, integrity, destructive confirmation, keyboard-focus, reduced-motion, RTL/LTR, and constrained-layout contracts.
+Typed gateways live under `src/platform/tauri/phase09/`. The Arabic-default/French-capable workspace under `src/features/phase09/` contains Documents, Templates, Reports, Audit, and Backup/Restore sections. It includes permission, loading, empty, safe-error, integrity, destructive-confirmation, keyboard-focus, reduced-motion, RTL/LTR, and constrained-layout contracts.
 
-## Database state
+## Database and runtime state
 
-Migration `0007` is additive. Migrations `0001`–`0006` remain frozen. The migration introduces the minimally sufficient PHASE 09 template, rendering, backup-policy, backup-history, restore-attempt, permission, index, company-scope, and immutability structures.
+Migration `0007` is additive. Migrations `0001`–`0006` remain byte-for-byte frozen. The generated `database/schema.sql`, verifier, runtime migration catalog, runtime status, expected-table count, and tests are aligned at schema version `0007`.
 
-The database checkpoint must not be reported complete until the regenerated `database/schema.sql` and aligned `scripts/verify_schema.py` are committed and exact-head Ubuntu/Windows verification passes.
+Verified database result:
 
-## Command surface
+- 7 contiguous migrations;
+- 64 tables;
+- 63 integrity triggers;
+- 135 accepted checks;
+- clean `foreign_key_check` and `integrity_check`;
+- deterministic seed replay;
+- successful fresh installation through `0007`;
+- successful real upgrade from the accepted migration fixture through `0007`.
 
-The candidate registers all required template, document, report, audit, and backup/restore command families through `src-tauri/src/commands/phase09.rs` and `src-tauri/src/lib.rs`. Command handlers delegate to Rust services rather than containing domain logic.
+The command surface registers 28 typed PHASE 09 commands through `src-tauri/src/commands/phase09.rs` and `src-tauri/src/lib.rs`. Command handlers delegate to Rust services rather than containing domain logic. A real Tauri mock-IPC test executes the PHASE 09 command boundary and proves authentication is required.
 
 ## Security boundary
 
-- Runtime remains offline.
-- No cloud service, HTTP API, telemetry, account service, subscription, or external database was added.
+- Runtime remains offline; no cloud, HTTP API, telemetry, external database, or remote asset authority was added.
 - React receives no unrestricted filesystem authority.
-- Final workflows are required to use read-only repository permissions.
-- Temporary source-bootstrap workflows and tracked checkpoint archives are prohibited and have been removed from the candidate tree.
-- Sensitive audit values are redacted in Rust.
+- All permanent workflows use `contents: read` and repository policy rejects write-capable workflows.
+- Temporary source-bootstrap workflows, payloads, chunks, archives, and tracked runtime artifacts are absent.
+- Managed path components reject unsupported characters instead of silently normalizing traversal input.
+- Sensitive audit values are redacted in Rust before serialization.
+- CSV cells neutralize spreadsheet-formula prefixes.
 - Restore is permission-controlled, re-authenticated, explicitly confirmed, maintenance-gated, and safety-backed.
-- No generated PDF, backup, runtime database, WAL/SHM/journal, private export, secret, credential, key, signing material, or `.env` file may be committed.
+- No generated PDF, backup, runtime database, WAL/SHM/journal, private export, secret, credential, key, signing material, or `.env` file is committed.
 
-## Validation state
+## Exact-head validation
 
-The validation ledger must always be read against the exact current branch head. Older green jobs do not prove a newer head.
+All required workflows completed successfully on implementation head `81b504ea3f060242b8e1a1e7693729239487195c`:
 
-Confirmed earlier during implementation:
+| Workflow | Run | Result |
+| --- | --- | --- |
+| PHASE 09 documents reports audit backup | `31274080615` | Success — all 9 jobs |
+| Frontend Runtime Integration | `31274080600` | Success |
+| Runtime CI | `31274080605` | Success |
+| Desktop bootstrap CI | `31274080627` | Success |
+| SQLite schema verification | `31274080604` | Success |
+| PHASE 05 validation | `31274080618` | Success |
+| PHASE 06 inventory and purchasing | `31274080641` | Success |
+| PHASE 07 sales cycle | `31274080601` | Success |
+| PHASE 08 accounting and payments | `31274080610` | Success |
 
-- migration `0001` through `0007` fresh application passed locally;
-- accepted `0006` to `0007` upgrade passed locally;
-- schema generation at migration `0007` produced 64 tables and 63 triggers;
-- foreign-key and invariant checks passed locally;
-- PHASE 09 policy and verifier passed on the preserved implementation snapshot;
-- Node 24 `npm ci`, typecheck, build, and UI checks reached success on an earlier exact head;
-- integration checks subsequently reached success on an earlier exact head;
-- the eight PHASE 09 browser scenarios are now committed but require exact-head execution.
+The PHASE 09 matrix passed on Ubuntu and Windows stable and Rust `1.85.0`, including:
 
-Not yet valid completion evidence:
+- `cargo fmt --check`;
+- `cargo check --all-targets --locked`;
+- Clippy with `-D warnings`;
+- full Rust tests;
+- native Tauri compilation;
+- Node 24 dependency installation, typecheck, production build, UI tests, and integration tests;
+- database/schema/invariant verification;
+- read-only repository policy and frozen-migration guards.
 
-- final exact-head database matrix;
-- final exact-head `Cargo.lock` graph and Rust 1.85/stable validation;
-- final exact-head Ubuntu/Windows `fmt`, `check`, `clippy`, and tests;
-- final exact-head Tauri desktop check;
-- legitimate Windows Arabic/French/multi-page A4 PDF evidence;
-- original-PDF historical reprint evidence;
-- system print integration evidence where automatable;
-- actual WAL backup, verification, destructive restore, rollback, retention, maintenance-gate, and session-invalidation runtime evidence;
-- final exact-head browser Axe/overflow/clipping/console/page-error evidence.
+The dedicated Windows job passed all 20 selected PHASE 09 tests with zero failures, including real backup/restore and Tauri IPC tests.
 
-## Known risks and incomplete checkpoints
+## Browser and accessibility evidence
 
-1. `database/schema.sql` and the final schema verifier must be committed.
-2. Rust formatting and compilation must be made green on Rust 1.85 and stable for Ubuntu and Windows.
-3. The exact resolved Cargo graph and committed `src-tauri/Cargo.lock` must be verified.
-4. The frontend workspace must be connected to the accepted application shell with only the minimal navigation/i18n changes.
-5. Report queries and source-document lineage require runtime integration tests against accepted PHASE 06–08 fixtures.
-6. Automatic daily/weekly backup startup policy requires runtime proof.
-7. Windows WebView2 PDF/print evidence is absent until a legitimate exact-head Windows job succeeds.
-8. Restore rollback and prior-session invalidation require destructive runtime tests with synthetic databases.
-9. The temporary read-only rustfmt diagnostic job must be removed from final CI after formatter output is committed.
-10. The Draft PR ledger must be updated after every stable final push with the exact current head and workflow states.
+Eight named Arabic/French scenarios passed at the required `1280×800` and `1024×640` viewports:
+
+1. Arabic template publication and historical reprint.
+2. French sales-invoice preview and PDF generation.
+3. Arabic report CSV/PDF generation.
+4. French audit filtering and redacted export.
+5. Arabic manual backup and verification.
+6. French corrupted-backup rejection.
+7. Arabic restore confirmation and safety-backup requirement.
+8. French successful restore returning to login.
+
+For every scenario:
+
+- Axe violations: `0`;
+- Axe incomplete: `0`;
+- unresolved critical/serious incomplete: `0`;
+- no page-level horizontal overflow;
+- no console errors or unhandled page errors.
+
+The screenshots and JSON reports were downloaded and reviewed visually. Arabic RTL, French LTR, navigation, tables, integrity states, destructive warnings, forms, and the post-restore login state remained usable and legible.
+
+## Evidence artifacts
+
+| Artifact | ID | Size | SHA-256 digest | Expiry |
+| --- | ---: | ---: | --- | --- |
+| `phase-09-ui-evidence` | `9026502607` | 622,493 bytes | `dc4fd8490c27fe438155dd9267ff6c00319ab8c5f1de6166ae5c523e5676f795` | 2026-09-07 |
+| `phase-09-windows-native-evidence` | `9026544238` | 5,836 bytes | `1c0f1f9afd080b4266c2c691c4dd504dcc869c98a8be5a765285123f47182afb` | 2026-09-07 |
+| `phase-09-integration-evidence` | `9026575134` | 3,317,731 bytes | `de917b91ee9d12ac1ed4b0bc685d1313ae4ff941d41394eb8b348aad097fe0ae` | 2026-09-07 |
+
+The UI artifact contains eight screenshots, eight full Axe JSON files, the scenario manifest, and the Vite log. The Windows artifact contains native-build metadata, application SHA-256 evidence, and the successful PHASE 09 test log. The integration artifact contains schema, compatibility, frontend, E2E, Rust, native desktop, ownership, policy, whitespace, worktree, and compatibility evidence.
+
+## Architecture decisions and remaining limits
+
+1. Historical PDFs are immutable artifacts; reprint uses the original verified PDF rather than re-rendering with a newer template.
+2. Template editing remains structured and allowlisted rather than accepting arbitrary markup or code.
+3. Backup retention counts the newly verified backup inside the configured window.
+4. Restore failures preserve the active database and record safe failure metadata; successful restore invalidates the prior session.
+5. Native PDF generation and print integration are Windows-only in this delivery.
+6. Backups are local and unencrypted; OS/device protection remains an operational responsibility.
+7. Installer, signing, updater, cloud synchronization, telemetry, and PHASE 10 deployment scope remain outside PHASE 09.
 
 ## Pull Request and phase boundary
 
-The Pull Request remains Draft and must remain unmerged until independent review. This report does not claim acceptance.
+The Pull Request remains Draft and unmerged pending independent review. No force-push, rebase, reset, history rewrite, auto-merge, direct commit to `main`, or merge of `main` into the phase branch was used.
 
 **The Pull Request was not merged.**
 
-**PHASE 10 was not started.**
+**PHASE 10 was not started or authorized.**
