@@ -842,6 +842,96 @@ fn remove_if_exists(path: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        infrastructure::{database::RuntimeDatabase, paths::RuntimePaths},
+        phase05::{
+            dto::{InitialSetupRequest, LoginRequest, TaxSetup},
+            Phase05Service,
+        },
+        phase09::models::{BackupKeyRequest, BackupListRequest, RestoreBackupRequest},
+    };
+
+    struct TestDirectory {
+        path: PathBuf,
+    }
+
+    impl TestDirectory {
+        fn new() -> Self {
+            let path = std::env::temp_dir().join(format!("posman-phase09-backup-{}", new_id()));
+            fs::create_dir_all(&path).expect("failed to create PHASE 09 test directory");
+            Self { path }
+        }
+    }
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn setup_request() -> InitialSetupRequest {
+        InitialSetupRequest {
+            idempotency_key: "phase09-backup-fixture".to_owned(),
+            company_code: "P09".to_owned(),
+            name_ar: "شركة اختبار النسخ الاحتياطي".to_owned(),
+            name_fr: Some("Société test sauvegarde".to_owned()),
+            legal_name: "POSMAN PHASE 09 TEST".to_owned(),
+            activity_description: "Tests".to_owned(),
+            legal_form: Some("SARL".to_owned()),
+            trade_register_number: None,
+            tax_identifier: None,
+            statistical_identifier: None,
+            tax_article_number: None,
+            bank_rib: None,
+            social_capital_minor: Some(100_000),
+            address_text: "Alger".to_owned(),
+            wilaya_code: "16".to_owned(),
+            city: Some("Alger".to_owned()),
+            postal_code: Some("16000".to_owned()),
+            phone: "0550000000".to_owned(),
+            email: Some("phase09@example.test".to_owned()),
+            language: "fr".to_owned(),
+            fiscal_starts_on: "2026-01-01".to_owned(),
+            fiscal_ends_on: "2026-12-31".to_owned(),
+            default_margin_rate_scaled: 200_000,
+            below_cost_policy: Some("ADMIN_OVERRIDE".to_owned()),
+            session_idle_timeout_minutes: 30,
+            taxes: vec![TaxSetup {
+                code: "TVA19".to_owned(),
+                name_ar: "الرسم على القيمة المضافة".to_owned(),
+                name_fr: "TVA 19%".to_owned(),
+                rate_scaled: 190_000,
+            }],
+            default_tax_code: Some("TVA19".to_owned()),
+            warehouse_code: "MAIN".to_owned(),
+            warehouse_name_ar: "المخزن الرئيسي".to_owned(),
+            warehouse_name_fr: Some("Dépôt principal".to_owned()),
+            administrator_username: "phase09-admin".to_owned(),
+            administrator_display_name: "PHASE 09 Admin".to_owned(),
+            administrator_password: "Phase09!Admin2026".to_owned(),
+            administrator_password_confirmation: "Phase09!Admin2026".to_owned(),
+        }
+    }
+
+    fn service_fixture() -> (TestDirectory, Phase09Service, Phase05Service, String) {
+        let directory = TestDirectory::new();
+        let paths = RuntimePaths::create_all(directory.path.join("POSMAN"))
+            .expect("runtime paths should initialize");
+        RuntimeDatabase::initialize(&paths.database).expect("runtime database should initialize");
+        let phase05 = Phase05Service::new(&paths.database).expect("PHASE 05 service should build");
+        let setup = phase05
+            .complete_initial_setup(setup_request())
+            .expect("initial setup should complete");
+        let phase09 = Phase09Service::new(phase05.clone(), paths)
+            .expect("PHASE 09 service should provision permissions");
+        phase05
+            .login(LoginRequest {
+                username: "phase09-admin".to_owned(),
+                password: "Phase09!Admin2026".to_owned(),
+            })
+            .expect("administrator should authenticate");
+        (directory, phase09, phase05, setup.company_id)
+    }
 
     #[test]
     fn path_traversal_is_rejected() {
@@ -854,5 +944,123 @@ mod tests {
         assert!(validate_backup_kind("MANUAL", false).is_ok());
         assert!(validate_backup_kind("PRE_RESTORE", false).is_err());
         assert!(validate_backup_kind("PRE_RESTORE", true).is_ok());
+    }
+
+    #[test]
+    fn online_backup_verification_corruption_retention_and_delete_guards_are_real() {
+        let (_directory, service, _phase05, company_id) = service_fixture();
+        let manual = service
+            .create_backup(CreateBackupRequest {
+                backup_kind: "MANUAL".to_owned(),
+            })
+            .expect("online manual backup should be created and verified");
+        assert_eq!(manual.schema_version, "0007");
+        assert_eq!(manual.verification_status, "VERIFIED");
+        assert_eq!(manual.sha256.len(), 64);
+
+        let last_valid = service
+            .delete_backup(BackupKeyRequest {
+                backup_id: manual.backup_id.clone(),
+            })
+            .expect_err("the last valid backup must be retained");
+        assert_eq!(last_valid.code, "LAST_VALID_BACKUP");
+
+        for _ in 0..8 {
+            service
+                .create_backup(CreateBackupRequest {
+                    backup_kind: "AUTOMATIC_DAILY".to_owned(),
+                })
+                .expect("automatic daily backup should succeed");
+        }
+        let daily = service
+            .list_backups(BackupListRequest {
+                backup_kind: Some("AUTOMATIC_DAILY".to_owned()),
+                page: 1,
+                page_size: 20,
+            })
+            .expect("daily backups should list");
+        assert_eq!(daily.total, 7, "daily retention must preserve exactly seven");
+
+        let daily_record = service
+            .load_backup_record(&company_id, &daily.items[0].backup_id)
+            .expect("daily backup record should exist");
+        let daily_path = managed_backup_path(&service.paths.backups, &daily_record.relative_path)
+            .expect("managed backup path should resolve");
+        OpenOptions::new()
+            .append(true)
+            .open(&daily_path)
+            .expect("backup should be writable in the isolated fixture")
+            .write_all(b"tampered")
+            .expect("backup fixture should be corrupted");
+        let corrupted = service
+            .verify_backup(BackupKeyRequest {
+                backup_id: daily_record.backup_id,
+            })
+            .expect_err("SHA-256 mismatch must reject a corrupted backup");
+        assert_eq!(corrupted.code, "BACKUP_INTEGRITY_FAILED");
+
+        service
+            .delete_backup(BackupKeyRequest {
+                backup_id: manual.backup_id,
+            })
+            .expect("a verified backup may be deleted when other verified backups remain");
+    }
+
+    #[test]
+    fn restore_replaces_the_database_records_safety_backup_and_invalidates_session() {
+        let (_directory, service, phase05, company_id) = service_fixture();
+        let selected = service
+            .create_backup(CreateBackupRequest {
+                backup_kind: "MANUAL".to_owned(),
+            })
+            .expect("restore source should be created");
+
+        phase05
+            .phase09_open()
+            .expect("fixture database should open")
+            .execute(
+                "UPDATE companies SET legal_name='MUTATED AFTER BACKUP' WHERE id=?1",
+                [company_id.as_str()],
+            )
+            .expect("fixture should mutate after backup");
+
+        service
+            .restore_backup(RestoreBackupRequest {
+                backup_id: selected.backup_id.clone(),
+                current_password: "Phase09!Admin2026".to_owned(),
+                confirmation_text: "RESTORE".to_owned(),
+                confirmed: true,
+            })
+            .expect("verified backup restore should succeed");
+
+        let restored = Connection::open(service.database_path()).expect("restored database opens");
+        let legal_name: String = restored
+            .query_row(
+                "SELECT legal_name FROM companies WHERE id=?1",
+                [company_id.as_str()],
+                |row| row.get(0),
+            )
+            .expect("restored company should exist");
+        assert_eq!(legal_name, "POSMAN PHASE 09 TEST");
+        let success_count: i64 = restored
+            .query_row(
+                "SELECT COUNT(*) FROM phase09_restore_attempts WHERE outcome='SUCCESS'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("restore success should be recorded");
+        assert_eq!(success_count, 1);
+        let pre_restore_count: i64 = restored
+            .query_row(
+                "SELECT COUNT(*) FROM phase09_backups WHERE backup_kind='PRE_RESTORE' AND verification_status='VERIFIED'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("PRE_RESTORE backup should be recorded");
+        assert_eq!(pre_restore_count, 1);
+        assert!(
+            phase05.get_current_session().is_err(),
+            "restore must invalidate the active session"
+        );
     }
 }

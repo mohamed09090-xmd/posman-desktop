@@ -194,6 +194,11 @@ def main() -> int:
     rust = "\n".join(path.read_text(encoding="utf-8") for path in sorted((ROOT / "src-tauri/src/phase09").glob("*.rs")))
     commands = read("src-tauri/src/commands/phase09.rs")
     lib = read("src-tauri/src/lib.rs")
+    runtime_migrations = read("src-tauri/src/infrastructure/database/migrations.rs")
+    runtime_database = read("src-tauri/src/infrastructure/database/mod.rs")
+    runtime_tests = read("src-tauri/src/infrastructure/database/tests.rs") + read(
+        "src-tauri/src/ipc_tests.rs"
+    )
     gateway_file = ROOT / "src/platform/tauri/phase09.ts"
     if gateway_file.is_file():
         gateway = gateway_file.read_text(encoding="utf-8")
@@ -240,6 +245,27 @@ def main() -> int:
         fail("rusqlite pin/backup feature missing")
     if 'webview2-com = "=0.38.2"' not in read("src-tauri/Cargo.toml"):
         fail("compatible WebView2 COM version is not pinned")
+    for fragment in (
+        "MIGRATION_0007_SQL",
+        "0007_phase09_documents_reports_audit_backup.sql",
+        "pub const MIGRATIONS: [Migration; 7]",
+    ):
+        if fragment not in runtime_migrations:
+            fail(f"embedded runtime migration 0007 contract missing: {fragment}")
+    for fragment in (
+        "const EXPECTED_TABLES: [&str; 64]",
+        '"phase09_template_drafts"',
+        '"phase09_restore_attempts"',
+    ):
+        if fragment not in runtime_database:
+            fail(f"runtime readiness schema 0007 contract missing: {fragment}")
+    for fragment in (
+        'status.schema_version, "0007"',
+        'payload["schemaVersion"], "0007"',
+        'cmd: "phase09_list_templates"',
+    ):
+        if fragment not in runtime_tests:
+            fail(f"runtime/IPC schema 0007 evidence missing: {fragment}")
 
     if any(token in gateway + workspace for token in ("fetch(", "XMLHttpRequest", "WebSocket(", "SELECT ", "INSERT INTO", "DELETE FROM")):
         fail("network primitive or frontend SQL appears in PHASE 09 frontend")
