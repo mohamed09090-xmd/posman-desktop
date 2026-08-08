@@ -1983,7 +1983,7 @@ def run(write_schema: bool) -> int:
         connection.execute("PRAGMA busy_timeout=5000")
 
         apply_migrations(connection, files)
-        evidence.record("applied 6 ordered migrations to a fresh database")
+        evidence.record(f"applied {len(files)} ordered migrations to a fresh database")
         apply_seed_twice(connection, evidence)
         assert_core_schema(connection, evidence)
         create_positive_fixtures(connection, evidence)

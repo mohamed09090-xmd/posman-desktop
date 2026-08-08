@@ -483,3 +483,47 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Keep the shared cross-phase switcher in document flow. Phase 08 ships a
+ * fixed-position variant; this later, intentionally more-specific rule stops
+ * it from covering the active workspace command bar and language controls. */
+.workspace-switcher.workspace-switcher {
+  position: relative;
+  inset: auto;
+  z-index: 5;
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  min-block-size: auto;
+  margin-inline: auto;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  overflow: auto;
+  transform: none;
+  flex-wrap: wrap;
+  justify-content: center;
+  border: 1px solid var(--border, #d8d0c2);
+  background: var(--surface, #fffcf6);
+  box-shadow: 0 2px 8px rgb(30 37 35 / 10%);
+}
+
+.workspace-switcher.workspace-switcher button {
+  flex: 0 0 auto;
+  min-block-size: 36px;
+  padding: 0.45rem 0.75rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.workspace-switcher.workspace-switcher button[aria-current="page"] {
+  background: #1f5a45;
+  color: #fff;
+}
+
+.workspace-switcher.workspace-switcher button:focus-visible {
+  outline: 3px solid var(--color-focus, #1769aa);
+  outline-offset: 2px;
+}

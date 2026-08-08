@@ -199,6 +199,10 @@ def main() -> int:
     runtime_tests = read("src-tauri/src/infrastructure/database/tests.rs") + read(
         "src-tauri/src/ipc_tests.rs"
     )
+    recovery_tests = read("src-tauri/src/phase09/backup.rs") + read(
+        "src-tauri/src/phase09/output.rs"
+    )
+    phase09_workflow = read(".github/workflows/phase09-ci.yml")
     gateway_file = ROOT / "src/platform/tauri/phase09.ts"
     if gateway_file.is_file():
         gateway = gateway_file.read_text(encoding="utf-8")
@@ -266,6 +270,22 @@ def main() -> int:
     ):
         if fragment not in runtime_tests:
             fail(f"runtime/IPC schema 0007 evidence missing: {fragment}")
+    for fragment in (
+        "online_backup_verification_corruption_retention_and_delete_guards_are_real",
+        "restore_replaces_the_database_records_safety_backup_and_invalidates_session",
+        "phase09_pdf_integrity_hashes_a_complete_pdf_and_rejects_a_truncated_copy",
+    ):
+        if fragment not in recovery_tests:
+            fail(f"real PHASE 09 recovery/output evidence missing: {fragment}")
+    for fragment in (
+        "phase-09-ui-evidence",
+        "phase-09-windows-native-evidence",
+        "windows-phase09-tests.log",
+    ):
+        if fragment not in phase09_workflow:
+            fail(f"PHASE 09 evidence workflow contract missing: {fragment}")
+    if "synthetic evidence" in phase09_workflow.lower():
+        fail("PHASE 09 workflow must not label generated evidence as synthetic validation")
 
     if any(token in gateway + workspace for token in ("fetch(", "XMLHttpRequest", "WebSocket(", "SELECT ", "INSERT INTO", "DELETE FROM")):
         fail("network primitive or frontend SQL appears in PHASE 09 frontend")

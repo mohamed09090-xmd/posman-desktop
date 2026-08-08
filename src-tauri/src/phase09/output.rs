@@ -399,7 +399,11 @@ fn managed_path(root: &Path, relative: &str) -> Phase09Result<PathBuf> {
 
 fn verify_pdf(path: &Path) -> Phase09Result<PdfArtifact> {
     let bytes = fs::read(path)?;
-    if bytes.len() < 5 || !bytes.starts_with(b"%PDF-") {
+    let tail_start = bytes.len().saturating_sub(1024);
+    let has_eof = bytes[tail_start..]
+        .windows(b"%%EOF".len())
+        .any(|window| window == b"%%EOF");
+    if bytes.len() < 5 || !bytes.starts_with(b"%PDF-") || !has_eof {
         return Err(Phase09Error::integrity(
             "The output is not a valid PDF artifact.",
         ));
@@ -671,6 +675,20 @@ mod tests {
     fn non_pdf_content_fails_integrity() {
         let path = std::env::temp_dir().join(format!("phase09-not-pdf-{}", new_id()));
         fs::write(&path, b"not pdf").expect("write");
+        assert!(verify_pdf(&path).is_err());
+        remove_if_exists(&path);
+    }
+
+    #[test]
+    fn phase09_pdf_integrity_hashes_a_complete_pdf_and_rejects_a_truncated_copy() {
+        let path = std::env::temp_dir().join(format!("phase09-pdf-{}.pdf", new_id()));
+        let complete = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\nstartxref\n0\n%%EOF\n";
+        fs::write(&path, complete).expect("complete PDF fixture should write");
+        let artifact = verify_pdf(&path).expect("complete PDF fixture should verify");
+        assert_eq!(artifact.size_bytes, complete.len() as i64);
+        assert_eq!(artifact.sha256.len(), 64);
+
+        fs::write(&path, b"%PDF-1.4\ntruncated").expect("truncated fixture should write");
         assert!(verify_pdf(&path).is_err());
         remove_if_exists(&path);
     }

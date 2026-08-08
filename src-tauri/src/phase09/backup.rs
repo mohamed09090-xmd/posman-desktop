@@ -979,7 +979,10 @@ mod tests {
                 page_size: 20,
             })
             .expect("daily backups should list");
-        assert_eq!(daily.total, 7, "daily retention must preserve exactly seven");
+        assert_eq!(
+            daily.total, 7,
+            "daily retention must preserve exactly seven"
+        );
 
         let daily_record = service
             .load_backup_record(&company_id, &daily.items[0].backup_id)

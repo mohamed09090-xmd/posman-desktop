@@ -97,6 +97,13 @@ test("responsive layouts cover desktop and constrained viewports", () => {
   assert.match(styles, /max-width: 100%/);
 });
 
+test("the cross-phase switcher remains in flow and cannot cover command controls", () => {
+  assert.match(styles, /\.workspace-switcher\.workspace-switcher/);
+  assert.match(styles, /position: relative/);
+  assert.match(styles, /transform: none/);
+  assert.match(styles, /flex-wrap: wrap/);
+});
+
 test("frontend remains offline and does not gain filesystem authority", () => {
   assert.doesNotMatch(all, /\bfetch\s*\(|XMLHttpRequest|WebSocket|https?:\/\//);
   assert.doesNotMatch(all, /@tauri-apps\/plugin-fs|readFile|writeFile/);
