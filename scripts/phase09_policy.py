@@ -42,6 +42,7 @@ OWNED_EXACT = {
     "src-tauri/Cargo.lock",
     "src-tauri/Cargo.toml",
     "src-tauri/src/commands/mod.rs",
+    "src-tauri/src/commands/phase05.rs",
     "src-tauri/src/commands/phase09.rs",
     "src-tauri/src/infrastructure/database/migrations.rs",
     "src-tauri/src/infrastructure/database/mod.rs",

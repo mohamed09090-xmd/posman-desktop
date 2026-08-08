@@ -11,10 +11,7 @@ use rusqlite::{
 use sha2::{Digest, Sha256};
 use time::{macros::format_description, UtcOffset};
 
-use crate::{
-    infrastructure::database::migrations::MIGRATIONS,
-    phase05::Phase06AuthContext,
-};
+use crate::{infrastructure::database::migrations::MIGRATIONS, phase05::Phase06AuthContext};
 
 use super::{
     checked_page,
@@ -74,9 +71,8 @@ impl Phase09Service {
             return Ok(());
         }
         let local_now = match settings.6.as_str() {
-            "Africa/Algiers" => time::OffsetDateTime::now_utc().to_offset(
-                UtcOffset::from_hms(1, 0, 0).map_err(|_| Phase09Error::internal())?,
-            ),
+            "Africa/Algiers" => time::OffsetDateTime::now_utc()
+                .to_offset(UtcOffset::from_hms(1, 0, 0).map_err(|_| Phase09Error::internal())?),
             _ => {
                 connection.execute(
                     "UPDATE phase09_backup_settings SET last_attempt_at=?1,last_warning_code='BACKUP_TIMEZONE_UNSUPPORTED' WHERE company_id=?2",
@@ -106,11 +102,7 @@ impl Phase09Service {
         drop(connection);
 
         if settings.1 && settings.4.as_deref() != Some(local_date.as_str()) {
-            match self.create_verified_backup_for_context(
-                &context,
-                "AUTOMATIC_DAILY",
-                false,
-            ) {
+            match self.create_verified_backup_for_context(&context, "AUTOMATIC_DAILY", false) {
                 Ok(_) => self.record_automatic_backup_success(
                     &context.company_id,
                     "last_daily_local_date",
@@ -127,11 +119,7 @@ impl Phase09Service {
             && i64::from(local_now.weekday().number_from_monday()) == settings.3
             && settings.5.as_deref() != Some(local_date.as_str())
         {
-            match self.create_verified_backup_for_context(
-                &context,
-                "AUTOMATIC_WEEKLY",
-                false,
-            ) {
+            match self.create_verified_backup_for_context(&context, "AUTOMATIC_WEEKLY", false) {
                 Ok(_) => self.record_automatic_backup_success(
                     &context.company_id,
                     "last_weekly_local_date",
@@ -167,11 +155,7 @@ impl Phase09Service {
         Ok(())
     }
 
-    fn record_automatic_backup_warning(
-        &self,
-        company_id: &str,
-        code: &str,
-    ) -> Phase09Result<()> {
+    fn record_automatic_backup_warning(&self, company_id: &str, code: &str) -> Phase09Result<()> {
         self.phase05.phase09_open_maintenance()?.execute(
             "UPDATE phase09_backup_settings SET last_warning_code=?1 WHERE company_id=?2",
             params![code, company_id],
@@ -770,9 +754,8 @@ pub(crate) fn verify_database_file(
             ));
         }
     }
-    let mut statement = connection.prepare(
-        "SELECT id,version,name,checksum_sha256 FROM app_migrations ORDER BY id",
-    )?;
+    let mut statement = connection
+        .prepare("SELECT id,version,name,checksum_sha256 FROM app_migrations ORDER BY id")?;
     let ledger = statement
         .query_map([], |row| {
             Ok((
@@ -1161,11 +1144,8 @@ mod tests {
                 ["0".repeat(64)],
             )
             .expect("checksum fixture should mutate");
-        let checksum_error = verify_database_file(
-            &checksum_mismatch,
-            ExpectedArtifact::default(),
-        )
-        .expect_err("a syntactically valid but incorrect checksum must be rejected");
+        let checksum_error = verify_database_file(&checksum_mismatch, ExpectedArtifact::default())
+            .expect_err("a syntactically valid but incorrect checksum must be rejected");
         assert_eq!(checksum_error.code, "BACKUP_MIGRATION_CHECKSUM_INVALID");
 
         let name_mismatch = directory.path.join("name-mismatch.sqlite3");

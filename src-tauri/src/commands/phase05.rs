@@ -122,7 +122,8 @@ pub async fn login(
     phase09_state: State<'_, Phase09Service>,
     request: LoginRequest,
 ) -> Phase05Result<SessionView> {
-    let session = run_blocking(state.inner().clone(), move |service| service.login(request)).await?;
+    let session =
+        run_blocking(state.inner().clone(), move |service| service.login(request)).await?;
     let phase09 = phase09_state.inner().clone();
     drop(tauri::async_runtime::spawn_blocking(move || {
         let _ = phase09.attempt_automatic_backup_after_login();
