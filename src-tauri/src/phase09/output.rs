@@ -462,6 +462,11 @@ fn remove_if_exists(path: &Path) {
 mod native {
     use super::*;
 
+    #[cfg(test)]
+    pub fn ensure_supported() -> Phase09Result<()> {
+        Err(Phase09Error::platform_unsupported())
+    }
+
     pub fn generate_pdf(
         _app: &AppHandle<Wry>,
         _html: &str,
@@ -483,8 +488,9 @@ mod native {
     use tauri::{WebviewUrl, WebviewWindowBuilder};
     use webview2_com::{
         Microsoft::Web::WebView2::Win32::{
-            ICoreWebView2_16, ICoreWebView2_7, COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM,
-            COREWEBVIEW2_PRINT_ORIENTATION_LANDSCAPE, COREWEBVIEW2_PRINT_ORIENTATION_PORTRAIT,
+            ICoreWebView2Environment6, ICoreWebView2_16, ICoreWebView2_7,
+            COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM, COREWEBVIEW2_PRINT_ORIENTATION_LANDSCAPE,
+            COREWEBVIEW2_PRINT_ORIENTATION_PORTRAIT,
         },
         PrintToPdfCompletedHandler,
     };
@@ -522,60 +528,66 @@ mod native {
         window
             .as_ref()
             .with_webview(move |platform| {
-                let result = unsafe {
-                    let core = platform
-                        .controller()
-                        .CoreWebView2()
-                        .map_err(|_| Phase09Error::internal())?;
-                    let core7: ICoreWebView2_7 = core
-                        .cast()
-                        .map_err(|_| Phase09Error::platform_unsupported())?;
-                    let settings = platform
-                        .environment()
-                        .CreatePrintSettings()
-                        .map_err(|_| Phase09Error::internal())?;
-                    settings
-                        .SetShouldPrintHeaderAndFooter(false.into())
-                        .map_err(|_| Phase09Error::internal())?;
-                    settings
-                        .SetShouldPrintBackgrounds(true.into())
-                        .map_err(|_| Phase09Error::internal())?;
-                    settings
-                        .SetOrientation(if landscape {
-                            COREWEBVIEW2_PRINT_ORIENTATION_LANDSCAPE
-                        } else {
-                            COREWEBVIEW2_PRINT_ORIENTATION_PORTRAIT
-                        })
-                        .map_err(|_| Phase09Error::internal())?;
-                    let wide = output
-                        .as_os_str()
-                        .encode_wide()
-                        .chain(std::iter::once(0))
-                        .collect::<Vec<_>>();
-                    let callback_sender = sender.clone();
-                    let handler = PrintToPdfCompletedHandler::create(Box::new(
-                        move |result: windows::core::Result<()>, successful: bool| {
-                            let completed =
-                                result.map_err(|_| Phase09Error::internal()).and_then(|_| {
-                                    if successful {
-                                        Ok(())
-                                    } else {
-                                        Err(Phase09Error::new(
-                                            "PDF_OUTPUT_FAILED",
-                                            "WebView2 could not create the PDF.",
-                                            true,
-                                        ))
-                                    }
-                                });
-                            let _ = callback_sender.send(completed);
-                            Ok(())
-                        },
-                    ));
-                    core7
-                        .PrintToPdf(PCWSTR(wide.as_ptr()), &settings, &handler)
-                        .map_err(|_| Phase09Error::internal())?;
+                let result = (|| -> Phase09Result<()> {
+                    unsafe {
+                        let core = platform
+                            .controller()
+                            .CoreWebView2()
+                            .map_err(|_| Phase09Error::internal())?;
+                        let core7: ICoreWebView2_7 = core
+                            .cast()
+                            .map_err(|_| Phase09Error::platform_unsupported())?;
+                        let environment6: ICoreWebView2Environment6 = platform
+                            .environment()
+                            .cast()
+                            .map_err(|_| Phase09Error::platform_unsupported())?;
+                        let settings = environment6
+                            .CreatePrintSettings()
+                            .map_err(|_| Phase09Error::internal())?;
+                        settings
+                            .SetShouldPrintHeaderAndFooter(false.into())
+                            .map_err(|_| Phase09Error::internal())?;
+                        settings
+                            .SetShouldPrintBackgrounds(true.into())
+                            .map_err(|_| Phase09Error::internal())?;
+                        settings
+                            .SetOrientation(if landscape {
+                                COREWEBVIEW2_PRINT_ORIENTATION_LANDSCAPE
+                            } else {
+                                COREWEBVIEW2_PRINT_ORIENTATION_PORTRAIT
+                            })
+                            .map_err(|_| Phase09Error::internal())?;
+                        let wide = output
+                            .as_os_str()
+                            .encode_wide()
+                            .chain(std::iter::once(0))
+                            .collect::<Vec<_>>();
+                        let callback_sender = sender.clone();
+                        let handler = PrintToPdfCompletedHandler::create(Box::new(
+                            move |result: windows::core::Result<()>, successful: bool| {
+                                let completed = result.map_err(|_| Phase09Error::internal()).and_then(
+                                    |_| {
+                                        if successful {
+                                            Ok(())
+                                        } else {
+                                            Err(Phase09Error::new(
+                                                "PDF_OUTPUT_FAILED",
+                                                "WebView2 could not create the PDF.",
+                                                true,
+                                            ))
+                                        }
+                                    },
+                                );
+                                let _ = callback_sender.send(completed);
+                                Ok(())
+                            },
+                        ));
+                        core7
+                            .PrintToPdf(PCWSTR(wide.as_ptr()), &settings, &handler)
+                            .map_err(|_| Phase09Error::internal())?;
+                    }
                     Ok(())
-                };
+                })();
                 if let Err(error) = result {
                     let _ = sender.send(Err(error));
                 }
@@ -667,13 +679,7 @@ mod tests {
     #[cfg(not(windows))]
     #[test]
     fn native_output_is_explicitly_unsupported_off_windows() {
-        let error = native::generate_pdf(
-            unsafe { std::mem::MaybeUninit::<&AppHandle<Wry>>::zeroed().assume_init() },
-            "",
-            "",
-            Path::new("unused"),
-        )
-        .expect_err("unsupported");
+        let error = native::ensure_supported().expect_err("unsupported");
         assert_eq!(error.code, "PLATFORM_UNSUPPORTED");
     }
 }

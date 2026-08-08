@@ -1,7 +1,7 @@
 use std::{
     fs::{self, OpenOptions},
     io::Write,
-    path::{Path, PathBuf},
+    path::Path,
     time::Duration,
 };
 
@@ -11,7 +11,7 @@ use rusqlite::{params, Connection};
 
 use super::{
     backup::{
-        managed_backup_path, verify_database_file, BackupRecord, ExpectedArtifact, VerifiedDatabase,
+        managed_backup_path, verify_database_file, BackupRecord, ExpectedArtifact,
     },
     error::{Phase09Error, Phase09Result},
     models::RestoreBackupRequest,

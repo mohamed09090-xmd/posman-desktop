@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fs, io::Write};
 
-use rusqlite::{params_from_iter, types::Value as SqlValue, Connection, Row};
+use rusqlite::{params_from_iter, types::Value as SqlValue, Row};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Wry};
 
@@ -172,7 +172,7 @@ fn run_report_query(
     request: ReportRequest,
     maximum_page_size: i64,
 ) -> Phase09Result<ReportPage> {
-    let locale = normalize_locale(&request.locale)?;
+    normalize_locale(&request.locale)?;
     let (page, page_size) = checked_page(request.page, request.page_size, maximum_page_size)?;
     validate_date_range(request.start_date.as_deref(), request.end_date.as_deref())?;
     let context = service.authorize("reports.view")?;

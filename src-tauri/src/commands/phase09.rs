@@ -75,7 +75,7 @@ command!(
 
 #[tauri::command]
 pub async fn phase09_preview_document(
-    app: tauri::AppHandle<tauri::Wry>,
+    app: tauri::AppHandle,
     state: State<'_, Phase09Service>,
     request: DocumentRequest,
 ) -> Phase09Result<PreviewResult> {
@@ -95,7 +95,7 @@ command!(
 
 #[tauri::command]
 pub async fn phase09_render_document(
-    app: tauri::AppHandle<tauri::Wry>,
+    app: tauri::AppHandle,
     state: State<'_, Phase09Service>,
     request: DocumentRequest,
 ) -> Phase09Result<RenderedDocumentView> {
@@ -140,7 +140,7 @@ pub async fn phase09_export_rendered_pdf(
 
 #[tauri::command]
 pub async fn phase09_print_rendered_document(
-    app: tauri::AppHandle<tauri::Wry>,
+    app: tauri::AppHandle,
     state: State<'_, Phase09Service>,
     request: RenderedDocumentKeyRequest,
 ) -> Phase09Result<()> {
@@ -169,7 +169,7 @@ pub async fn phase09_export_report_csv(
 
 #[tauri::command]
 pub async fn phase09_export_report_pdf(
-    app: tauri::AppHandle<tauri::Wry>,
+    app: tauri::AppHandle,
     state: State<'_, Phase09Service>,
     request: ReportRequest,
 ) -> Phase09Result<ExportResult> {
