@@ -177,7 +177,7 @@ struct ReportFilters {
 }
 
 macro_rules! spec {
-    ($id:expr,$ar:expr,$fr:expr,$select:expr,$suffix:expr,$date:expr,$warehouse:expr,$partner:expr,$product:expr,$status:expr,$columns:expr,$default_sort:expr) => {
+    ($id:expr,$ar:expr,$fr:expr,$select:expr,$suffix:expr,$date:expr,$warehouse:expr,$partner:expr,$product:expr,$status:expr,$columns:expr,$default_sort:expr $(,)?) => {
         build_spec(
             $id,
             ($ar, $fr),
