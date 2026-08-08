@@ -102,6 +102,8 @@ test("the cross-phase switcher remains in flow and cannot cover command controls
   assert.match(styles, /position: relative/);
   assert.match(styles, /transform: none/);
   assert.match(styles, /flex-wrap: wrap/);
+  assert.match(styles, /\.p5-auth__language/);
+  assert.match(workspace, /role="group" aria-label=\{copy\.locale\}/);
 });
 
 test("frontend remains offline and does not gain filesystem authority", () => {

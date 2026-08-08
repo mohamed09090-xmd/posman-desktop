@@ -527,3 +527,11 @@
   outline: 3px solid var(--color-focus, #1769aa);
   outline-offset: 2px;
 }
+
+/* After a verified restore the route returns to the local login view. Anchor
+ * its identity and locale controls to that view instead of the viewport so
+ * neither can sit behind the cross-phase switcher. */
+.p5-auth::before,
+.p5-auth__language {
+  position: absolute;
+}

@@ -113,7 +113,7 @@ def calls(page: Page) -> list[dict[str, object]]:
 def assert_called(page: Page, command: str) -> None:
     page.wait_for_function(
         "command => (window.__POSMAN_PHASE09_CALLS__ || []).some(item => item.command === command)",
-        command,
+        arg=command,
     )
     if command not in [item["command"] for item in calls(page)]:
         raise AssertionError(f"expected {command} invocation")
@@ -149,7 +149,7 @@ def run_named_workflow(page: Page, name: str, locale: str) -> None:
         field = page.get_by_label("Identifiant source")
         field.fill("invoice-8")
         page.get_by_role("button", name="Aperçu", exact=True).click()
-        page.get_by_text("VERIFIED", exact=True).wait_for()
+        page.get_by_label("VERIFIED", exact=True).wait_for()
         page.get_by_role("button", name="Créer le PDF historique", exact=True).click()
         page.get_by_text("6" * 12, exact=False).wait_for()
         assert_called(page, "phase09_preview_document")

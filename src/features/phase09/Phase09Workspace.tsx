@@ -57,7 +57,7 @@ export function Phase09Workspace({
         </div>
         <div className="phase09-hero__actions">
           <span className="phase09-offline-badge">OFFLINE · A4 · DZD</span>
-          {onLocaleChange ? <div className="phase09-locale" aria-label={copy.locale}>
+          {onLocaleChange ? <div className="phase09-locale" role="group" aria-label={copy.locale}>
             <button type="button" aria-pressed={locale === "ar-DZ"} onClick={() => onLocaleChange("ar-DZ")}>العربية</button>
             <button type="button" aria-pressed={locale === "fr-DZ"} onClick={() => onLocaleChange("fr-DZ")}>Français</button>
           </div> : null}
