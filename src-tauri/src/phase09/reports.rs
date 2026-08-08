@@ -357,6 +357,9 @@ fn build_spec(
     for column in columns {
         sort_fields.insert(column.key.clone(), column.key.clone());
     }
+    sort_fields
+        .entry(default_sort.to_owned())
+        .or_insert_with(|| default_sort.to_owned());
     ReportSpec {
         descriptor: ReportDescriptor {
             report_id: id.to_owned(),

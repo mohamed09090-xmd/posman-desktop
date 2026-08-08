@@ -1165,6 +1165,10 @@ mod tests {
     #[test]
     fn online_backup_verification_corruption_retention_and_delete_guards_are_real() {
         let (_directory, service, _phase05, company_id) = service_fixture();
+        let context = service
+            .phase05
+            .phase09_authorize(None)
+            .expect("automatic backup context should authorize");
         let manual = service
             .create_backup(CreateBackupRequest {
                 backup_kind: "MANUAL".to_owned(),
@@ -1183,9 +1187,7 @@ mod tests {
 
         for _ in 0..8 {
             service
-                .create_backup(CreateBackupRequest {
-                    backup_kind: "AUTOMATIC_DAILY".to_owned(),
-                })
+                .create_verified_backup_for_context(&context, "AUTOMATIC_DAILY", false)
                 .expect("automatic daily backup should succeed");
         }
         let daily = service
