@@ -1,0 +1,14 @@
+{
+  "version": "0.9.0",
+  "bundle": {
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller",
+        "silent": true
+      },
+      "nsis": {
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

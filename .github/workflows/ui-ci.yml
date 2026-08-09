@@ -28,7 +28,7 @@ on:
       - "main"
       - "phase/03-ui-foundation"
     paths:
-     - ".github/workflows/ui-ci.yml"
+      - ".github/workflows/ui-ci.yml"
       - ".github/workflows/integration-ci.yml"
       - "package.json"
       - "package-lock.json"

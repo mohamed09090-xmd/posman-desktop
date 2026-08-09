@@ -1,0 +1,334 @@
+name: PHASE 10 Windows v1 distribution and hardening
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/integration-ci.yml'
+      - '.github/workflows/phase09-ci.yml'
+      - '.github/workflows/phase10-ci.yml'
+      - '.github/workflows/ui-ci.yml'
+      - 'assets/branding/**'
+      - 'CHANGELOG.md'
+      - 'README.md'
+      - 'SECURITY.md'
+      - 'docs/PHASE-10-REPORT.md'
+      - 'docs/architecture/phase-10-distribution-hardening.md'
+      - 'docs/execution/POSMAN-PHASE-10-EXECUTION-PACK.md'
+      - 'docs/release/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/generate_brand_assets.py'
+      - 'scripts/phase10_performance.py'
+      - 'scripts/phase10_policy.py'
+      - 'scripts/release/**'
+      - 'scripts/verify_phase10.py'
+      - 'src-tauri/Cargo.toml'
+      - 'src-tauri/Cargo.lock'
+      - 'src-tauri/icons/**'
+      - 'src-tauri/tauri.conf.json'
+      - 'src-tauri/tauri.phase10-upgrade-fixture.conf.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/integration-ci.yml'
+      - '.github/workflows/phase09-ci.yml'
+      - '.github/workflows/phase10-ci.yml'
+      - '.github/workflows/ui-ci.yml'
+      - 'assets/branding/**'
+      - 'CHANGELOG.md'
+      - 'README.md'
+      - 'SECURITY.md'
+      - 'docs/PHASE-10-REPORT.md'
+      - 'docs/architecture/phase-10-distribution-hardening.md'
+      - 'docs/execution/POSMAN-PHASE-10-EXECUTION-PACK.md'
+      - 'docs/release/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/generate_brand_assets.py'
+      - 'scripts/phase10_performance.py'
+      - 'scripts/phase10_policy.py'
+      - 'scripts/release/**'
+      - 'scripts/verify_phase10.py'
+      - 'src-tauri/Cargo.toml'
+      - 'src-tauri/Cargo.lock'
+      - 'src-tauri/icons/**'
+      - 'src-tauri/tauri.conf.json'
+      - 'src-tauri/tauri.phase10-upgrade-fixture.conf.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    name: PHASE 10 ownership, security, branding, and release policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Resolve triggering change
+        id: ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            head="${{ github.event.pull_request.head.sha }}"
+            base="$(git merge-base "origin/${{ github.base_ref }}" "$head")"
+            range="${base}...${head}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            before="${{ github.event.before }}"
+            if [[ "$before" == "0000000000000000000000000000000000000000" ]]; then
+              echo 'A push ownership range requires a non-zero before SHA.' >&2
+              exit 1
+            fi
+            range="${before}..${{ github.sha }}"
+          else
+            range="origin/main...HEAD"
+          fi
+          echo "range=$range" >> "$GITHUB_OUTPUT"
+          echo "Ownership range: $range"
+      - run: python scripts/phase10_policy.py --range "${{ steps.ownership.outputs.range }}"
+      - run: python scripts/verify_phase10.py
+      - run: python scripts/phase10_performance.py --output "${RUNNER_TEMP}/phase10-performance.json"
+      - run: git diff --check "${{ steps.ownership.outputs.range }}"
+      - run: test -z "$(git status --short --untracked-files=all)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase-10-policy-evidence
+          path: ${{ runner.temp }}/phase10-performance.json
+          retention-days: 30
+          if-no-files-found: error
+
+  database:
+    name: Accepted database and phase compatibility (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/verify_schema.py
+      - run: python scripts/verify_phase06.py
+      - run: python scripts/verify_phase07.py
+      - run: python scripts/verify_phase08.py
+      - run: python scripts/verify_phase09.py
+      - run: python scripts/verify_phase10.py
+
+  frontend:
+    name: Frontend, browser, and accessibility compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - name: Install Playwright and Axe
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+          npm install --no-save --package-lock=false axe-core@4.10.3
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:ui
+      - run: npm run test:integration
+      - name: Run browser, Axe, overflow, and screenshot compatibility
+        env:
+          POSMAN_ARTIFACT_DIR: ${{ runner.temp }}/phase-10-ui-evidence
+          POSMAN_PHASE09_ARTIFACT_DIR: ${{ runner.temp }}/phase-10-ui-evidence
+        run: npm run test:e2e
+      - name: Upload PHASE 10 UI compatibility evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-10-ui-evidence
+          path: ${{ runner.temp }}/phase-10-ui-evidence
+          retention-days: 30
+          if-no-files-found: error
+      - run: git diff --check
+      - name: Clean generated frontend output and verify worktree
+        shell: bash
+        run: |
+          rm -rf dist
+          status="$(git status --short --untracked-files=all)"
+          printf '%s\n' "$status"
+          test -z "$status"
+
+  rust:
+    name: Rust and native compatibility (${{ matrix.os }}, ${{ matrix.toolchain }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: '1.85.0'
+          - os: ubuntu-latest
+            toolchain: stable
+          - os: windows-latest
+            toolchain: stable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
+      - name: Install official Tauri Linux prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - run: cargo metadata --manifest-path src-tauri/Cargo.toml --locked --format-version 1
+      - run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked -- --nocapture
+      - run: npm run desktop:check
+
+  release-windows:
+    name: Offline NSIS, upgrade, uninstall, performance, and release evidence
+    needs: [policy, database, frontend, rust]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - name: Prepare evidence directories
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\phase-10-release-evidence" | Out-Null
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\posman-v1-release" | Out-Null
+      - name: Record release verification and dependency metadata
+        shell: pwsh
+        run: |
+          python scripts/verify_phase10.py 2>&1 | Tee-Object "$env:RUNNER_TEMP\phase-10-release-evidence\verify-phase10.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/phase10_performance.py --output "$env:RUNNER_TEMP\phase-10-release-evidence\product-search-100k.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm ls --all --json | Out-File -Encoding utf8 "$env:RUNNER_TEMP\phase-10-release-evidence\npm-dependencies.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo metadata --manifest-path src-tauri/Cargo.toml --locked --format-version 1 |
+            Out-File -Encoding utf8 "$env:RUNNER_TEMP\phase-10-release-evidence\cargo-metadata.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build v0.9.0 upgrade fixture
+        shell: pwsh
+        run: |
+          npm run tauri -- build --bundles nsis --config src-tauri/tauri.phase10-upgrade-fixture.conf.json 2>&1 |
+            Tee-Object "$env:RUNNER_TEMP\phase-10-release-evidence\build-upgrade-fixture.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $fixture = Get-ChildItem 'src-tauri\target\release\bundle\nsis' -Filter '*0.9.0*x64-setup.exe' -File |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if (-not $fixture) { throw 'v0.9.0 NSIS upgrade fixture was not produced' }
+          Copy-Item $fixture.FullName "$env:RUNNER_TEMP\phase-10-upgrade-fixture.exe"
+      - name: Build final POSMAN v1.0.0 offline installer
+        shell: pwsh
+        run: |
+          npm run release:windows 2>&1 |
+            Tee-Object "$env:RUNNER_TEMP\phase-10-release-evidence\build-v1-offline.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Normalize release name, enforce size, and calculate checksums
+        shell: pwsh
+        run: |
+          ./scripts/release/collect_release.ps1 `
+            -BundleDirectory 'src-tauri\target\release\bundle\nsis' `
+            -OutputDirectory "$env:RUNNER_TEMP\posman-v1-release"
+          Copy-Item docs/release/POSMAN-1.0.0-RELEASE-NOTES.md "$env:RUNNER_TEMP\posman-v1-release\RELEASE-NOTES.md"
+          Copy-Item "$env:RUNNER_TEMP\posman-v1-release\release-metadata.json" "$env:RUNNER_TEMP\phase-10-release-evidence\release-metadata.json"
+          Copy-Item "$env:RUNNER_TEMP\posman-v1-release\SHA256SUMS.txt" "$env:RUNNER_TEMP\phase-10-release-evidence\release-SHA256SUMS.txt"
+      - name: Prove clean install, real upgrade, uninstall, and data preservation
+        shell: pwsh
+        run: |
+          ./scripts/release/test_installer_lifecycle.ps1 `
+            -FixtureInstaller "$env:RUNNER_TEMP\phase-10-upgrade-fixture.exe" `
+            -ReleaseInstaller "$env:RUNNER_TEMP\posman-v1-release\POSMAN-Setup-Offline.exe" `
+            -EvidenceDirectory "$env:RUNNER_TEMP\phase-10-release-evidence" `
+            -ConfirmDisposableRunner
+      - name: Record final metadata and worktree state
+        shell: pwsh
+        run: |
+          @{
+            repository = '${{ github.repository }}'
+            sha = '${{ github.sha }}'
+            run = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+            os = $env:RUNNER_OS
+            rustc = (rustc --version)
+            node = (node --version)
+            dataRetentionRoot = "$env:LOCALAPPDATA\POSMAN"
+          } | ConvertTo-Json | Set-Content "$env:RUNNER_TEMP\phase-10-release-evidence\metadata.json" -Encoding utf8
+          git diff --check 2>&1 | Tee-Object "$env:RUNNER_TEMP\phase-10-release-evidence\git-diff-check.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $statusBefore = git status --short --untracked-files=all
+          $unstaged = git diff --no-ext-diff
+          $staged = git diff --cached --no-ext-diff
+          $untracked = git ls-files --others --exclude-standard
+          @(
+            'STATUS BEFORE WORKTREE NORMALIZATION'
+            $statusBefore
+            'UNSTAGED DIFF'
+            $unstaged
+            'STAGED DIFF'
+            $staged
+            'UNTRACKED'
+            $untracked
+          ) | Set-Content "$env:RUNNER_TEMP\phase-10-release-evidence\git-status.txt" -Encoding utf8
+          $actualDirty = [bool]($unstaged -or $staged -or $untracked)
+          if (-not $actualDirty) {
+            git restore --worktree --source=HEAD -- .
+          }
+          $statusAfter = git status --short --untracked-files=all
+          Add-Content "$env:RUNNER_TEMP\phase-10-release-evidence\git-status.txt" 'STATUS AFTER WORKTREE NORMALIZATION'
+          Add-Content "$env:RUNNER_TEMP\phase-10-release-evidence\git-status.txt" $statusAfter
+          if ($actualDirty -or $statusAfter) {
+            throw "Worktree contains a real staged, unstaged, or untracked change: $statusBefore"
+          }
+      - uses: actions/upload-artifact@v4
+        id: release-artifact
+        if: always()
+        with:
+          name: posman-v1.0.0-windows-offline
+          path: ${{ runner.temp }}/posman-v1-release
+          retention-days: 30
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        id: evidence-artifact
+        if: always()
+        with:
+          name: phase-10-release-evidence
+          path: ${{ runner.temp }}/phase-10-release-evidence
+          retention-days: 30
+          if-no-files-found: error
+      - name: Emit artifact metadata
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host 'release-id=${{ steps.release-artifact.outputs.artifact-id }}'
+          Write-Host 'release-digest=${{ steps.release-artifact.outputs.artifact-digest }}'
+          Write-Host 'evidence-id=${{ steps.evidence-artifact.outputs.artifact-id }}'
+          Write-Host 'evidence-digest=${{ steps.evidence-artifact.outputs.artifact-digest }}'

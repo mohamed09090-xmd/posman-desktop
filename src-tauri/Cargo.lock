@@ -2269,7 +2269,7 @@ dependencies = [
 
 [[package]]
 name = "posman-desktop"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "argon2",
  "rand_core",
