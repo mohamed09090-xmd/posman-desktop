@@ -95,13 +95,13 @@ jobs:
           echo "Ownership range: $range"
       - run: python scripts/phase10_policy.py --range "${{ steps.ownership.outputs.range }}"
       - run: python scripts/verify_phase10.py
-      - run: python scripts/phase10_performance.py --output phase10-performance.json
+      - run: python scripts/phase10_performance.py --output "${RUNNER_TEMP}/phase10-performance.json"
       - run: git diff --check "${{ steps.ownership.outputs.range }}"
       - run: test -z "$(git status --short --untracked-files=all)"
       - uses: actions/upload-artifact@v4
         with:
           name: phase-10-policy-evidence
-          path: phase10-performance.json
+          path: ${{ runner.temp }}/phase10-performance.json
           retention-days: 30
           if-no-files-found: error
 
