@@ -1,7 +1,7 @@
 {
   "name": "posman-desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "engines": {
     "node": ">=24 <25",
@@ -16,6 +16,8 @@
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:check": "tauri build --debug --no-bundle",
+    "release:windows": "tauri build --bundles nsis",
+    "verify:phase10": "python scripts/verify_phase10.py",
     "test:integration": "node --experimental-strip-types --test tests/integration/*.test.ts"
   },
   "dependencies": {
