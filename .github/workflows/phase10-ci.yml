@@ -148,7 +148,13 @@ jobs:
       - run: npm run test:integration
       - run: npm run test:e2e
       - run: git diff --check
-      - run: test -z "$(git status --short --untracked-files=all)"
+      - name: Clean generated frontend output and verify worktree
+        shell: bash
+        run: |
+          rm -rf dist
+          status="$(git status --short --untracked-files=all)"
+          printf '%s\n' "$status"
+          test -z "$status"
 
   rust:
     name: Rust and native compatibility (${{ matrix.os }}, ${{ matrix.toolchain }})
