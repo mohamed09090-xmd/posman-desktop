@@ -13,7 +13,12 @@ if (-not $ConfirmDisposableRunner -or $env:GITHUB_ACTIONS -ne 'true') {
 $installRoot = Join-Path $env:ProgramFiles 'POSMAN'
 $application = Join-Path $installRoot 'posman-desktop.exe'
 $uninstaller = Join-Path $installRoot 'uninstall.exe'
-$dataRoot = Join-Path $env:LOCALAPPDATA 'POSMAN'
+$localDataRoot = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+if ([string]::IsNullOrWhiteSpace($localDataRoot)) {
+  throw 'Windows did not resolve FOLDERID_LocalAppData for the disposable runner user.'
+}
+$dataRoot = Join-Path $localDataRoot 'POSMAN'
+$databasePath = Join-Path $dataRoot 'data\posman.sqlite3'
 $sentinels = @(
   (Join-Path $dataRoot 'data\phase10-preserve.sentinel'),
   (Join-Path $dataRoot 'backups\phase10-preserve.sentinel'),
@@ -27,37 +32,77 @@ function Invoke-Installer([string]$Path, [string[]]$Arguments) {
   }
 }
 
-function Start-And-Measure([string]$Executable) {
+function Wait-ForRuntimeDatabase(
+  [Diagnostics.Process]$Process,
+  [string]$Path,
+  [int]$TimeoutSeconds = 30
+) {
+  $watch = [Diagnostics.Stopwatch]::StartNew()
+  while ($watch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+    $Process.Refresh()
+    if ($Process.HasExited) {
+      throw "POSMAN exited before its local runtime became ready (exit $($Process.ExitCode))"
+    }
+    if ((Test-Path -LiteralPath $Path) -and (Get-Item -LiteralPath $Path).Length -gt 0) {
+      return $watch.Elapsed.TotalMilliseconds
+    }
+    Start-Sleep -Milliseconds 100
+  }
+
+  $diagnosticRoots = @(
+    $dataRoot,
+    (Join-Path $localDataRoot 'dz.posman.desktop')
+  ) | Where-Object { Test-Path -LiteralPath $_ }
+  $candidates = @(
+    foreach ($root in $diagnosticRoots) {
+      Get-ChildItem -LiteralPath $root -Filter 'posman.sqlite3' -File -Recurse -ErrorAction SilentlyContinue |
+        ForEach-Object FullName
+    }
+  )
+  $candidateText = if ($candidates.Count -eq 0) { '<none>' } else { $candidates -join '; ' }
+  throw "POSMAN did not create the expected local runtime database within $TimeoutSeconds seconds. Expected: $Path. Candidates: $candidateText"
+}
+
+function Start-And-Measure([string]$Executable, [string]$RuntimeDatabase) {
   $watch = [Diagnostics.Stopwatch]::StartNew()
   $process = Start-Process -FilePath $Executable -PassThru
-  $windowReady = $false
-  while ($watch.Elapsed.TotalSeconds -lt 5) {
-    Start-Sleep -Milliseconds 100
+  try {
+    $windowReady = $false
+    while ($watch.Elapsed.TotalSeconds -lt 5) {
+      Start-Sleep -Milliseconds 100
+      $process.Refresh()
+      if ($process.HasExited) {
+        throw "POSMAN exited before creating its main window (exit $($process.ExitCode))"
+      }
+      if ($process.MainWindowHandle -ne 0) {
+        $windowReady = $true
+        break
+      }
+    }
+    if (-not $windowReady) {
+      throw 'POSMAN cold start exceeded the 5 second main-window target'
+    }
+    $startupMs = $watch.Elapsed.TotalMilliseconds
+    $runtimeReadyMs = Wait-ForRuntimeDatabase -Process $process -Path $RuntimeDatabase
+    Start-Sleep -Seconds 2
     $process.Refresh()
     if ($process.HasExited) {
-      throw "POSMAN exited before creating its main window (exit $($process.ExitCode))"
+      throw "POSMAN exited after creating its main window (exit $($process.ExitCode))"
     }
-    if ($process.MainWindowHandle -ne 0) {
-      $windowReady = $true
-      break
+    $workingSetMb = $process.WorkingSet64 / 1MB
+    if ($workingSetMb -ge 250) {
+      throw "POSMAN working set exceeded 250 MB: $workingSetMb MB"
     }
-  }
-  if (-not $windowReady) {
-    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-    throw 'POSMAN cold start exceeded the 5 second main-window target'
-  }
-  $startupMs = $watch.Elapsed.TotalMilliseconds
-  Start-Sleep -Seconds 2
-  $process.Refresh()
-  $workingSetMb = $process.WorkingSet64 / 1MB
-  Stop-Process -Id $process.Id -Force
-  $process.WaitForExit(10000) | Out-Null
-  if ($workingSetMb -ge 250) {
-    throw "POSMAN working set exceeded 250 MB: $workingSetMb MB"
-  }
-  return @{
-    startupMs = [Math]::Round($startupMs, 3)
-    workingSetMb = [Math]::Round($workingSetMb, 3)
+    return @{
+      startupMs = [Math]::Round($startupMs, 3)
+      runtimeReadyMs = [Math]::Round($runtimeReadyMs, 3)
+      workingSetMb = [Math]::Round($workingSetMb, 3)
+    }
+  } finally {
+    if (-not $process.HasExited) {
+      Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+      $process.WaitForExit(10000) | Out-Null
+    }
   }
 }
 
@@ -70,8 +115,8 @@ Invoke-Installer $FixtureInstaller @('/S')
 if (-not (Test-Path $application) -or -not (Test-Path $uninstaller)) {
   throw 'The v0.9.0 upgrade fixture did not install POSMAN under Program Files'
 }
-$fixtureMetrics = Start-And-Measure $application
-if (-not (Test-Path (Join-Path $dataRoot 'data\posman.sqlite3'))) {
+$fixtureMetrics = Start-And-Measure -Executable $application -RuntimeDatabase $databasePath
+if (-not (Test-Path -LiteralPath $databasePath)) {
   throw 'First launch did not create the local POSMAN database'
 }
 foreach ($sentinel in $sentinels) {
@@ -87,7 +132,7 @@ $version = (Get-Item $application).VersionInfo.ProductVersion
 if ($version -notlike '1.0.0*') {
   throw "Installed application does not report v1.0.0 after upgrade: $version"
 }
-$releaseMetrics = Start-And-Measure $application
+$releaseMetrics = Start-And-Measure -Executable $application -RuntimeDatabase $databasePath
 foreach ($sentinel in $sentinels) {
   if ((Get-Content -Raw $sentinel).Trim() -ne 'preserve-across-upgrade-and-uninstall') {
     throw "Data sentinel was lost or changed during upgrade: $sentinel"
