@@ -40,6 +40,11 @@ The Rust release profile therefore optimizes the POSMAN application binary for
 size while retaining LTO, a single codegen unit, symbol stripping, and aborting
 panics. The embedded offline runtime is not removed or replaced by an online
 bootstrapper to meet the distribution budget.
+The NSIS template is pinned to Tauri `2.11.5` and differs only by using a
+128 MB LZMA dictionary. This retains solid compression and the official
+offline WebView2 installation logic while trading additional installer-time
+memory for a smaller single-file artifact; it remains comfortable inside the
+4 GB minimum-hardware boundary.
 
 ## Release and compatibility policy
 
