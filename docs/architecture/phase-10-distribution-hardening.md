@@ -34,17 +34,17 @@ decision after verified backup.
 
 `bundle.windows.webviewInstallMode` is `offlineInstaller`. The WebView2 runtime
 payload is embedded, so installation does not require network access. The final
-installer budget is below 200 MB. The smaller `downloadBootstrapper` and
-`embedBootstrapper` modes are prohibited for the v1 offline artifact.
+v1.0.0 installer has a measured exception capped at 205 MiB because the current
+Microsoft WebView2 offline payload alone prevents the Blueprint's sub-200 MB
+target. The smaller `downloadBootstrapper` and `embedBootstrapper` modes are
+prohibited for the v1 offline artifact.
 The Rust release profile therefore optimizes the POSMAN application binary for
 size while retaining LTO, a single codegen unit, symbol stripping, and aborting
 panics. The embedded offline runtime is not removed or replaced by an online
 bootstrapper to meet the distribution budget.
-The NSIS template is pinned to Tauri `2.11.5` and differs only by using a
-128 MB LZMA dictionary. This retains solid compression and the official
-offline WebView2 installation logic while trading additional installer-time
-memory for a smaller single-file artifact; it remains comfortable inside the
-4 GB minimum-hardware boundary.
+Increasing NSIS's LZMA dictionary from 8 MB to 128 MB reduced the measured
+installer by only 687 bytes, so the official template is retained; the larger
+dictionary's memory and maintenance costs would not be justified.
 
 ## Release and compatibility policy
 

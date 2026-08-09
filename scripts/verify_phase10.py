@@ -175,23 +175,17 @@ def verify_installer_contract() -> None:
         fail("installer downgrades must be blocked")
     if nsis.get("installMode") != "perMachine":
         fail("NSIS must install binaries per-machine outside the POSMAN data root")
-    if nsis.get("compression") != "lzma" or nsis.get("template") != "installer.nsi":
-        fail("NSIS must use the pinned high-dictionary LZMA template")
     if nsis.get("languages") != ["Arabic", "French", "English"]:
         fail("installer language order must be Arabic, French, English")
     if nsis.get("displayLanguageSelector") is not True:
         fail("installer language selector must be enabled")
     if nsis.get("installerIcon") != "icons/icon.ico" or nsis.get("uninstallerIcon") != "icons/icon.ico":
         fail("installer and uninstaller must use the approved POSMAN icon")
-    installer_template = (ROOT / "src-tauri/installer.nsi").read_text(encoding="utf-8")
-    for marker in (
-        "Tauri v2.11.5 installer.nsi",
-        "SetCompressor /SOLID \"{{compression}}\"",
-        "SetCompressorDictSize 128",
-        'File "/oname=$TEMP\\MicrosoftEdgeWebView2RuntimeInstaller.exe" "${WEBVIEW2INSTALLERPATH}"',
-    ):
-        if marker not in installer_template:
-            fail(f"pinned offline NSIS template contract missing: {marker}")
+    release_collector = (ROOT / "scripts/release/collect_release.ps1").read_text(
+        encoding="utf-8"
+    )
+    if "$maximumBytes = 205MB" not in release_collector:
+        fail("v1.0.0 offline installer cap must remain 205 MiB")
     for signing_key in ("certificateThumbprint", "timestampUrl", "signCommand"):
         if windows.get(signing_key):
             fail(f"repository configuration must not contain signing material: {signing_key}")

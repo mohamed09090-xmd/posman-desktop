@@ -50,7 +50,6 @@ OWNED_EXACT = {
     "src-tauri/icons/128x128@2x.png",
     "src-tauri/icons/32x32.png",
     "src-tauri/icons/icon.ico",
-    "src-tauri/installer.nsi",
     "src-tauri/tauri.conf.json",
     "src-tauri/tauri.phase10-upgrade-fixture.conf.json",
 }

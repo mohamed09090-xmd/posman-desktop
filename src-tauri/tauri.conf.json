@@ -83,7 +83,6 @@
         ],
         "displayLanguageSelector": true,
         "compression": "lzma",
-        "template": "installer.nsi",
         "startMenuFolder": "POSMAN",
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico"

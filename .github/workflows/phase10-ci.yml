@@ -27,7 +27,6 @@ on:
       - 'src-tauri/Cargo.toml'
       - 'src-tauri/Cargo.lock'
       - 'src-tauri/icons/**'
-      - 'src-tauri/installer.nsi'
       - 'src-tauri/tauri.conf.json'
       - 'src-tauri/tauri.phase10-upgrade-fixture.conf.json'
   push:
@@ -55,7 +54,6 @@ on:
       - 'src-tauri/Cargo.toml'
       - 'src-tauri/Cargo.lock'
       - 'src-tauri/icons/**'
-      - 'src-tauri/installer.nsi'
       - 'src-tauri/tauri.conf.json'
       - 'src-tauri/tauri.phase10-upgrade-fixture.conf.json'
   workflow_dispatch:

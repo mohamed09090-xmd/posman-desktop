@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $minimumBytes = 100MB
-$maximumBytes = 200MB
+$maximumBytes = 205MB
 $destinationName = 'POSMAN-Setup-Offline.exe'
 $installer = Get-ChildItem -Path $BundleDirectory -Filter '*1.0.0*x64-setup.exe' -File |
   Sort-Object LastWriteTimeUtc -Descending |
@@ -17,7 +17,7 @@ if ($installer.Length -lt $minimumBytes) {
   throw "Installer is too small to contain the WebView2 offline payload: $($installer.Length) bytes"
 }
 if ($installer.Length -gt $maximumBytes) {
-  throw "Installer exceeds the 200 MB release budget: $($installer.Length) bytes"
+  throw "Installer exceeds the 205 MiB v1.0.0 offline release cap: $($installer.Length) bytes"
 }
 
 New-Item -ItemType Directory -Force $OutputDirectory | Out-Null

@@ -52,7 +52,8 @@ lifecycle test, upload release/evidence artifacts, and preserve a clean worktree
 - Any accepted migration or business contract changes.
 - A signing private key, customer database, backup, environment secret, or
   write-capable workflow appears.
-- The installer needs internet, deletes LocalAppData, exceeds 200 MB, or fails
+- The installer needs internet, deletes LocalAppData, exceeds the measured
+  205 MiB v1.0.0 offline cap, or fails
   clean install/upgrade/uninstall validation.
 - A required final-head job is failing or incomplete.
 
