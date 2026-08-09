@@ -38,6 +38,7 @@ OWNED_EXACT = {
     "package-lock.json",
     "package.json",
     "scripts/generate_brand_assets.py",
+    "scripts/phase08_policy.py",
     "scripts/phase10_performance.py",
     "scripts/phase10_policy.py",
     "scripts/release/collect_release.ps1",
