@@ -48,9 +48,9 @@ installer budget is below 200 MB. The smaller `downloadBootstrapper` and
 - Windows 10/11 64-bit is the supported operating-system boundary.
 - No automatic updater is included; a newer offline installer performs upgrade.
 
-A CI-only v0.9.0 configuration uses the same application with WebView2 setup
-skipped on the prepared runner. It exists solely to prove a real NSIS upgrade
-to v1.0.0. The production configuration remains offline-complete.
+A CI-only v0.9.0 configuration uses the same application and retains the valid
+offline WebView2 contract. It exists solely to prove a real NSIS upgrade to
+v1.0.0. The production configuration remains offline-complete.
 
 ## Brand assets
 

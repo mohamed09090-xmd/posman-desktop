@@ -191,8 +191,11 @@ def verify_installer_contract() -> None:
     fixture = read_json("src-tauri/tauri.phase10-upgrade-fixture.conf.json")
     if fixture.get("version") != "0.9.0":
         fail("upgrade fixture must model a lower v0.9.0 install")
-    if fixture.get("bundle", {}).get("windows", {}).get("webviewInstallMode") != {"type": "skip"}:
-        fail("upgrade fixture must avoid duplicating the production offline WebView payload")
+    if fixture.get("bundle", {}).get("windows", {}).get("webviewInstallMode") != {
+        "type": "offlineInstaller",
+        "silent": True,
+    }:
+        fail("upgrade fixture must retain the valid offline WebView2 installer contract")
 
 
 def main() -> int:
