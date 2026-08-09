@@ -4,10 +4,10 @@ POSMAN is a Windows-first, offline desktop commercial-management application for
 
 ## Current repository status
 
-The accepted `main` baseline currently includes PHASE 01–08 through commit:
+The accepted product baseline includes PHASE 01–09 through commit:
 
 ```text
-5821004c6f3a51b4b0116ec3dbc1b9c2264ccf69
+ebc256cd1503867558ebc9cdaac285066c8466d9
 ```
 
 | Delivery | Status | Main capability |
@@ -21,10 +21,13 @@ The accepted `main` baseline currently includes PHASE 01–08 through commit:
 | PHASE 06 | Accepted | Inventory, CUMP/CMUP, purchasing, reservations, and reconciliation |
 | PHASE 07 | Accepted | Sales, delivery/invoice transformation, direct sale, and returns |
 | PHASE 08 | Accepted | Accounting posting, payments, allocations, ledgers, and period controls |
-| PHASE 09 | Not started | Documents, printing, reports, audit presentation, and backup/restore |
-| PHASE 10 | Not started | Distribution, hardening, installer, and v1 release |
+| PHASE 09 | Accepted | Documents, PDF/printing, reports, audit presentation, and backup/restore |
+| PHASE 10 | In delivery | Distribution, hardening, offline installer, and v1.0.0 release evidence |
 
-POSMAN is therefore a substantial working product baseline, but it is **not yet production-ready or distributable as v1.0.0** because PHASE 09 and PHASE 10 remain incomplete.
+POSMAN contains the complete approved business capability baseline. PHASE 10 is
+now preparing and validating the offline Windows v1.0.0 distribution; it must
+not be treated as a published production release until its Draft PR is accepted
+and its final installer is signed under the documented release policy.
 
 ## Implemented product capabilities
 
@@ -38,7 +41,8 @@ The accepted source contains:
 - configurable chart of accounts, journals and posting rules, automatic source posting, manual journals, reversals, customer receipts, supplier payments, allocations, statements, trial balance, general ledger, account ledger, open balances, and fiscal-period controls;
 - typed Tauri command gateways, company scoping, authorization, audit, idempotency, safe error normalization, Arabic RTL, French LTR, and permanent CI coverage.
 
-See the phase reports under `docs/PHASE-01-REPORT.md` through `docs/PHASE-08-REPORT.md` for detailed scope and validation evidence.
+See the phase reports under `docs/PHASE-01-REPORT.md` through
+`docs/PHASE-09-REPORT.md` for detailed scope and validation evidence.
 
 ## Technology
 
@@ -67,6 +71,9 @@ python scripts/verify_schema.py
 python scripts/verify_phase06.py
 python scripts/verify_phase07.py
 python scripts/verify_phase08.py
+python scripts/verify_phase09.py
+python scripts/verify_phase10.py
+python scripts/phase10_performance.py
 cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features --locked -- -D warnings
@@ -81,7 +88,9 @@ npm run dev
 npm run desktop:dev
 ```
 
-`npm run desktop:check` compiles a debug Tauri application without producing a published installer.
+`npm run desktop:check` compiles a debug Tauri application without producing a
+published installer. On Windows, `npm run release:windows` creates the offline
+NSIS bundle after all PHASE 10 gates have passed.
 
 ## Authoritative specification and continuity
 
@@ -105,9 +114,9 @@ Ordered files in `database/migrations/` are authoritative. `database/schema.sql`
 
 The accepted schema currently contains:
 
-- six ordered migrations through `0006`;
-- 57 tables;
-- 47 triggers;
+- seven ordered migrations through `0007`;
+- 64 tables;
+- 63 triggers;
 - fixed-point integer storage for business truth;
 - append-only and immutable-history protections.
 
@@ -128,14 +137,14 @@ No application column uses SQLite `REAL` for business truth.
 
 For percentage rates, `19.0000%` is stored as `190000`.
 
-## Remaining production work
+## Windows v1 distribution
 
-The repository does not yet contain the completed PHASE 09/10 delivery:
+PHASE 10 produces `POSMAN-Setup-Offline.exe` for Windows 10/11 x64. It embeds
+WebView2, installs the application under Program Files, and preserves the local
+database, backups, documents, templates, exports, and logs under
+`%LOCALAPPDATA%\POSMAN` during upgrade and uninstall. See
+`docs/release/WINDOWS-INSTALLATION.md` and
+`docs/release/POSMAN-1.0.0-RELEASE-NOTES.md`.
 
-- validated historical document rendering and PDF/printing;
-- complete operational report/export workspace;
-- audit-log presentation;
-- safe manual/automatic backup and validated restore;
-- production Windows installer, signing strategy, clean-machine upgrade/uninstall evidence, and v1 release artifacts.
-
-Cloud synchronization, telemetry, subscriptions, and mandatory online activation remain outside the approved v1 boundary.
+Cloud synchronization, telemetry, subscriptions, an automatic updater, and
+mandatory online activation remain outside the approved v1 boundary.
