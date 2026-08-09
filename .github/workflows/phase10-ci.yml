@@ -284,9 +284,30 @@ jobs:
           } | ConvertTo-Json | Set-Content "$env:RUNNER_TEMP\phase-10-release-evidence\metadata.json" -Encoding utf8
           git diff --check 2>&1 | Tee-Object "$env:RUNNER_TEMP\phase-10-release-evidence\git-diff-check.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $status = git status --short --untracked-files=all
-          $status | Set-Content "$env:RUNNER_TEMP\phase-10-release-evidence\git-status.txt" -Encoding utf8
-          if ($status) { throw "Worktree is not clean: $status" }
+          $statusBefore = git status --short --untracked-files=all
+          $unstaged = git diff --no-ext-diff
+          $staged = git diff --cached --no-ext-diff
+          $untracked = git ls-files --others --exclude-standard
+          @(
+            'STATUS BEFORE WORKTREE NORMALIZATION'
+            $statusBefore
+            'UNSTAGED DIFF'
+            $unstaged
+            'STAGED DIFF'
+            $staged
+            'UNTRACKED'
+            $untracked
+          ) | Set-Content "$env:RUNNER_TEMP\phase-10-release-evidence\git-status.txt" -Encoding utf8
+          $actualDirty = [bool]($unstaged -or $staged -or $untracked)
+          if (-not $actualDirty) {
+            git restore --worktree --source=HEAD -- .
+          }
+          $statusAfter = git status --short --untracked-files=all
+          Add-Content "$env:RUNNER_TEMP\phase-10-release-evidence\git-status.txt" 'STATUS AFTER WORKTREE NORMALIZATION'
+          Add-Content "$env:RUNNER_TEMP\phase-10-release-evidence\git-status.txt" $statusAfter
+          if ($actualDirty -or $statusAfter) {
+            throw "Worktree contains a real staged, unstaged, or untracked change: $statusBefore"
+          }
       - uses: actions/upload-artifact@v4
         id: release-artifact
         if: always()
