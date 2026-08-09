@@ -36,6 +36,10 @@ decision after verified backup.
 payload is embedded, so installation does not require network access. The final
 installer budget is below 200 MB. The smaller `downloadBootstrapper` and
 `embedBootstrapper` modes are prohibited for the v1 offline artifact.
+The Rust release profile therefore optimizes the POSMAN application binary for
+size while retaining LTO, a single codegen unit, symbol stripping, and aborting
+panics. The embedded offline runtime is not removed or replaced by an online
+bootstrapper to meet the distribution budget.
 
 ## Release and compatibility policy
 

@@ -37,6 +37,6 @@ tauri = { version = "=2.11.5", features = ["test"] }
 [profile.release]
 codegen-units = 1
 lto = true
-opt-level = 3
+opt-level = "z"
 panic = "abort"
 strip = true
